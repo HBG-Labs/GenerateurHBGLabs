@@ -1,0 +1,39 @@
+{
+  "schema": "brand-motion-profile",
+  "schema_version": "0.1.0",
+  "id": "rezo360",
+  "version": "1.0.0",
+  "name": "REZO360",
+  "style": {
+    "ref": { "id": "rezo360_style", "version": "1.0.0", "sha256": "f7c16799ab220294ca7c1a03f1aa75192c4e346d4baf301b8aae3292425968d1" },
+    "src": "pack:style.json"
+  },
+  "locks": ["palette", "typography.families", "motifs.rule", "forbidden"],
+  "logos": {
+    "primary": {
+      "runs": [
+        { "text": "REZO", "color": "color.text.primary" },
+        { "text": "360", "color": "color.accent" }
+      ],
+      "type": "type.logo"
+    },
+    "inverse": {
+      "runs": [
+        { "text": "REZO", "color": "color.text.inverse" },
+        { "text": "360", "color": "color.accent" }
+      ],
+      "type": "type.logo"
+    }
+  },
+  "assets": {
+    "approved": [],
+    "priority": ["screenshot", "photo", "illustration", "generated_image"],
+    "allow_generated_images": true
+  },
+  "lexicon": [{ "term": "REZO360", "say": "Rézo trois-cent-soixante", "locale": "fr-FR" }],
+  "claims_policy": {
+    "forbid": ["invented_numbers", "time_saving_figures", "testimonials", "unverified_certifications", "fake_interfaces"],
+    "disclaimer": null
+  },
+  "mandatory": { "end_card_logo": "primary" }
+}

@@ -1,0 +1,91 @@
+{
+  "schema": "motion-scene-spec",
+  "schema_version": "0.1.0",
+  "spec_id": "pilot_b_interrupt",
+  "revision": 1,
+  "parent_revision": null,
+  "created_from": { "intent_id": "pilot_b_interrupt", "builder_version": "0.1.0" },
+  "locale": "fr-FR",
+  "style_binding": { "kind": "brand", "id": "rezo360", "version": "1.0.0" },
+  "format": { "preset": "vertical_9x16", "platform_safe_zones": ["tiktok", "reels"] },
+  "system": { "id": "kinetic_statement", "version": "0.1.0" },
+  "rhythm": {
+    "curve": "cold_open_interruption",
+    "sections": [{ "id": "sec_break", "phase": "INTERRUPTION", "scenes": ["sc_02"] }]
+  },
+  "voice": {
+    "direction": { "persona": "calm_assured", "intention": "constat partagé, jamais commercial", "tempo": "measured" },
+    "segments": [
+      { "id": "vo_02", "text": "Pas l’administratif.", "gap_after": { "beats": 2 }, "emphasis": ["administratif"] }
+    ]
+  },
+  "scenes": [
+    {
+      "id": "sc_02",
+      "pattern": {
+        "id": "statement.interrupt",
+        "version": "0.1.0",
+        "variation": {
+          "layout_variant": "stack_start",
+          "motion_variant": "mask_reveal",
+          "energy": "high",
+          "hierarchy_variant": "accent_last"
+        }
+      },
+      "purpose": "tension",
+      "locks": ["layers.ln_rule"],
+      "timing": {
+        "anchor": { "voice_segments": ["vo_02"] },
+        "lead_in": { "beats": 0 },
+        "tail": { "beats": 1 },
+        "min_hold": "reading"
+      },
+      "background": { "fill": "color.surface.primary" },
+      "layers": [
+        {
+          "id": "tx_statement",
+          "primitive": "text",
+          "slot": "statement.primary",
+          "content": {
+            "runs": [
+              { "id": "r_pas", "text": "Pas l’", "break_after": true },
+              { "id": "r_admin", "text": "administratif.", "role": "accent" }
+            ],
+            "break_policy": "explicit"
+          },
+          "style": { "type": "type.display.xl", "color": "color.text.primary", "accent_color": "color.accent", "align": "start" },
+          "behaviors": [
+            {
+              "id": "bh_statement_in",
+              "behavior": "REVEAL_TEXT",
+              "variant": "mask_up",
+              "params": { "unit": "line", "stagger": "tight" },
+              "at": { "event": "scene.start" }
+            },
+            {
+              "id": "bh_accent",
+              "behavior": "ACCENT_WORD",
+              "variant": "color_settle",
+              "target": { "run": "r_admin" },
+              "at": { "voice_word": { "segment": "vo_02", "match": "administratif" }, "offset": { "beats": -0.25 } }
+            }
+          ]
+        },
+        {
+          "id": "ln_rule",
+          "primitive": "path",
+          "slot": "statement.rule",
+          "geometry": { "motif": "motif.rule" },
+          "style": { "stroke": "color.accent", "weight": "stroke.emphasis" },
+          "behaviors": [{ "id": "bh_rule_draw", "behavior": "DRAW_PATH", "at": { "after": "bh_accent" } }]
+        }
+      ],
+      "events": [
+        { "id": "ev_break", "kind": "INTERRUPTION", "at": { "event": "scene.start" } },
+        { "id": "ev_impact", "kind": "IMPACT", "at": { "with": "bh_accent" } }
+      ],
+      "sound": { "derive_from_events": true, "overrides": [] },
+      "subtitles": { "mode": "off", "reason": "le texte à l'écran est la voix" }
+    }
+  ]
+}

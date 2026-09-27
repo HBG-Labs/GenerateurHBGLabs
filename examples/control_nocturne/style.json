@@ -1,0 +1,95 @@
+{
+  "schema": "creative-style-profile",
+  "schema_version": "0.1.0",
+  "id": "control_nocturne",
+  "version": "1.0.0",
+  "name": "Nocturne (style de contrôle sans marque)",
+  "origin": "generated",
+  "role_contract": "0.1.0",
+  "reference_canvas": { "width": 1080, "height": 1920 },
+
+  "palette": {
+    "surface.primary": "#0B1026",
+    "surface.inverse": "#F4EBDD",
+    "text.primary": "#F4EBDD",
+    "text.inverse": "#0B1026",
+    "accent": "#FF8A5B"
+  },
+  "typography": {
+    "families": {
+      "serif": {
+        "css_name": "nocturne-serif",
+        "files": [
+          { "weight": 700, "style": "normal", "src": "lib:playfair_display/playfair-display-latin-700.ttf", "sha256": "d87c97ac97699539edf7aba9e84e0be27b265e5263a1260fb752ddfbcacabe22" },
+          { "weight": 900, "style": "normal", "src": "lib:playfair_display/playfair-display-latin-900.ttf", "sha256": "b9167e10f64c9956e092a2f7f1e40fad6a44e53f8e0b4f66fd3099bc920f53c8" }
+        ]
+      }
+    },
+    "scale": {
+      "display.xl": { "family": "serif", "weight": 900, "size": 154, "line_height": 1.03, "tracking_em": 0.005, "case": "as_is" },
+      "display.l": { "family": "serif", "weight": 900, "size": 128, "line_height": 1.03, "tracking_em": 0.005, "case": "as_is" },
+      "display.m": { "family": "serif", "weight": 900, "size": 104, "line_height": 1.05, "tracking_em": 0.005, "case": "as_is" },
+      "headline": { "family": "serif", "weight": 700, "size": 70, "line_height": 1.12, "tracking_em": 0.012, "case": "as_is" },
+      "body": { "family": "serif", "weight": 700, "size": 43, "line_height": 1.28, "tracking_em": 0.012, "case": "as_is" },
+      "subtitle": { "family": "serif", "weight": 700, "size": 47, "line_height": 1.22, "tracking_em": 0.004, "case": "as_is" }
+    }
+  },
+  "grid": { "columns": 8, "rows": 16, "margin": { "top": 210, "right": 128, "bottom": 230, "left": 128 }, "gutter": 36 },
+  "space": { "xs": 14, "sm": 26, "md": 44, "lg": 88, "xl": 132 },
+  "strokes": { "hairline": 5, "emphasis": 20 },
+  "motifs": { "rule": { "kind": "line", "length_cols": 3.5, "weight": "emphasis", "cap": "round" } },
+
+  "composition_personality": {
+    "preferred_systems": [{ "id": "contemplative", "weight": 1 }],
+    "negative_space": "airy",
+    "alignment": "center",
+    "asymmetry": 0.1
+  },
+  "motion_personality": {
+    "easings": {
+      "enter": { "type": "bezier", "p": [0.25, 0.1, 0.25, 1] },
+      "exit": { "type": "bezier", "p": [0.42, 0, 1, 1] },
+      "inout": { "type": "bezier", "p": [0.4, 0, 0.6, 1] },
+      "settle": { "type": "spring", "damping": 10, "stiffness": 90, "mass": 1.2 }
+    },
+    "max_overshoot": 0.1,
+    "behaviors": {
+      "REVEAL_TEXT": { "allowed": true, "variants": ["mask_up", "fade_up"] },
+      "ACCENT_WORD": { "allowed": true, "variants": ["color_settle"] },
+      "SETTLE": { "allowed": true },
+      "CUT": { "allowed": true },
+      "DRAW_PATH": { "allowed": true },
+      "MATCH_LINE": { "allowed": true },
+      "CAMERA_PUSH": { "allowed": true, "param_bounds": { "scale": { "min": 1, "max": 1.15 } } }
+    }
+  },
+  "rhythm_personality": {
+    "tempo": {
+      "beat_ms": { "CALM": 850, "BUILD": 760, "ACCELERATE": 600, "INTERRUPTION": 700, "REVEAL": 800, "RESOLUTION": 1000 },
+      "breath_ms": 760
+    },
+    "reading": { "ms_per_word": 330, "min_hold_ms": 1200 },
+    "preferred_curves": [{ "id": "slow_reveal", "weight": 1 }]
+  },
+  "subtitle_style": {
+    "type": "type.subtitle",
+    "color": "color.text.primary",
+    "backdrop": null,
+    "max_chars_per_line": 26,
+    "max_lines": 2,
+    "active_word": "weight"
+  },
+  "sound_personality": {
+    "event_cues": { "IMPACT": "DEEP_SWELL", "RESOLVE": "AIR" },
+    "cues": {
+      "DEEP_SWELL": { "src": null, "sha256": null, "gain_db": -11 },
+      "AIR": { "src": null, "sha256": null, "gain_db": -22 }
+    },
+    "max_cues_per_video": 3
+  },
+  "voice_personality": { "description": "Voix grave et lente, ton de conte nocturne." },
+  "image_treatment": { "grade": "cool", "contrast": 0.3, "grain": 0.2, "duotone": null },
+  "illustration_treatment": { "stroke": "none", "fill": "gradient", "palette_roles": ["color.accent", "color.surface.inverse"] },
+  "transition_preferences": { "preferred": ["MATCH_LINE"], "avoid": ["CUT"] },
+  "forbidden": { "behaviors": ["STROBE"], "style_tags": ["strobe"] }
+}

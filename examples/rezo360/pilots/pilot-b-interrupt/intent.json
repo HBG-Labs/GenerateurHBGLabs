@@ -1,0 +1,25 @@
+{
+  "schema": "creative-intent",
+  "schema_version": "0.1.0",
+  "intent_id": "pilot_b_interrupt",
+  "locale": "fr-FR",
+  "message": "La fin du chantier n'est pas la fin du travail administratif.",
+  "objective": "Arrêter le scroll par la reconnaissance d'une situation vécue.",
+  "audience": "Dirigeants d'entreprises de terrain",
+  "platforms": ["tiktok", "reels"],
+  "target_duration_s": { "min": 2, "max": 4 },
+  "system": "kinetic_statement",
+  "tension_curve": "cold_open_interruption",
+  "energy": "high",
+  "beats": [
+    {
+      "id": "b2",
+      "role": "interruption",
+      "voice": "Pas l’administratif.",
+      "on_screen": { "lines": ["Pas l’", "administratif."], "accent": "administratif." },
+      "emphasis": ["administratif"],
+      "pause_after": "beat"
+    }
+  ],
+  "constraints": ["no_invented_numbers", "real_assets_only"]
+}

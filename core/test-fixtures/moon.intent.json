@@ -1,0 +1,24 @@
+{
+  "schema": "creative-intent",
+  "schema_version": "0.1.0",
+  "intent_id": "moon_question",
+  "locale": "fr-FR",
+  "message": "Une question simple qui ouvre une explication spectaculaire.",
+  "objective": "Arrêter le scroll par une question.",
+  "audience": "Grand public curieux",
+  "platforms": ["tiktok", "reels"],
+  "target_duration_s": { "min": 2, "max": 4 },
+  "tension_curve": "cold_open_interruption",
+  "energy": "high",
+  "beats": [
+    {
+      "id": "b1",
+      "role": "interruption",
+      "voice": "Et si la Lune disparaissait ?",
+      "on_screen": { "lines": ["Et si la Lune", "disparaissait ?"], "accent": "disparaissait ?" },
+      "emphasis": ["disparaissait"],
+      "pause_after": "beat"
+    }
+  ],
+  "constraints": ["factual_accuracy_required", "no_invented_numbers"]
+}

@@ -1,0 +1,13 @@
+{
+  "schema": "platform-presets",
+  "schema_version": "0.1.0",
+  "version": "0.1.0",
+  "formats": {
+    "vertical_9x16": { "width": 1080, "height": 1920 }
+  },
+  "platforms": {
+    "tiktok": { "formats": ["vertical_9x16"], "safe_zone": { "format": "vertical_9x16", "insets": { "top": 220, "right": 140, "bottom": 440, "left": 60 } } },
+    "reels": { "formats": ["vertical_9x16"], "safe_zone": { "format": "vertical_9x16", "insets": { "top": 220, "right": 120, "bottom": 420, "left": 60 } } },
+    "shorts": { "formats": ["vertical_9x16"], "safe_zone": { "format": "vertical_9x16", "insets": { "top": 200, "right": 120, "bottom": 380, "left": 60 } } }
+  }
+}

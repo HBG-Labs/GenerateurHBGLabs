@@ -1,0 +1,93 @@
+{
+  "schema": "creative-style-profile",
+  "schema_version": "0.1.0",
+  "id": "fixture_ink",
+  "version": "1.0.0",
+  "name": "Fixture Ink (contrôle : sombre, sérif, lent)",
+  "origin": "authored",
+  "role_contract": "0.1.0",
+  "reference_canvas": { "width": 1080, "height": 1920 },
+
+  "palette": {
+    "surface.primary": "#101820",
+    "surface.inverse": "#EFE6D2",
+    "text.primary": "#EFE6D2",
+    "text.inverse": "#101820",
+    "accent": "#D9A441"
+  },
+  "typography": {
+    "families": {
+      "display": {
+        "css_name": "fixture-ink-serif",
+        "files": [
+          { "weight": 700, "style": "normal", "src": "lib:playfair-display-latin-700.ttf", "sha256": "d87c97ac97699539edf7aba9e84e0be27b265e5263a1260fb752ddfbcacabe22" },
+          { "weight": 900, "style": "normal", "src": "lib:playfair-display-latin-900.ttf", "sha256": "b9167e10f64c9956e092a2f7f1e40fad6a44e53f8e0b4f66fd3099bc920f53c8" }
+        ]
+      }
+    },
+    "scale": {
+      "display.xl": { "family": "display", "weight": 900, "size": 150, "line_height": 1.02, "tracking_em": 0, "case": "as_is" },
+      "display.l": { "family": "display", "weight": 900, "size": 124, "line_height": 1.02, "tracking_em": 0, "case": "as_is" },
+      "display.m": { "family": "display", "weight": 900, "size": 100, "line_height": 1.04, "tracking_em": 0, "case": "as_is" },
+      "headline": { "family": "display", "weight": 700, "size": 68, "line_height": 1.1, "tracking_em": 0.01, "case": "as_is" },
+      "body": { "family": "display", "weight": 700, "size": 42, "line_height": 1.25, "tracking_em": 0.01, "case": "as_is" },
+      "subtitle": { "family": "display", "weight": 700, "size": 46, "line_height": 1.2, "tracking_em": 0, "case": "as_is" }
+    }
+  },
+  "grid": { "columns": 8, "rows": 16, "margin": { "top": 200, "right": 120, "bottom": 200, "left": 120 }, "gutter": 32 },
+  "space": { "xs": 12, "sm": 24, "md": 40, "lg": 80, "xl": 120 },
+  "strokes": { "hairline": 4, "emphasis": 18 },
+  "motifs": { "rule": { "kind": "line", "length_cols": 3, "weight": "emphasis", "cap": "round" } },
+
+  "composition_personality": {
+    "preferred_systems": [{ "id": "editorial", "weight": 0.7 }],
+    "negative_space": "airy",
+    "alignment": "center",
+    "asymmetry": 0.2
+  },
+  "motion_personality": {
+    "easings": {
+      "enter": { "type": "bezier", "p": [0.33, 0, 0.2, 1] },
+      "exit": { "type": "bezier", "p": [0.5, 0, 0.75, 0] },
+      "inout": { "type": "bezier", "p": [0.45, 0, 0.55, 1] },
+      "settle": { "type": "spring", "damping": 12, "stiffness": 120, "mass": 1 }
+    },
+    "max_overshoot": 0.08,
+    "behaviors": {
+      "REVEAL_TEXT": { "allowed": true, "variants": ["mask_up", "fade_up"] },
+      "ACCENT_WORD": { "allowed": true, "variants": ["color_settle", "color_only"] },
+      "SETTLE": { "allowed": true },
+      "EXIT_CLEAR": { "allowed": true },
+      "CUT": { "allowed": true },
+      "DRAW_PATH": { "allowed": true },
+      "MATCH_LINE": { "allowed": true },
+      "CAMERA_PUSH": { "allowed": true, "param_bounds": { "scale": { "min": 1, "max": 1.12 } } }
+    }
+  },
+  "rhythm_personality": {
+    "tempo": {
+      "beat_ms": { "CALM": 800, "BUILD": 700, "ACCELERATE": 550, "INTERRUPTION": 650, "REVEAL": 750, "RESOLUTION": 950 },
+      "breath_ms": 700
+    },
+    "reading": { "ms_per_word": 320, "min_hold_ms": 1100 },
+    "preferred_curves": [{ "id": "slow_reveal", "weight": 0.8 }]
+  },
+  "subtitle_style": {
+    "type": "type.subtitle",
+    "color": "color.text.primary",
+    "backdrop": null,
+    "max_chars_per_line": 28,
+    "max_lines": 2,
+    "active_word": "weight"
+  },
+  "sound_personality": {
+    "event_cues": { "IMPACT": "LOW_HIT" },
+    "cues": { "LOW_HIT": { "src": null, "sha256": null, "gain_db": -12 } },
+    "max_cues_per_video": 3
+  },
+  "voice_personality": { "description": "Voix posée, grave, narrative." },
+  "image_treatment": { "grade": "cool", "contrast": 0.2, "grain": 0.15, "duotone": null },
+  "illustration_treatment": { "stroke": "thin", "fill": "flat", "palette_roles": ["color.accent", "color.text.primary"] },
+  "transition_preferences": { "preferred": ["MATCH_LINE", "CUT"], "avoid": ["CAMERA_PUSH"] },
+  "forbidden": { "behaviors": ["GLITCH"], "style_tags": ["glitch"] }
+}

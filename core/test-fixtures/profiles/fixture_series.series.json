@@ -1,0 +1,27 @@
+{
+  "schema": "series-motion-profile",
+  "schema_version": "0.1.0",
+  "id": "fixture_series",
+  "version": "1.0.0",
+  "name": "Série Horizon (série fictive de test)",
+  "style": {
+    "ref": { "id": "fixture_signal", "version": "1.0.0", "sha256": "a5b29dcce93712b801bee8deba4cbc692344dea3014f57b8eb5f4e50b3620600" },
+    "src": "pack:fixture_signal.style.json"
+  },
+  "brand": null,
+  "overrides": {
+    "palette": { "accent": "#1F6F8B" },
+    "rhythm_personality": { "tempo": { "breath_ms": 520 } }
+  },
+  "signature": {
+    "intro": { "pattern": "statement.stack", "version": "0.1.0", "variation": { "energy": "high" } },
+    "outro": null,
+    "end_card": null,
+    "hook_templates": ["{question} ?"],
+    "recurring_motifs": ["rule"],
+    "sound_signature": "STING"
+  },
+  "lexicon": [{ "term": "Horizon", "say": "O-ri-zon", "locale": "fr-FR" }],
+  "variation_budget": { "fixed": ["typography.families", "motifs.rule"], "free_axes": ["layout_variant", "energy"] },
+  "extra_forbidden_tags": ["emoji"]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "motion-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Espace de travail du moteur : le cœur (@motion-engine/core), les packs de données, les exemples et les tests d'intégration.",
+  "workspaces": ["core"],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "check": "npm run check -w @motion-engine/core && npm run typecheck && npm run lint && npm run test",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "fonts:prepare": "node scripts/prepare-fonts.mjs"
+  },
+  "devDependencies": {
+    "@fontsource/archivo": "5.3.0",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/playfair-display": "5.3.0",
+    "@types/node": "26.2.0",
+    "eslint": "9.39.5",
+    "fonteditor-core": "2.6.3",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.66.0",
+    "vitest": "4.1.11"
+  }
+}
