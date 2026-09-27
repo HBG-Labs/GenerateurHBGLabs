@@ -75,7 +75,7 @@ export interface P12Pipeline {
 function manifest(spec: MotionSceneSpec, style: ResolvedStyle, plan: RenderPlan, substitutionReason?: string) {
   return buildReproducibilityManifest({
     createdAt: '2026-09-27T00:00:00Z',
-    engine: { name: '@motion-engine/core', version: '0.1.0', git_commit: null },
+    engine: { name: '@motion-engine/core', version: '0.2.0', git_commit: null },
     spec,
     resolvedStyle: style,
     plan,

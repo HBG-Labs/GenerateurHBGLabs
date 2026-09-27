@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import React, { useEffect, useState } from 'react';
-import { AbsoluteFill, continueRender, delayRender, staticFile, useCurrentFrame } from 'remotion';
+import { AbsoluteFill, continueRender, delayRender, Easing as RemotionEasing, spring, staticFile, useCurrentFrame } from 'remotion';
 
 import type { PlanNode, RenderPlan, Track } from '@motion-engine/core';
 
@@ -9,22 +9,40 @@ export interface GenericCompositionProps extends Record<string, unknown> {
   fontUrls: Record<string, string>;
 }
 
-const P12_TRACKS = new Set(['opacity', 'translate_x', 'translate_y', 'scale']);
+const P13_TRACKS = new Set(['opacity', 'translate_x', 'translate_y', 'scale']);
 
-export function assertP12Plan(plan: RenderPlan): void {
+export function assertP13Plan(plan: RenderPlan): void {
   const visit = (node: PlanNode): void => {
     if (node.type !== 'group' && node.type !== 'text' && node.type !== 'shape') {
-      throw new Error(`Primitive « ${node.type} » hors périmètre renderer P1.2.`);
+      throw new Error(`Primitive « ${node.type} » hors périmètre renderer P1.3.`);
     }
     for (const track of node.tracks) {
-      if (!P12_TRACKS.has(track.property)) throw new Error(`Track « ${track.property} » hors périmètre renderer P1.2.`);
+      if (!P13_TRACKS.has(track.property)) throw new Error(`Track « ${track.property} » hors périmètre renderer P1.3.`);
     }
     if (node.type === 'group') node.children.forEach(visit);
   };
   plan.scenes.forEach((scene) => scene.nodes.forEach(visit));
 }
 
-export function numericTrackValue(track: Track | undefined, frame: number, fallback: number): number {
+export const assertP12Plan = assertP13Plan;
+
+function easedProgress(track: Track, leftIndex: number, frame: number, fps: number): number {
+  const left = track.keys[leftIndex]!;
+  const right = track.keys[leftIndex + 1]!;
+  const duration = right.frame - left.frame;
+  const progress = duration <= 0 ? 1 : (frame - left.frame) / duration;
+  const ease = left.ease;
+  if (!ease || ease.type === 'linear') return progress;
+  if (ease.type === 'bezier') return RemotionEasing.bezier(...ease.p)(progress);
+  return spring({
+    frame: progress * duration,
+    fps,
+    durationInFrames: duration,
+    config: { damping: ease.damping, stiffness: ease.stiffness, mass: ease.mass },
+  });
+}
+
+export function numericTrackValue(track: Track | undefined, frame: number, fallback: number, fps = 30): number {
   if (!track || track.keys.length === 0) return fallback;
   const keys = track.keys;
   const first = keys[0];
@@ -36,34 +54,49 @@ export function numericTrackValue(track: Track | undefined, frame: number, fallb
     const right = keys[index];
     const left = keys[index - 1];
     if (!left || !right || frame > right.frame || typeof left.value !== 'number' || typeof right.value !== 'number') continue;
-    const progress = (frame - left.frame) / (right.frame - left.frame);
+    const progress = easedProgress(track, index - 1, frame, fps);
     return left.value + (right.value - left.value) * progress;
   }
   return fallback;
 }
 
-function track(node: PlanNode, property: Track['property']): Track | undefined {
-  return node.tracks.find((candidate) => candidate.property === property);
+function track(node: PlanNode, property: Track['property'], target?: { run?: string; line?: number }): Track | undefined {
+  return node.tracks.find((candidate) =>
+    candidate.property === property &&
+    (target?.run === undefined ? candidate.target?.run === undefined : candidate.target?.run === target.run) &&
+    (target?.line === undefined ? candidate.target?.line === undefined : candidate.target?.line === target.line));
 }
 
-function positionStyle(node: PlanNode, frame: number): CSSProperties {
-  const x = numericTrackValue(track(node, 'translate_x'), frame, 0);
-  const y = numericTrackValue(track(node, 'translate_y'), frame, 0);
-  const scale = numericTrackValue(track(node, 'scale'), frame, 1);
+function positionStyle(node: PlanNode, frame: number, fps: number): CSSProperties {
+  const x = numericTrackValue(track(node, 'translate_x'), frame, 0, fps);
+  const y = numericTrackValue(track(node, 'translate_y'), frame, 0, fps);
+  const scale = numericTrackValue(track(node, 'scale'), frame, 1, fps);
   return {
     position: 'absolute',
     left: node.box.x,
     top: node.box.y,
     width: node.box.w,
     height: node.box.h,
-    opacity: numericTrackValue(track(node, 'opacity'), frame, node.opacity),
+    opacity: numericTrackValue(track(node, 'opacity'), frame, node.opacity, fps),
     transform: `translate(${x}px, ${y}px) scale(${scale})`,
     transformOrigin: `${node.origin.x * 100}% ${node.origin.y * 100}%`,
   };
 }
 
+function targetStyle(node: PlanNode, frame: number, fps: number, target: { run?: string; line?: number }): CSSProperties {
+  const x = numericTrackValue(track(node, 'translate_x', target), frame, 0, fps);
+  const y = numericTrackValue(track(node, 'translate_y', target), frame, 0, fps);
+  const scale = numericTrackValue(track(node, 'scale', target), frame, 1, fps);
+  return {
+    opacity: numericTrackValue(track(node, 'opacity', target), frame, 1, fps),
+    transform: `translate(${x}px, ${y}px) scale(${scale})`,
+    transformOrigin: '50% 50%',
+  };
+}
+
 function RenderNode({ node, plan, frame }: { node: PlanNode; plan: RenderPlan; frame: number }): ReactNode {
-  const base = positionStyle(node, frame);
+  const fps = plan.canvas.fps;
+  const base = positionStyle(node, frame, fps);
   if (node.type === 'group') {
     return (
       <div data-node-id={node.id} style={base}>
@@ -94,7 +127,7 @@ function RenderNode({ node, plan, frame }: { node: PlanNode; plan: RenderPlan; f
         {node.lines.map((line, lineIndex) => (
           <div
             key={`${node.id}-line-${lineIndex}`}
-            style={{ position: 'absolute', top: line.top, height: line.height, left: 0, right: 0, display: 'flex', justifyContent }}
+            style={{ position: 'absolute', top: line.top, height: line.height, left: 0, right: 0, display: 'flex', justifyContent, ...targetStyle(node, frame, fps, { line: lineIndex }) }}
           >
             {line.runs.map((run) => {
               const font = plan.fonts.find((candidate) => candidate.id === run.font);
@@ -110,6 +143,8 @@ function RenderNode({ node, plan, frame }: { node: PlanNode; plan: RenderPlan; f
                     letterSpacing: run.tracking_px,
                     lineHeight: `${line.height}px`,
                     whiteSpace: 'pre',
+                    display: 'inline-block',
+                    ...targetStyle(node, frame, fps, { run: run.id }),
                   }}
                 >
                   {run.text}

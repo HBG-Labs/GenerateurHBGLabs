@@ -1,0 +1,114 @@
+import type { BehaviorInstance, Layer } from '../contracts/motion-spec.ts';
+import type { Easing } from '../contracts/style-profile.ts';
+import type { ResolvedStyle } from '../contracts/resolved-style.ts';
+import type { Track } from '../contracts/render-plan.ts';
+import type { ResolvedSceneTiming, TemporalDiagnostic } from '../temporal/resolve.ts';
+
+export class MotionTrackError extends Error {
+  readonly diagnostics: readonly TemporalDiagnostic[];
+
+  constructor(diagnostics: readonly TemporalDiagnostic[]) {
+    super(diagnostics.map((issue) => `${issue.code} ${issue.path}: ${issue.message}`).join('\n'));
+    this.name = 'MotionTrackError';
+    this.diagnostics = diagnostics;
+  }
+}
+
+function easing(style: ResolvedStyle, id: 'enter' | 'exit' | 'inout' | 'settle'): Easing {
+  const value = style.style.motion_personality.easings[id];
+  if (!value) throw new MotionTrackError([{ code: 'easing.missing', path: `motion_personality.easings.${id}`, message: `easing « ${id} » absent du style` }]);
+  return value;
+}
+
+const frameAt = (ms: number, fps: number): number => Math.round((ms * fps) / 1_000);
+
+function keys(startMs: number, endMs: number, fps: number, sceneEnd: number, from: number, to: number, ease: Easing) {
+  const start = Math.min(sceneEnd - 1, frameAt(startMs, fps));
+  const end = Math.min(sceneEnd - 1, Math.max(start + 1, frameAt(endMs, fps)));
+  if (end <= start) return [{ frame: start, value: to }];
+  return [{ frame: start, value: from, ease }, { frame: end, value: to }];
+}
+
+function instanceMap(layer: Layer): Map<string, BehaviorInstance> {
+  return new Map(layer.behaviors.map((behavior) => [behavior.id, behavior]));
+}
+
+function targetOf(instance: BehaviorInstance): Track['target'] {
+  if (!instance.target) return undefined;
+  return { ...(instance.target.run ? { run: instance.target.run } : {}), ...(instance.target.line !== undefined ? { line: instance.target.line } : {}) };
+}
+
+export function compileLayerTracks(
+  layer: Layer,
+  timing: ResolvedSceneTiming,
+  style: ResolvedStyle,
+  fps: number,
+  scaleY: number,
+): Track[] {
+  const instances = instanceMap(layer);
+  const tracks: Track[] = [];
+  const motionDistance = Math.max(8, (style.style.space['md'] ?? 24) * scaleY);
+  const accentScale = 1 + style.style.motion_personality.max_overshoot;
+
+  for (const resolved of timing.behaviors.filter((entry) => entry.layer_id === layer.id)) {
+    const instance = instances.get(resolved.instance_id);
+    if (!instance) continue;
+    const start = resolved.start_ms;
+    const baseEnd = start + resolved.duration_ms;
+    if (resolved.behavior === 'REVEAL_TEXT') {
+      const lines = layer.primitive === 'text' && (instance.params?.['unit'] ?? 'line') === 'line'
+        ? Math.max(1, layer.content.runs.filter((run) => run.break_after).length + 1)
+        : 1;
+      for (let line = 0; line < lines; line += 1) {
+        const lineStart = start + line * resolved.stagger_ms;
+        const target = lines > 1 ? { line } : undefined;
+        tracks.push({ property: 'opacity', ...(target ? { target } : {}), source: instance.id, keys: keys(lineStart, lineStart + resolved.duration_ms, fps, timing.to_frame, 0, 1, easing(style, 'enter')) });
+        if (!resolved.reduced_motion) {
+          tracks.push({ property: 'translate_y', ...(target ? { target } : {}), source: instance.id, keys: keys(lineStart, lineStart + resolved.duration_ms, fps, timing.to_frame, motionDistance, 0, easing(style, 'enter')) });
+        }
+      }
+    } else if (resolved.behavior === 'ACCENT_WORD') {
+      if (!resolved.reduced_motion) {
+        const target = targetOf(instance);
+        tracks.push({ property: 'scale', ...(target ? { target } : {}), source: instance.id, keys: keys(start, baseEnd, fps, timing.to_frame, 1, accentScale, easing(style, 'inout')) });
+      }
+    } else if (resolved.behavior === 'SETTLE') {
+      if (!resolved.reduced_motion) {
+        const target = targetOf(instance);
+        tracks.push({ property: 'scale', ...(target ? { target } : {}), source: instance.id, keys: keys(start, baseEnd, fps, timing.to_frame, accentScale, 1, easing(style, 'settle')) });
+      }
+    } else if (resolved.behavior === 'EXIT_CLEAR') {
+      tracks.push({ property: 'opacity', source: instance.id, keys: keys(start, baseEnd, fps, timing.to_frame, 1, 0, easing(style, 'exit')) });
+      if (!resolved.reduced_motion) {
+        tracks.push({ property: 'translate_y', source: instance.id, keys: keys(start, baseEnd, fps, timing.to_frame, 0, -motionDistance, easing(style, 'exit')) });
+      }
+    } else if (resolved.behavior === 'CUT') {
+      tracks.push({ property: 'opacity', source: instance.id, keys: [{ frame: Math.min(timing.to_frame - 1, frameAt(start, fps)), value: 1 }] });
+    }
+  }
+  assertNoTrackConflicts(layer.id, tracks);
+  return tracks;
+}
+
+export function assertNoTrackConflicts(layerId: string, tracks: readonly Track[]): void {
+  const diagnostics: TemporalDiagnostic[] = [];
+  for (let leftIndex = 0; leftIndex < tracks.length; leftIndex += 1) {
+    const left = tracks[leftIndex]!;
+    const leftStart = left.keys[0]!.frame;
+    const leftEnd = left.keys.at(-1)!.frame + (left.keys.length === 1 ? 1 : 0);
+    for (let rightIndex = leftIndex + 1; rightIndex < tracks.length; rightIndex += 1) {
+      const right = tracks[rightIndex]!;
+      if (left.property !== right.property || JSON.stringify(left.target ?? null) !== JSON.stringify(right.target ?? null)) continue;
+      const rightStart = right.keys[0]!.frame;
+      const rightEnd = right.keys.at(-1)!.frame + (right.keys.length === 1 ? 1 : 0);
+      if (leftStart < rightEnd && rightStart < leftEnd) {
+        diagnostics.push({
+          code: 'motion.track_conflict',
+          path: `layers.${layerId}.tracks`,
+          message: `${left.source} et ${right.source} contrôlent ${left.property} sur le même intervalle`,
+        });
+      }
+    }
+  }
+  if (diagnostics.length > 0) throw new MotionTrackError(diagnostics);
+}

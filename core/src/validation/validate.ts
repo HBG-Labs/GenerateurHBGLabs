@@ -1,4 +1,5 @@
 import type { BrandMotionProfile } from '../contracts/brand-profile.ts';
+import type { BehaviorDefinition } from '../contracts/behavior.ts';
 import type { CreativeIntent } from '../contracts/creative-intent.ts';
 import type { MotionSceneSpec } from '../contracts/motion-spec.ts';
 import type { PatternDefinition } from '../contracts/pattern.ts';
@@ -91,6 +92,20 @@ export function validatePatternDefinition(input: unknown): ValidationResult<Patt
   }
   if (!read.value.slots.some((slot) => slot.primitive === 'text')) {
     issues.push({ code: 'pattern.text_required', path: 'slots', message: 'un slot texte est requis', severity: 'error' });
+  }
+  return finish(read.value, issues);
+}
+
+export function validateBehaviorDefinition(input: unknown): ValidationResult<BehaviorDefinition> {
+  const read = readVersioned('behavior-definition', input);
+  if (!read.ok) return read;
+  const issues: ValidationIssue[] = [];
+  if (read.value.duration_budget.min_ms > read.value.duration_budget.max_ms) {
+    issues.push({ code: 'behavior.duration_budget', path: 'duration_budget', message: 'min_ms doit être inférieur ou égal à max_ms', severity: 'error' });
+  }
+  const properties = new Set(read.value.animatable_properties);
+  if (properties.size !== read.value.animatable_properties.length) {
+    issues.push({ code: 'behavior.property_duplicate', path: 'animatable_properties', message: 'propriété animable en double', severity: 'error' });
   }
   return finish(read.value, issues);
 }

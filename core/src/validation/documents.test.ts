@@ -14,6 +14,7 @@ import { documentKinds, readVersioned } from './versioning.ts';
 describe('versionnement', () => {
   it('connaît tous les types de documents du moteur', () => {
     expect(documentKinds().sort()).toEqual([
+      'behavior-definition',
       'brand-motion-profile',
       'creative-intent',
       'creative-style-profile',

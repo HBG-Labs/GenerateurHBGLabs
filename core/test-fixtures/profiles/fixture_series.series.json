@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "name": "Série Horizon (série fictive de test)",
   "style": {
-    "ref": { "id": "fixture_signal", "version": "1.0.0", "sha256": "a5b29dcce93712b801bee8deba4cbc692344dea3014f57b8eb5f4e50b3620600" },
+    "ref": { "id": "fixture_signal", "version": "1.0.0", "sha256": "729d19a44a3d895c3195dcb09f153fc97c54192395b88d6e233f62655af72e7a" },
     "src": "pack:fixture_signal.style.json"
   },
   "brand": null,

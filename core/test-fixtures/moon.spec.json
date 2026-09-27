@@ -1,6 +1,6 @@
 {
   "schema": "motion-scene-spec",
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "spec_id": "moon_question",
   "revision": 1,
   "parent_revision": null,
@@ -58,6 +58,7 @@
             {
               "id": "bh_question_in",
               "behavior": "REVEAL_TEXT",
+              "version": "1.0.0",
               "variant": "mask_up",
               "params": { "unit": "line", "stagger": "tight" },
               "at": { "event": "scene.start" }
@@ -65,6 +66,7 @@
             {
               "id": "bh_accent",
               "behavior": "ACCENT_WORD",
+              "version": "1.0.0",
               "variant": "color_settle",
               "target": { "run": "r_turn" },
               "at": { "voice_word": { "segment": "vo_question", "match": "disparaissait" }, "offset": { "beats": -0.25 } }
@@ -77,7 +79,7 @@
           "slot": "statement.rule",
           "geometry": { "motif": "motif.rule" },
           "style": { "stroke": "color.accent", "weight": "stroke.emphasis" },
-          "behaviors": [{ "id": "bh_rule_draw", "behavior": "DRAW_PATH", "at": { "after": "bh_accent" } }]
+          "behaviors": [{ "id": "bh_rule_draw", "behavior": "DRAW_PATH", "version": "1.0.0", "at": { "after": "bh_accent" } }]
         }
       ],
       "events": [

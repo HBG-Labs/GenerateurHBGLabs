@@ -18,7 +18,27 @@ export interface RenderFrameResult {
   browser: string | null;
 }
 
+export interface RenderVideoRequest {
+  plan: RenderPlan;
+  output_file: string;
+  resource_root: string;
+}
+
+export interface RenderVideoResult {
+  output_file: string;
+  bytes: number;
+  bundle_ms: number;
+  render_ms: number;
+  max_rss_bytes: number;
+  renderer: { name: string; version: string };
+  browser: string | null;
+  codec: 'h264';
+  frames: number;
+  fps: number;
+}
+
 /** Frontière générique : le cœur ne connaît ni React, ni Chromium, ni Remotion. */
 export interface MotionRenderer {
   renderFrame(request: RenderFrameRequest): Promise<RenderFrameResult>;
+  renderVideo(request: RenderVideoRequest): Promise<RenderVideoResult>;
 }

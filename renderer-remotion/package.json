@@ -1,7 +1,7 @@
 {
   "name": "@motion-engine/renderer-remotion",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Interpréteur Remotion générique de RenderPlan pour Motion Engine.",
   "exports": {
@@ -16,7 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@motion-engine/core": "0.1.0",
+    "@motion-engine/core": "0.2.0",
     "@remotion/bundler": "4.0.529",
     "@remotion/renderer": "4.0.529",
     "react": "19.3.0",

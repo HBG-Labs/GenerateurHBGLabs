@@ -114,10 +114,11 @@ export const PlatformSchema = z.enum(PLATFORMS);
 export type Platform = z.infer<typeof PlatformSchema>;
 
 /**
- * Durée symbolique. Jamais de frames ni de millisecondes dans la spec : le
- * moteur temporel convertit beats et respirations selon le tempo du profil.
+ * Durée sémantique. Les millisecondes entières sont autorisées pour les locks
+ * explicites ; les frames restent exclusivement une sortie du compilateur.
  */
 export const DurationSchema = z.union([
+  z.strictObject({ ms: z.number().int().min(0).max(120_000) }),
   z.strictObject({ beats: z.number().finite().min(0).max(64) }),
   z.strictObject({ breaths: z.number().finite().min(0).max(16) }),
 ]);
@@ -125,6 +126,7 @@ export type Duration = z.infer<typeof DurationSchema>;
 
 /** Décalage symbolique signé, relatif à une ancre. */
 export const OffsetSchema = z.union([
+  z.strictObject({ ms: z.number().int().min(-120_000).max(120_000) }),
   z.strictObject({ beats: z.number().finite().min(-16).max(16) }),
   z.strictObject({ breaths: z.number().finite().min(-4).max(4) }),
 ]);
@@ -152,6 +154,14 @@ export const AnchorSchema = z.union([
   }),
   z.strictObject({ after: IdSchema, ...offset }),
   z.strictObject({ with: IdSchema, ...offset }),
+  z.strictObject({
+    semantic: z.enum(['SCENE_START', 'SCENE_END', 'AFTER_PREVIOUS', 'BEFORE_NEXT']),
+    ...offset,
+  }),
+  z.strictObject({
+    layer: z.strictObject({ id: IdSchema, relation: z.enum(['WITH_LAYER', 'AFTER_LAYER']) }),
+    ...offset,
+  }),
 ]);
 export type Anchor = z.infer<typeof AnchorSchema>;
 

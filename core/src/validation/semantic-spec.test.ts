@@ -101,7 +101,7 @@ describe('validation sémantique de la spec', () => {
     expect(codes(validateSpec(variant, signal, { allowStyleSubstitution: true }))).toContain('behavior.variant');
 
     const push = base();
-    push.scenes[0].layers[1].behaviors[0] = { id: 'bh_push', behavior: 'CAMERA_PUSH', params: { scale: 1.2 }, at: { event: 'scene.start' } };
+    push.scenes[0].layers[1].behaviors[0] = { id: 'bh_push', behavior: 'CAMERA_PUSH', version: '1.0.0', params: { scale: 1.2 }, at: { event: 'scene.start' } };
     expect(codes(validateSpec(push, ink))).toContain('behavior.param_bounds');
     expect(codes(validateSpec(push, signal, { allowStyleSubstitution: true }))).toContain('behavior.forbidden');
   });
@@ -135,10 +135,11 @@ describe('validation sémantique de la spec', () => {
     doc.scenes[0].layers[1].behaviors.push({
       id: 'bh_rule_carry',
       behavior: 'MATCH_LINE',
+      version: '1.0.0',
       at: { after: 'bh_rule_draw' },
       continues_in: { scene: 'sc_answer', layer: 'ln_rule_next' },
     });
-    doc.scenes[0].transition_out = { behavior: 'MATCH_LINE', to: 'sc_answer' };
+    doc.scenes[0].transition_out = { behavior: 'MATCH_LINE', version: '1.0.0', to: 'sc_answer' };
     const result = validateSpec(doc, ink);
     expect(result.ok, JSON.stringify(result)).toBe(true);
 
@@ -154,7 +155,15 @@ describe('validation sémantique de la spec', () => {
 
   it('consulte le registre de comportements du moteur quand il est fourni', () => {
     const registry: SemanticRegistry = {
-      behavior: (id) => (id === 'REVEAL_TEXT' ? { applies_to: ['text'], variants: ['mask_up'] } : undefined),
+      behavior: (id) => (id === 'REVEAL_TEXT' ? {
+        applies_to: ['text'],
+        variants: ['mask_up'],
+        version: '1.0.0',
+        accepted_anchors: ['SCENE_START'],
+        parameters: {},
+        target: 'none',
+        max_instances_per_layer: 1,
+      } : undefined),
     };
     expect(codes(validateSpec(base(), ink, { registry }))).toContain('behavior.unknown');
   });

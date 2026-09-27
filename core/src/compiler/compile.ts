@@ -10,10 +10,15 @@ import type { Box, PlanNode, PlanRun, PlanTextNode, RenderPlan } from '../contra
 import type { ResolvedStyle } from '../contracts/resolved-style.ts';
 import type { TypeStyle } from '../contracts/style-profile.ts';
 import { hashDocument } from '../integrity/canonical.ts';
+import { compileLayerTracks } from '../motion/compile-tracks.ts';
+import { P13_BEHAVIOR_REGISTRY } from '../motion/behavior-registry.ts';
+import type { BehaviorRegistry } from '../motion/behavior-registry.ts';
+import { resolveTemporalPlan } from '../temporal/resolve.ts';
+import type { ResolvedSceneTiming } from '../temporal/resolve.ts';
 import { validatePatternDefinition, validatePlatformPresets, validateRenderPlan, validateSpec } from '../validation/validate.ts';
 import type { MotionSceneSpec } from '../contracts/motion-spec.ts';
 
-export const COMPILER_VERSION = '0.1.0';
+export const COMPILER_VERSION = '0.2.0';
 
 export interface FontResource {
   file: string;
@@ -26,7 +31,15 @@ export interface CompileInput {
   platformPresets: PlatformPresets;
   pattern: PatternDefinition;
   fontResources: Readonly<Record<string, FontResource>>;
-  config: { fps: number; scene_duration_frames: number };
+  config: {
+    fps: number;
+    scene_duration_frames?: number;
+    render_scale?: number;
+    reduced_motion?: boolean;
+    max_render_cost?: number;
+    max_attention_cost?: number;
+  };
+  behaviorRegistry?: BehaviorRegistry;
   allowStyleSubstitution?: boolean;
 }
 
@@ -67,20 +80,20 @@ function resolveType(style: ResolvedStyle, token: string): TypeStyle {
   return value;
 }
 
-function safeBox(presets: PlatformPresets, platform: Platform, format: string): Box {
+function safeBox(presets: PlatformPresets, platform: Platform, format: string, outputWidth: number, outputHeight: number): Box {
   const canvas = presets.formats[format];
   const preset = presets.platforms[platform];
   if (!canvas || !preset) throw new CompileError(`Preset ${platform}/${format} introuvable.`);
   const reference = presets.formats[preset.safe_zone.format];
   if (!reference) throw new CompileError(`Format de zone sûre « ${preset.safe_zone.format} » introuvable.`);
-  const sx = canvas.width / reference.width;
-  const sy = canvas.height / reference.height;
+  const sx = outputWidth / reference.width;
+  const sy = outputHeight / reference.height;
   const i = preset.safe_zone.insets;
   return {
     x: i.left * sx,
     y: i.top * sy,
-    w: canvas.width - (i.left + i.right) * sx,
-    h: canvas.height - (i.top + i.bottom) * sy,
+    w: outputWidth - (i.left + i.right) * sx,
+    h: outputHeight - (i.top + i.bottom) * sy,
   };
 }
 
@@ -114,6 +127,8 @@ interface CompileContext {
   scaleY: number;
   fonts: Map<string, RenderPlan['fonts'][number]>;
   resources: Readonly<Record<string, FontResource>>;
+  timing: ResolvedSceneTiming;
+  fps: number;
 }
 
 function compileText(layer: TextLayer, box: Box, context: CompileContext): PlanTextNode {
@@ -163,7 +178,7 @@ function compileText(layer: TextLayer, box: Box, context: CompileContext): PlanT
     opacity: layer.opacity ?? 1,
     align: layer.style.align ?? 'start',
     lines,
-    tracks: [],
+    tracks: compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY),
   };
 }
 
@@ -184,7 +199,7 @@ function compileShape(layer: ShapeLayer, box: Box, context: CompileContext): Pla
             (context.style.style.strokes[tokenKey(layer.stroke.weight, 'stroke')] ?? 0) * context.scaleX,
         }
       : null,
-    tracks: [],
+    tracks: compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY),
   };
 }
 
@@ -234,52 +249,74 @@ function compileGroup(group: GroupLayer, groupBox: Box, pattern: PatternDefiniti
     box: groupBox,
     origin: { x: 0.5, y: 0.5 },
     opacity: group.opacity ?? 1,
-    tracks: [],
+    tracks: compileLayerTracks(group, context.timing, context.style, context.fps, context.scaleY),
     children,
   };
 }
 
 /** Compilation P1.2 pure : aucune horloge, aucun hasard, aucune lecture disque. */
 export function compileMotionScene(input: CompileInput): RenderPlan {
+  const registry = input.behaviorRegistry ?? P13_BEHAVIOR_REGISTRY;
   failValidation('PatternDefinition', validatePatternDefinition(input.pattern));
   failValidation('PlatformPresets', validatePlatformPresets(input.platformPresets));
   failValidation(
     'MotionSceneSpecification',
-    validateSpec(input.spec, input.resolvedStyle, { allowStyleSubstitution: input.allowStyleSubstitution ?? false }),
+    validateSpec(input.spec, input.resolvedStyle, {
+      allowStyleSubstitution: input.allowStyleSubstitution ?? false,
+      registry,
+    }),
   );
   if (!Number.isInteger(input.config.fps) || input.config.fps <= 0) throw new CompileError('fps doit être un entier positif.');
-  if (!Number.isInteger(input.config.scene_duration_frames) || input.config.scene_duration_frames <= 0) {
-    throw new CompileError('scene_duration_frames doit être un entier positif.');
+  if (input.config.scene_duration_frames !== undefined && (!Number.isInteger(input.config.scene_duration_frames) || input.config.scene_duration_frames <= 0)) {
+    throw new CompileError('scene_duration_frames doit être un entier positif quand il est fourni.');
   }
   if (input.spec.system.id !== input.pattern.id || input.spec.system.version !== input.pattern.version) {
     throw new CompileError('Le PatternDefinition ne correspond pas au système déclaré par la spec.');
   }
 
-  const canvas = input.platformPresets.formats[input.spec.format.preset];
-  if (!canvas) throw new CompileError(`Format « ${input.spec.format.preset} » introuvable.`);
+  const presetCanvas = input.platformPresets.formats[input.spec.format.preset];
+  if (!presetCanvas) throw new CompileError(`Format « ${input.spec.format.preset} » introuvable.`);
+  const renderScale = input.config.render_scale ?? 1;
+  if (!Number.isFinite(renderScale) || renderScale <= 0 || renderScale > 1) throw new CompileError('render_scale doit être dans ]0, 1].');
+  const canvas = { width: Math.round(presetCanvas.width * renderScale), height: Math.round(presetCanvas.height * renderScale) };
   const platform = input.spec.format.platform_safe_zones[0];
   if (!platform) throw new CompileError('Une plateforme de zone sûre est requise.');
-  const box = safeBox(input.platformPresets, platform, input.spec.format.preset);
-  const context: CompileContext = {
-    style: input.resolvedStyle,
-    scaleX: canvas.width / input.resolvedStyle.style.reference_canvas.width,
-    scaleY: canvas.height / input.resolvedStyle.style.reference_canvas.height,
-    fonts: new Map(),
-    resources: input.fontResources,
-  };
+  const box = safeBox(input.platformPresets, platform, input.spec.format.preset, canvas.width, canvas.height);
+  const fonts = new Map<string, RenderPlan['fonts'][number]>();
+  const temporal = resolveTemporalPlan({
+    spec: input.spec,
+    resolvedStyle: input.resolvedStyle,
+    fps: input.config.fps,
+    registry,
+    ...(input.config.reduced_motion !== undefined ? { reducedMotion: input.config.reduced_motion } : {}),
+    ...(input.config.scene_duration_frames !== undefined ? { fallbackSceneFrames: input.config.scene_duration_frames } : {}),
+    ...(input.config.max_render_cost !== undefined ? { maxRenderCost: input.config.max_render_cost } : {}),
+    ...(input.config.max_attention_cost !== undefined ? { maxAttentionCost: input.config.max_attention_cost } : {}),
+  });
 
   const scenes = input.spec.scenes.map((scene, index) => {
     if (scene.pattern.id !== input.pattern.id || scene.pattern.version !== input.pattern.version) {
       throw new CompileError(`La scène ${scene.id} utilise un autre pattern.`);
     }
+    const timing = temporal.scenes[index];
+    if (!timing) throw new CompileError(`Résolution temporelle absente pour ${scene.id}.`);
+    const context: CompileContext = {
+      style: input.resolvedStyle,
+      scaleX: canvas.width / input.resolvedStyle.style.reference_canvas.width,
+      scaleY: canvas.height / input.resolvedStyle.style.reference_canvas.height,
+      fonts,
+      resources: input.fontResources,
+      timing,
+      fps: input.config.fps,
+    };
     const nodes = scene.layers.map((layer) => {
       if (layer.primitive !== 'group') throw new CompileError('P1.2 exige un Group racine.');
       return compileGroup(layer, box, input.pattern, context);
     });
     return {
       id: scene.id,
-      from: index * input.config.scene_duration_frames,
-      to: (index + 1) * input.config.scene_duration_frames,
+      from: timing.from_frame,
+      to: timing.to_frame,
       background: resolveColor(input.resolvedStyle, scene.background.fill),
       nodes,
     };
@@ -295,9 +332,9 @@ export function compileMotionScene(input: CompileInput): RenderPlan {
       width: canvas.width,
       height: canvas.height,
       fps: input.config.fps,
-      duration_frames: input.config.scene_duration_frames * scenes.length,
+      duration_frames: temporal.duration_frames,
     },
-    fonts: [...context.fonts.values()].sort((a, b) => a.id.localeCompare(b.id)),
+    fonts: [...fonts.values()].sort((a, b) => a.id.localeCompare(b.id)),
     assets: [],
     scenes,
   });

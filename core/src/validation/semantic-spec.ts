@@ -1,4 +1,5 @@
 import type { Anchor } from '../contracts/common.ts';
+import type { P13AnchorKind } from '../contracts/behavior.ts';
 import type { BehaviorInstance, Layer, MotionSceneSpec, PrimitiveType, Scene } from '../contracts/motion-spec.ts';
 import type { ResolvedStyle } from '../contracts/resolved-style.ts';
 import { bindingMatches, describeResolved } from '../style/binding.ts';
@@ -10,6 +11,11 @@ import { hasToken } from './tokens.ts';
 export interface BehaviorInfo {
   applies_to: readonly PrimitiveType[];
   variants: readonly string[];
+  version: string;
+  accepted_anchors: readonly P13AnchorKind[];
+  parameters: Readonly<Record<string, { type: 'number' | 'enum' | 'boolean'; required: boolean; min?: number; max?: number; values?: readonly string[] }>>;
+  target: 'none' | 'optional_run_or_line' | 'required_run';
+  max_instances_per_layer: number;
 }
 
 /** Registre de la grammaire de mouvement, injecté pour ne pas coupler la validation au moteur. */
@@ -202,6 +208,9 @@ export function validateSpecSemantics(
           edges.set(owner, target);
         }
       }
+      if ('layer' in anchor && !layers.has(anchor.layer.id)) {
+        c.error('anchor.unknown_layer', path, `calque « ${anchor.layer.id} » inexistant dans la scène`);
+      }
     };
 
     for (const { layer, path } of visits) {
@@ -259,6 +268,13 @@ export function validateSpecSemantics(
         c.error('transition.target', `${base}.transition_out.to`, 'la transition doit mener à la scène suivante');
       }
     }
+    if (scene.transition_out && options.registry) {
+      const info = options.registry.behavior(scene.transition_out.behavior);
+      if (!info) c.error('behavior.unknown', `${base}.transition_out`, `comportement ${scene.transition_out.behavior} inconnu du moteur`);
+      else if (info.version !== scene.transition_out.version) {
+        c.error('behavior.version', `${base}.transition_out.version`, `${scene.transition_out.behavior}@${scene.transition_out.version} inconnu ; version enregistrée ${info.version}`);
+      }
+    }
   }
 
   function checkBehavior(b: BehaviorInstance, layer: Layer, path: string) {
@@ -282,11 +298,44 @@ export function validateSpecSemantics(
     const info = options.registry?.behavior(b.behavior);
     if (options.registry && !info) c.error('behavior.unknown', path, `comportement ${b.behavior} inconnu du moteur`);
     if (info) {
+      if (info.version !== b.version) {
+        c.error('behavior.version', `${path}.version`, `${b.behavior}@${b.version} inconnu ; version enregistrée ${info.version}`);
+      }
       if (!info.applies_to.includes(layer.primitive)) {
         c.error('behavior.primitive', path, `${b.behavior} ne s'applique pas à une primitive « ${layer.primitive} »`);
       }
       if (b.variant && !info.variants.includes(b.variant)) {
         c.error('behavior.variant_unknown', `${path}.variant`, `variante « ${b.variant} » inconnue du moteur`);
+      }
+      const kind: P13AnchorKind | null =
+        'semantic' in b.at ? b.at.semantic :
+          'layer' in b.at ? b.at.layer.relation :
+            'event' in b.at ? (b.at.event === 'scene.start' ? 'SCENE_START' : 'SCENE_END') :
+              'after' in b.at ? 'AFTER_PREVIOUS' :
+                'with' in b.at ? 'WITH_LAYER' : null;
+      if (kind === null || !info.accepted_anchors.includes(kind)) {
+        c.error('behavior.anchor', `${path}.at`, `ancre non acceptée par ${b.behavior}`);
+      }
+      const same = layer.behaviors.filter((candidate) => candidate.behavior === b.behavior).length;
+      if (same > info.max_instances_per_layer) {
+        c.error('behavior.instance_limit', path, `${same} instances de ${b.behavior}, maximum ${info.max_instances_per_layer}`);
+      }
+      if (info.target === 'required_run' && b.target?.run === undefined) {
+        c.error('behavior.target_required', `${path}.target`, `${b.behavior} exige une cible run`);
+      }
+      for (const [name, value] of Object.entries(b.params ?? {})) {
+        const parameter = info.parameters[name];
+        if (!parameter) {
+          c.error('behavior.param_unknown', `${path}.params.${name}`, `paramètre « ${name} » inconnu pour ${b.behavior}`);
+          continue;
+        }
+        if (parameter.type === 'number' && (typeof value !== 'number' || value < (parameter.min ?? -Infinity) || value > (parameter.max ?? Infinity))) {
+          c.error('behavior.param_type', `${path}.params.${name}`, `nombre hors bornes attendu pour ${name}`);
+        }
+        if (parameter.type === 'boolean' && typeof value !== 'boolean') c.error('behavior.param_type', `${path}.params.${name}`, `booléen attendu pour ${name}`);
+        if (parameter.type === 'enum' && (typeof value !== 'string' || !parameter.values?.includes(value))) {
+          c.error('behavior.param_type', `${path}.params.${name}`, `valeur enum invalide pour ${name}`);
+        }
       }
     }
     if (b.target?.run !== undefined) {

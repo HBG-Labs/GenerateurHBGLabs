@@ -1,5 +1,7 @@
 import type { z } from 'zod';
 
+import { BEHAVIOR_DEFINITION_SCHEMA, BEHAVIOR_DEFINITION_VERSION, BehaviorDefinitionSchema } from '../contracts/behavior.ts';
+import type { BehaviorDefinition } from '../contracts/behavior.ts';
 import { BRAND_PROFILE_SCHEMA, BRAND_PROFILE_VERSION, BrandMotionProfileSchema } from '../contracts/brand-profile.ts';
 import type { BrandMotionProfile } from '../contracts/brand-profile.ts';
 import { CREATIVE_INTENT_SCHEMA, CREATIVE_INTENT_VERSION, CreativeIntentSchema } from '../contracts/creative-intent.ts';
@@ -32,12 +34,37 @@ export interface DocumentKinds {
   'platform-presets': PlatformPresets;
   'motion-scene-spec': MotionSceneSpec;
   'pattern-definition': PatternDefinition;
+  'behavior-definition': BehaviorDefinition;
   'render-plan': RenderPlan;
   'reproducibility-manifest': ReproducibilityManifest;
 }
 export type DocumentKind = keyof DocumentKinds;
 
 type Migrator = (doc: Record<string, unknown>) => Record<string, unknown>;
+
+function migrateMotionSpec010(doc: Record<string, unknown>): Record<string, unknown> {
+  const clone = structuredClone(doc);
+  const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const visit = (layer: unknown): void => {
+    if (!record(layer)) return;
+    const behaviors = layer['behaviors'];
+    if (Array.isArray(behaviors)) {
+      for (const behavior of behaviors) if (record(behavior) && behavior['version'] === undefined) behavior['version'] = '1.0.0';
+    }
+    const children = layer['children'];
+    if (Array.isArray(children)) for (const child of children) visit(child);
+  };
+  const scenes = clone['scenes'];
+  if (!Array.isArray(scenes)) return clone;
+  for (const scene of scenes) {
+    if (!record(scene)) continue;
+    const layers = scene['layers'];
+    if (Array.isArray(layers)) for (const layer of layers) visit(layer);
+    const transition = scene['transition_out'];
+    if (record(transition) && transition['version'] === undefined) transition['version'] = '1.0.0';
+  }
+  return clone;
+}
 
 interface KindEntry<T> {
   current: string;
@@ -53,8 +80,13 @@ const REGISTRY: { [K in DocumentKind]: KindEntry<DocumentKinds[K]> } = {
   [SERIES_PROFILE_SCHEMA]: { current: SERIES_PROFILE_VERSION, schema: SeriesMotionProfileSchema, migrations: {} },
   [RESOLVED_STYLE_SCHEMA]: { current: RESOLVED_STYLE_VERSION, schema: ResolvedStyleSchema, migrations: {} },
   [PLATFORM_PRESETS_SCHEMA]: { current: PLATFORM_PRESETS_VERSION, schema: PlatformPresetsSchema, migrations: {} },
-  [MOTION_SPEC_SCHEMA]: { current: MOTION_SPEC_VERSION, schema: MotionSceneSpecSchema, migrations: {} },
+  [MOTION_SPEC_SCHEMA]: {
+    current: MOTION_SPEC_VERSION,
+    schema: MotionSceneSpecSchema,
+    migrations: { '0.1.0': { to: '0.2.0', migrate: migrateMotionSpec010 } },
+  },
   [PATTERN_DEFINITION_SCHEMA]: { current: PATTERN_DEFINITION_VERSION, schema: PatternDefinitionSchema, migrations: {} },
+  [BEHAVIOR_DEFINITION_SCHEMA]: { current: BEHAVIOR_DEFINITION_VERSION, schema: BehaviorDefinitionSchema, migrations: {} },
   [RENDER_PLAN_SCHEMA]: { current: RENDER_PLAN_VERSION, schema: RenderPlanSchema, migrations: {} },
   [MANIFEST_SCHEMA]: { current: MANIFEST_VERSION, schema: ReproducibilityManifestSchema, migrations: {} },
 };

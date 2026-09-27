@@ -11,7 +11,7 @@ import type { ResolvedStyle } from '../contracts/resolved-style.ts';
 import { hashDocument } from '../integrity/canonical.ts';
 import { validateIntent, validatePatternDefinition, validatePlatformPresets, validateResolvedStyle } from '../validation/validate.ts';
 
-export const SPEC_BUILDER_VERSION = '0.1.0';
+export const SPEC_BUILDER_VERSION = '0.2.0';
 
 export interface SpecContentLine {
   text: string;

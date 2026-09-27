@@ -57,6 +57,7 @@
       "REVEAL_TEXT": { "allowed": true, "variants": ["mask_up", "fade_up"] },
       "ACCENT_WORD": { "allowed": true, "variants": ["color_settle"] },
       "SETTLE": { "allowed": true },
+      "EXIT_CLEAR": { "allowed": true },
       "CUT": { "allowed": true },
       "DRAW_PATH": { "allowed": true },
       "MATCH_LINE": { "allowed": true },

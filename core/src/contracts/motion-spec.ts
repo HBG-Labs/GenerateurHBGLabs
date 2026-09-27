@@ -25,7 +25,7 @@ import {
 import type { Anchor, Duration, GridPlacement } from './common.ts';
 
 export const MOTION_SPEC_SCHEMA = 'motion-scene-spec';
-export const MOTION_SPEC_VERSION = '0.1.0';
+export const MOTION_SPEC_VERSION = '0.2.0';
 
 const ParamValueSchema = z.union([z.number().finite(), z.string().max(64), z.boolean()]);
 
@@ -33,6 +33,7 @@ const ParamValueSchema = z.union([z.number().finite(), z.string().max(64), z.boo
 export const BehaviorInstanceSchema = z.strictObject({
   id: IdSchema,
   behavior: BehaviorIdSchema,
+  version: SemVerSchema,
   variant: IdSchema.optional(),
   params: z.record(z.string().regex(/^[a-z][a-z0-9_]*$/), ParamValueSchema).optional(),
   target: z
@@ -264,7 +265,7 @@ export const SceneSchema = z.strictObject({
       .max(8),
   }),
   subtitles: z.strictObject({ mode: z.enum(['auto', 'off']), reason: z.string().max(120).optional() }),
-  transition_out: z.strictObject({ behavior: BehaviorIdSchema, to: IdSchema.optional() }).optional(),
+  transition_out: z.strictObject({ behavior: BehaviorIdSchema, version: SemVerSchema, to: IdSchema.optional() }).optional(),
 });
 export type Scene = z.infer<typeof SceneSchema>;
 export type SceneEvent = z.infer<typeof SceneEventSchema>;

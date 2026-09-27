@@ -1,0 +1,182 @@
+{
+  "schema": "motion-scene-spec",
+  "schema_version": "0.2.0",
+  "spec_id": "silent_force",
+  "revision": 1,
+  "parent_revision": null,
+  "created_from": {
+    "intent_id": "silent_force",
+    "builder_version": "0.2.0"
+  },
+  "locale": "fr-FR",
+  "style_binding": {
+    "kind": "style",
+    "id": "fixture_signal",
+    "version": "1.0.0"
+  },
+  "format": {
+    "preset": "vertical_9x16",
+    "platform_safe_zones": ["tiktok"]
+  },
+  "system": {
+    "id": "statement.interrupt",
+    "version": "0.1.0"
+  },
+  "rhythm": {
+    "curve": "neutral_two_step",
+    "sections": [
+      { "id": "section_open", "phase": "INTERRUPTION", "scenes": ["scene_force"] },
+      { "id": "section_resolve", "phase": "INTERRUPTION", "scenes": ["scene_motion"] }
+    ]
+  },
+  "voice": {
+    "direction": {
+      "persona": "silent_narrator",
+      "intention": "preuve motion neutre sans voix rendue",
+      "tempo": "measured"
+    },
+    "segments": []
+  },
+  "scenes": [
+    {
+      "id": "scene_force",
+      "pattern": { "id": "statement.interrupt", "version": "0.1.0", "variation": { "energy": "medium" } },
+      "purpose": "hook",
+      "locks": [],
+      "timing": {
+        "anchor": { "duration": { "ms": 4450 } },
+        "min_hold": "reading"
+      },
+      "background": { "fill": "color.surface.primary" },
+      "layers": [
+        {
+          "id": "group_force",
+          "primitive": "group",
+          "slot": "composition.root",
+          "behaviors": [],
+          "children": [
+            {
+              "id": "marker_force",
+              "primitive": "shape",
+              "shape": "rect",
+              "slot": "interrupt.marker",
+              "fill": "color.accent",
+              "behaviors": []
+            },
+            {
+              "id": "text_force",
+              "primitive": "text",
+              "slot": "statement.primary",
+              "content": {
+                "runs": [
+                  { "id": "run_moon", "text": "Lune", "break_after": true },
+                  { "id": "run_force", "text": "une force", "break_after": true },
+                  { "id": "run_silent", "text": "silencieuse", "role": "accent" }
+                ],
+                "break_policy": "explicit"
+              },
+              "style": {
+                "type": "type.display.xl",
+                "color": "color.text.primary",
+                "accent_color": "color.accent",
+                "align": "start"
+              },
+              "behaviors": [
+                {
+                  "id": "reveal_force",
+                  "behavior": "REVEAL_TEXT",
+                  "version": "1.0.0",
+                  "params": { "unit": "line", "stagger": "style" },
+                  "at": { "semantic": "SCENE_START", "offset": { "ms": 250 } }
+                },
+                {
+                  "id": "accent_force",
+                  "behavior": "ACCENT_WORD",
+                  "version": "1.0.0",
+                  "target": { "run": "run_silent" },
+                  "at": { "semantic": "AFTER_PREVIOUS", "offset": { "ms": 100 } }
+                },
+                {
+                  "id": "settle_force",
+                  "behavior": "SETTLE",
+                  "version": "1.0.0",
+                  "target": { "run": "run_silent" },
+                  "at": { "semantic": "AFTER_PREVIOUS" }
+                },
+                {
+                  "id": "exit_force",
+                  "behavior": "EXIT_CLEAR",
+                  "version": "1.0.0",
+                  "at": { "semantic": "BEFORE_NEXT" }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "events": [{ "id": "event_force", "kind": "INTERRUPTION", "at": { "event": "scene.start" } }],
+      "sound": { "derive_from_events": false, "overrides": [] },
+      "subtitles": { "mode": "off", "reason": "texte à l’écran ; audio hors périmètre P1.3" },
+      "transition_out": { "behavior": "CUT", "version": "1.0.0", "to": "scene_motion" }
+    },
+    {
+      "id": "scene_motion",
+      "pattern": { "id": "statement.interrupt", "version": "0.1.0", "variation": { "energy": "medium" } },
+      "purpose": "resolution",
+      "locks": [],
+      "timing": {
+        "anchor": { "duration": { "ms": 2550 } },
+        "min_hold": "reading"
+      },
+      "background": { "fill": "color.surface.primary" },
+      "layers": [
+        {
+          "id": "group_motion",
+          "primitive": "group",
+          "slot": "composition.root",
+          "behaviors": [],
+          "children": [
+            {
+              "id": "marker_motion",
+              "primitive": "shape",
+              "shape": "rect",
+              "slot": "interrupt.marker",
+              "fill": "color.accent",
+              "behaviors": []
+            },
+            {
+              "id": "text_motion",
+              "primitive": "text",
+              "slot": "statement.primary",
+              "content": {
+                "runs": [
+                  { "id": "run_everything", "text": "Tout bouge", "break_after": true },
+                  { "id": "run_silence", "text": "sans bruit", "role": "accent" }
+                ],
+                "break_policy": "explicit"
+              },
+              "style": {
+                "type": "type.display.xl",
+                "color": "color.text.primary",
+                "accent_color": "color.accent",
+                "align": "start"
+              },
+              "behaviors": [
+                {
+                  "id": "reveal_motion",
+                  "behavior": "REVEAL_TEXT",
+                  "version": "1.0.0",
+                  "params": { "unit": "line", "stagger": "style" },
+                  "at": { "semantic": "SCENE_START", "offset": { "ms": 100 } }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "events": [{ "id": "event_motion", "kind": "RESOLVE", "at": { "event": "scene.start" } }],
+      "sound": { "derive_from_events": false, "overrides": [] },
+      "subtitles": { "mode": "off", "reason": "texte à l’écran ; audio hors périmètre P1.3" }
+    }
+  ]
+}

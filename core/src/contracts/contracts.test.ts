@@ -32,12 +32,13 @@ describe('contrats structurels', () => {
     expect(!result.ok && result.issues.map((i) => i.path)).toContain('scenes[0]');
   });
 
-  it('refusent une durée en frames ou en millisecondes', () => {
-    for (const tail of [{ frames: 6 }, { ms: 200 }]) {
-      const doc = spec();
-      doc.scenes[0].timing.tail = tail;
-      expect(ok(MotionSceneSpecSchema, doc)).toBe(false);
-    }
+  it('accepte les millisecondes entières mais refuse toujours les frames', () => {
+    const milliseconds = spec();
+    milliseconds.scenes[0].timing.tail = { ms: 200 };
+    expect(ok(MotionSceneSpecSchema, milliseconds)).toBe(true);
+    const frames = spec();
+    frames.scenes[0].timing.tail = { frames: 6 };
+    expect(ok(MotionSceneSpecSchema, frames)).toBe(false);
   });
 
   it('refusent une valeur de couleur dans la spec : seulement des rôles', () => {

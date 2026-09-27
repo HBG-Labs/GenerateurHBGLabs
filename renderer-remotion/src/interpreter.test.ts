@@ -74,7 +74,7 @@ const plan = (): RenderPlan => ({
   ],
 });
 
-describe('interpréteur Remotion P1.2', () => {
+describe('interpréteur Remotion P1.3', () => {
   it('accepte Group, Text et Shape', () => {
     expect(() => assertP12Plan(plan())).not.toThrow();
   });
@@ -89,6 +89,18 @@ describe('interpréteur Remotion P1.2', () => {
       ],
     };
     expect(numericTrackValue(track, 5, 1)).toBe(0.5);
+  });
+
+  it('exécute l’easing concret du RenderPlan sans connaître le behavior source', () => {
+    const track: Track = {
+      property: 'opacity',
+      source: 'source_opaque',
+      keys: [
+        { frame: 0, value: 0, ease: { type: 'bezier', p: [0.05, 0.9, 0.1, 1] } },
+        { frame: 10, value: 1 },
+      ],
+    };
+    expect(numericTrackValue(track, 5, 0)).toBeGreaterThan(0.5);
   });
 
   it('rejette une primitive P1.4', () => {

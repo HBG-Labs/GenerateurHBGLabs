@@ -9,6 +9,7 @@ export * from './contracts/series-profile.ts';
 export * from './contracts/resolved-style.ts';
 export * from './contracts/platform.ts';
 export * from './contracts/motion-spec.ts';
+export * from './contracts/behavior.ts';
 export * from './contracts/pattern.ts';
 export * from './contracts/render-plan.ts';
 export * from './contracts/manifest.ts';
@@ -21,10 +22,11 @@ export { contrastRatio, relativeLuminance } from './style/contrast.ts';
 export { canonicalJson, hashDocument, sha256Hex } from './integrity/canonical.ts';
 export { buildReproducibilityManifest, manifestHash, verifyManifest, ManifestError } from './integrity/manifest.ts';
 export type { ManifestInput } from './integrity/manifest.ts';
-export type { MotionRenderer, RenderFrameRequest, RenderFrameResult } from './rendering/motion-renderer.ts';
+export type { MotionRenderer, RenderFrameRequest, RenderFrameResult, RenderVideoRequest, RenderVideoResult } from './rendering/motion-renderer.ts';
 
 export {
   validateBrandProfile,
+  validateBehaviorDefinition,
   validateIntent,
   validatePlatformPresets,
   validatePatternDefinition,
@@ -39,6 +41,23 @@ export type { DocumentKind, DocumentKinds } from './validation/versioning.ts';
 export { formatIssues, hasErrors, ValidationFailure } from './validation/issues.ts';
 export type { ValidationIssue, ValidationResult } from './validation/issues.ts';
 export type { SemanticRegistry, SpecSemanticOptions, BehaviorInfo } from './validation/semantic-spec.ts';
+
+export { BehaviorRegistry, P13_BEHAVIOR_DEFINITIONS, P13_BEHAVIOR_REGISTRY } from './motion/behavior-registry.ts';
+export { assertNoTrackConflicts, compileLayerTracks, MotionTrackError } from './motion/compile-tracks.ts';
+export {
+  anchorKind,
+  durationToMs,
+  minimumReadabilityMs,
+  resolveTemporalPlan,
+  TemporalResolutionError,
+} from './temporal/resolve.ts';
+export type {
+  ResolveTemporalInput,
+  ResolvedBehaviorTiming,
+  ResolvedSceneTiming,
+  TemporalDiagnostic,
+  TemporalResolution,
+} from './temporal/resolve.ts';
 
 export { loadBrandFile, loadPlatformPresetsFile, loadSeriesFile, loadStyleFile, resolveResource } from './io/load.ts';
 export type { LoadedBrand, LoadedSeries, LoadOptions } from './io/load.ts';
