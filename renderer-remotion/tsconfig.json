@@ -5,8 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "types": ["node"],
-    "resolveJsonModule": true,
+    "types": ["node", "react", "react-dom"],
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
@@ -18,11 +17,10 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noImplicitOverride": true,
-    "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["integration", "vitest.config.ts", "eslint.config.js"]
+  "include": ["src", "vitest.config.ts", "eslint.config.js"]
 }

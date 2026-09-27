@@ -18,6 +18,7 @@ describe('versionnement', () => {
       'creative-intent',
       'creative-style-profile',
       'motion-scene-spec',
+      'pattern-definition',
       'platform-presets',
       'render-plan',
       'reproducibility-manifest',

@@ -1,0 +1,45 @@
+{
+  "schema": "pattern-definition",
+  "schema_version": "0.1.0",
+  "id": "statement.interrupt",
+  "version": "0.1.0",
+  "intent": "Interrompre le flux par une affirmation immédiatement lisible.",
+  "background": "color.surface.primary",
+  "layout": {
+    "kind": "stack",
+    "region": "safe",
+    "direction": "vertical",
+    "align_x": "start",
+    "align_y": "center",
+    "gap": "space.md"
+  },
+  "slots": [
+    {
+      "id": "interrupt.marker",
+      "primitive": "shape",
+      "role": "interrupt_marker",
+      "order": 0,
+      "width": { "kind": "fill" },
+      "height": { "kind": "space", "token": "space.sm" },
+      "style": { "fill": "color.accent" }
+    },
+    {
+      "id": "statement.primary",
+      "primitive": "text",
+      "role": "statement",
+      "order": 1,
+      "width": { "kind": "fill" },
+      "height": { "kind": "content" },
+      "style": {
+        "type": "type.display.xl",
+        "color": "color.text.primary",
+        "accent_color": "color.accent"
+      }
+    }
+  ],
+  "constraints": {
+    "min_lines": 2,
+    "max_lines": 3,
+    "explicit_line_breaks": true
+  }
+}

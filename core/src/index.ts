@@ -9,6 +9,7 @@ export * from './contracts/series-profile.ts';
 export * from './contracts/resolved-style.ts';
 export * from './contracts/platform.ts';
 export * from './contracts/motion-spec.ts';
+export * from './contracts/pattern.ts';
 export * from './contracts/render-plan.ts';
 export * from './contracts/manifest.ts';
 
@@ -20,11 +21,13 @@ export { contrastRatio, relativeLuminance } from './style/contrast.ts';
 export { canonicalJson, hashDocument, sha256Hex } from './integrity/canonical.ts';
 export { buildReproducibilityManifest, manifestHash, verifyManifest, ManifestError } from './integrity/manifest.ts';
 export type { ManifestInput } from './integrity/manifest.ts';
+export type { MotionRenderer, RenderFrameRequest, RenderFrameResult } from './rendering/motion-renderer.ts';
 
 export {
   validateBrandProfile,
   validateIntent,
   validatePlatformPresets,
+  validatePatternDefinition,
   validateRenderPlan,
   validateResolvedStyle,
   validateSeriesProfile,
@@ -41,3 +44,8 @@ export { loadBrandFile, loadPlatformPresetsFile, loadSeriesFile, loadStyleFile, 
 export type { LoadedBrand, LoadedSeries, LoadOptions } from './io/load.ts';
 
 export { findWordMatches, normalizeWord, voiceWords } from './text/voice-words.ts';
+
+export { buildMotionSceneSpec, SPEC_BUILDER_VERSION, SpecBuilderError } from './spec-builder/build-spec.ts';
+export type { BuildSpecInput, SpecContentLine } from './spec-builder/build-spec.ts';
+export { compileMotionScene, COMPILER_VERSION, CompileError } from './compiler/compile.ts';
+export type { CompileInput, FontResource } from './compiler/compile.ts';

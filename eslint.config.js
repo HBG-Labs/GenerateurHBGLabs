@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   // Le cœur a son propre lint (core/eslint.config.js) ; les packs et les
   // exemples ne contiennent que des données.
-  { ignores: ['node_modules/**', 'core/**', 'packs/**', 'examples/**', 'out/**'] },
+  { ignores: ['node_modules/**', 'core/**', 'renderer-remotion/**', 'packs/**', 'examples/**', 'out/**'] },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [...tseslint.configs.recommendedTypeChecked],

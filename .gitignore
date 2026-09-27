@@ -1,3 +1,4 @@
 node_modules/
 # Rendus, images de contrôle et fichiers temporaires : jamais versionnés.
 /out/
+/.cache/

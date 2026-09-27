@@ -4,15 +4,21 @@
   "version": "0.0.0",
   "type": "module",
   "description": "Espace de travail du moteur : le cœur (@motion-engine/core), les packs de données, les exemples et les tests d'intégration.",
-  "workspaces": ["core"],
+  "workspaces": ["core", "renderer-remotion"],
   "engines": {
     "node": ">=22.12.0"
   },
   "scripts": {
-    "check": "npm run check -w @motion-engine/core && npm run typecheck && npm run lint && npm run test",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "eslint .",
-    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm run test:unit && npm run test:integration && npm run test:contamination && npm run test:isolation && npm run test:renderer-smoke",
+    "typecheck": "npm run typecheck -w @motion-engine/core && npm run typecheck -w @motion-engine/renderer-remotion && tsc --noEmit -p tsconfig.json",
+    "lint": "npm run lint -w @motion-engine/core && npm run lint -w @motion-engine/renderer-remotion && eslint .",
+    "test": "npm run test:unit && npm run test:integration && npm run test:contamination && npm run test:isolation && npm run test:renderer-smoke",
+    "test:unit": "npm run test -w @motion-engine/core && npm run test -w @motion-engine/renderer-remotion",
+    "test:integration": "vitest run integration/examples.test.ts integration/boundaries.test.ts integration/pipeline.test.ts",
+    "test:contamination": "vitest run integration/contamination.test.ts",
+    "test:isolation": "vitest run integration/isolation.test.ts",
+    "test:renderer-smoke": "vitest run integration/render-frame.smoke.test.ts",
+    "render:p1.2": "vitest run integration/render-frame.smoke.test.ts",
     "fonts:prepare": "node scripts/prepare-fonts.mjs"
   },
   "devDependencies": {

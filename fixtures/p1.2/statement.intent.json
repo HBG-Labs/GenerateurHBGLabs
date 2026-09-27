@@ -1,0 +1,24 @@
+{
+  "schema": "creative-intent",
+  "schema_version": "0.1.0",
+  "intent_id": "generic_statement",
+  "locale": "fr-FR",
+  "message": "Une question simple peut changer la perspective.",
+  "objective": "Démontrer une composition générique sans marque.",
+  "audience": "Public général",
+  "platforms": ["tiktok"],
+  "target_duration_s": { "min": 3, "max": 3 },
+  "tension_curve": "single_interruption",
+  "energy": "medium",
+  "beats": [
+    {
+      "id": "statement",
+      "role": "interruption",
+      "voice": "Une question change tout.",
+      "on_screen": { "lines": ["Une question", "change tout"], "accent": "change tout" },
+      "emphasis": ["change"],
+      "pause_after": "hold"
+    }
+  ],
+  "constraints": []
+}

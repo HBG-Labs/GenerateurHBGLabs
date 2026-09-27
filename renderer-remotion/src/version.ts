@@ -1,0 +1,3 @@
+export const REMOTION_RENDERER_VERSION = '0.1.0';
+export const REMOTION_VERSION = '4.0.529';
+export const REMOTION_COMMERCIAL_LICENSE_STATUS = 'UNCONFIRMED' as const;

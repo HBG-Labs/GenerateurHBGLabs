@@ -8,6 +8,8 @@ import { MANIFEST_SCHEMA, MANIFEST_VERSION, ReproducibilityManifestSchema } from
 import type { ReproducibilityManifest } from '../contracts/manifest.ts';
 import { MOTION_SPEC_SCHEMA, MOTION_SPEC_VERSION, MotionSceneSpecSchema } from '../contracts/motion-spec.ts';
 import type { MotionSceneSpec } from '../contracts/motion-spec.ts';
+import { PATTERN_DEFINITION_SCHEMA, PATTERN_DEFINITION_VERSION, PatternDefinitionSchema } from '../contracts/pattern.ts';
+import type { PatternDefinition } from '../contracts/pattern.ts';
 import { PLATFORM_PRESETS_SCHEMA, PLATFORM_PRESETS_VERSION, PlatformPresetsSchema } from '../contracts/platform.ts';
 import type { PlatformPresets } from '../contracts/platform.ts';
 import { RENDER_PLAN_SCHEMA, RENDER_PLAN_VERSION, RenderPlanSchema } from '../contracts/render-plan.ts';
@@ -29,6 +31,7 @@ export interface DocumentKinds {
   'resolved-style': ResolvedStyle;
   'platform-presets': PlatformPresets;
   'motion-scene-spec': MotionSceneSpec;
+  'pattern-definition': PatternDefinition;
   'render-plan': RenderPlan;
   'reproducibility-manifest': ReproducibilityManifest;
 }
@@ -51,6 +54,7 @@ const REGISTRY: { [K in DocumentKind]: KindEntry<DocumentKinds[K]> } = {
   [RESOLVED_STYLE_SCHEMA]: { current: RESOLVED_STYLE_VERSION, schema: ResolvedStyleSchema, migrations: {} },
   [PLATFORM_PRESETS_SCHEMA]: { current: PLATFORM_PRESETS_VERSION, schema: PlatformPresetsSchema, migrations: {} },
   [MOTION_SPEC_SCHEMA]: { current: MOTION_SPEC_VERSION, schema: MotionSceneSpecSchema, migrations: {} },
+  [PATTERN_DEFINITION_SCHEMA]: { current: PATTERN_DEFINITION_VERSION, schema: PatternDefinitionSchema, migrations: {} },
   [RENDER_PLAN_SCHEMA]: { current: RENDER_PLAN_VERSION, schema: RenderPlanSchema, migrations: {} },
   [MANIFEST_SCHEMA]: { current: MANIFEST_VERSION, schema: ReproducibilityManifestSchema, migrations: {} },
 };

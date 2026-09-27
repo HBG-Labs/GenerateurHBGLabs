@@ -1,6 +1,7 @@
 import type { BrandMotionProfile } from '../contracts/brand-profile.ts';
 import type { CreativeIntent } from '../contracts/creative-intent.ts';
 import type { MotionSceneSpec } from '../contracts/motion-spec.ts';
+import type { PatternDefinition } from '../contracts/pattern.ts';
 import type { PlatformPresets } from '../contracts/platform.ts';
 import type { RenderPlan } from '../contracts/render-plan.ts';
 import type { ResolvedStyle } from '../contracts/resolved-style.ts';
@@ -65,6 +66,31 @@ export function validatePlatformPresets(input: unknown): ValidationResult<Platfo
         issues.push({ code: 'platform.unknown_format', path: `platforms.${platform}`, message: `format « ${format} » non défini`, severity: 'error' });
       }
     }
+  }
+  return finish(read.value, issues);
+}
+
+export function validatePatternDefinition(input: unknown): ValidationResult<PatternDefinition> {
+  const read = readVersioned('pattern-definition', input);
+  if (!read.ok) return read;
+  const issues: ValidationIssue[] = [];
+  const ids = new Set<string>();
+  const orders = new Set<number>();
+  read.value.slots.forEach((slot, index) => {
+    if (ids.has(slot.id)) {
+      issues.push({ code: 'pattern.slot_duplicate', path: `slots[${index}].id`, message: `slot « ${slot.id} » en double`, severity: 'error' });
+    }
+    if (orders.has(slot.order)) {
+      issues.push({ code: 'pattern.order_duplicate', path: `slots[${index}].order`, message: `ordre ${slot.order} en double`, severity: 'error' });
+    }
+    ids.add(slot.id);
+    orders.add(slot.order);
+  });
+  if (read.value.constraints.min_lines > read.value.constraints.max_lines) {
+    issues.push({ code: 'pattern.line_range', path: 'constraints', message: 'min_lines doit être inférieur ou égal à max_lines', severity: 'error' });
+  }
+  if (!read.value.slots.some((slot) => slot.primitive === 'text')) {
+    issues.push({ code: 'pattern.text_required', path: 'slots', message: 'un slot texte est requis', severity: 'error' });
   }
   return finish(read.value, issues);
 }
