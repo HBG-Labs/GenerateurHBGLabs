@@ -3,6 +3,7 @@ import type {
   AssetIntent,
   ContentSlot,
   CreativeDiagnostic,
+  NarrativeRole,
 } from '@motion-engine/creative-core';
 
 import type {
@@ -49,7 +50,33 @@ export interface ProviderContentSlotContext {
 
 export interface ProviderPlanningContext {
   readonly allowed_archetype_ids: readonly ArchetypeId[];
+  readonly archetypes: readonly ProviderNarrativeArchetypeContext[];
+  readonly constraint_policy: {
+    readonly maximum_total_constraints: number;
+    readonly request_constraint_count: number;
+    readonly maximum_suggested_constraints: number;
+    readonly request_constraint_ids: readonly string[];
+  };
   readonly registry_fingerprint: string;
+}
+
+export interface ProviderNarrativeArchetypeContext {
+  readonly archetype_id: ArchetypeId;
+  readonly archetype_version: string;
+  readonly selection_goals: readonly string[];
+  readonly supported_roles: readonly NarrativeRole[];
+  readonly required_roles: readonly NarrativeRole[];
+  readonly optional_roles: readonly NarrativeRole[];
+  readonly ordering_constraints: readonly {
+    readonly before: NarrativeRole;
+    readonly after: NarrativeRole;
+  }[];
+  readonly cta_allowed: boolean;
+  readonly duration_constraints: {
+    readonly minimum_total_ms: number;
+    readonly minimum_scene_ms: number;
+    readonly maximum_scene_count_for_request: number;
+  };
 }
 
 export interface ProviderInvocation {

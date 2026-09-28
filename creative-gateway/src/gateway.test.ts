@@ -4,6 +4,7 @@ import {
   ArchetypeRegistry,
   DEFAULT_ARCHETYPES,
   DEFAULT_ARCHETYPE_REGISTRY,
+  DEFAULT_PLANNER_LIMITS,
   hashCreativeDocument,
 } from '@motion-engine/creative-core';
 
@@ -15,6 +16,7 @@ import { dinosaurRequest, gatewayOptions } from './test-support.ts';
 import {
   AlternatingProvider,
   AlwaysInvalidProvider,
+  ArchetypeConstraintProvider,
   CapabilityLimitedProvider,
   HallucinatedSourceProvider,
   MalformedProvider,
@@ -199,9 +201,157 @@ describe('P2.4 — Creative Gateway', () => {
     });
     expect(result.ok).toBe(true);
     expect(provider.allowedArchetypes).toEqual(['EXPLAINER']);
+    expect(provider.planningContexts[0]?.archetypes).toEqual(registry.definitions().map((definition) => ({
+      archetype_id: definition.id,
+      archetype_version: definition.version,
+      selection_goals: definition.selection_goals,
+      supported_roles: definition.supported_roles,
+      required_roles: definition.required_roles,
+      optional_roles: definition.optional_roles,
+      ordering_constraints: definition.ordering_constraints,
+      cta_allowed: definition.validation_rules.allow_cta,
+      duration_constraints: {
+        minimum_total_ms: definition.duration_strategy.minimum_total_ms,
+        minimum_scene_ms: definition.duration_strategy.minimum_scene_ms,
+        maximum_scene_count_for_request: Math.min(
+          DEFAULT_PLANNER_LIMITS.max_scenes,
+          Math.floor(dinosaurRequest().target_duration_ms / definition.duration_strategy.minimum_scene_ms),
+        ),
+      },
+    })));
     expect(result.planner_input?.narrative_archetype).toBe('EXPLAINER');
     expect(result.planning?.report?.registry_fingerprint).toBe(registry.fingerprint());
     expect(replayCreativeGateway(result.snapshot, { planner: { registry } }).ok).toBe(true);
+  });
+
+  it('accepte REVEAL avec un rôle supporté et garantit l’admissibilité P2.2', async () => {
+    const provider = new ArchetypeConstraintProvider({
+      narrative_archetype: 'REVEAL',
+      suggested_constraints: [{ id: 'require_tension', kind: 'require_role', role: 'tension' }],
+    });
+    const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
+
+    expect(result.ok, JSON.stringify(result.report.diagnostics)).toBe(true);
+    expect(result.planner_input?.narrative_archetype).toBe('REVEAL');
+    expect(result.planning?.ok).toBe(true);
+    expect(result.planning?.input_validation.eligible_for_planning).toBe(true);
+    expect(result.planning?.report?.eligible_for_creative_compilation).toBe(true);
+  });
+
+  it.each(DEFAULT_ARCHETYPES)(
+    'garantit qu’une sortie acceptée pour $id franchit réellement P2.2',
+    async (definition) => {
+      const provider = new ArchetypeConstraintProvider({
+        narrative_archetype: definition.id,
+        suggested_constraints: [],
+      });
+      const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
+
+      expect(result.ok, JSON.stringify(result.report.diagnostics)).toBe(true);
+      expect(result.planning?.ok).toBe(true);
+      expect(result.planning?.input_validation.eligible_for_planning).toBe(true);
+      expect(result.planning?.report?.registry_fingerprint).toBe(DEFAULT_ARCHETYPE_REGISTRY.fingerprint());
+    },
+  );
+
+  it('rejette REVEAL + escalation à la frontière Gateway', async () => {
+    const provider = new ArchetypeConstraintProvider({
+      narrative_archetype: 'REVEAL',
+      suggested_constraints: [{ id: 'require_escalation', kind: 'require_role', role: 'escalation' }],
+    });
+    const result = await runCreativeGateway(dinosaurRequest(), {
+      ...gatewayOptions(provider),
+      max_repair_attempts: 0,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.planner_input).toBeNull();
+    expect(result.report.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'gateway.output.archetype_role_unsupported',
+      context: expect.objectContaining({
+        selected_archetype: 'REVEAL',
+        incompatible_role: 'escalation',
+      }),
+    }));
+  });
+
+  it('répare REVEAL + escalation vers une combinaison valide avec le contexte du registre', async () => {
+    const provider = new ArchetypeConstraintProvider(
+      {
+        narrative_archetype: 'REVEAL',
+        suggested_constraints: [{ id: 'require_escalation', kind: 'require_role', role: 'escalation' }],
+      },
+      {
+        narrative_archetype: 'REVEAL',
+        suggested_constraints: [{ id: 'require_tension', kind: 'require_role', role: 'tension' }],
+      },
+    );
+    const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
+
+    expect(result.ok, JSON.stringify(result.report.diagnostics)).toBe(true);
+    expect(provider.planningCalls).toBe(2);
+    expect(provider.repairDiagnostics).toContain('gateway.output.archetype_role_unsupported');
+    expect(provider.repairDiagnosticContexts).toContainEqual(expect.objectContaining({
+      selected_archetype: 'REVEAL',
+      incompatible_role: 'escalation',
+      supported_roles: expect.stringContaining('tension'),
+      required_roles: expect.stringContaining('setup'),
+    }));
+  });
+
+  it('interdit de supprimer un rôle requis du registre actif', async () => {
+    const provider = new ArchetypeConstraintProvider({
+      narrative_archetype: 'REVEAL',
+      suggested_constraints: [{ id: 'forbid_setup', kind: 'forbid_role', role: 'setup' }],
+    });
+    const result = await runCreativeGateway(dinosaurRequest(), {
+      ...gatewayOptions(provider),
+      max_repair_attempts: 0,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.report.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'gateway.output.archetype_required_role_forbidden',
+      context: expect.objectContaining({ selected_archetype: 'REVEAL', incompatible_role: 'setup' }),
+    }));
+  });
+
+  it('revalide les rôles avec le nouvel archétype sélectionné', async () => {
+    const invalid = await runCreativeGateway(dinosaurRequest(), {
+      ...gatewayOptions(new ArchetypeConstraintProvider({
+        narrative_archetype: 'REVEAL',
+        suggested_constraints: [{ id: 'require_escalation', kind: 'require_role', role: 'escalation' }],
+      })),
+      max_repair_attempts: 0,
+    });
+    const valid = await runCreativeGateway(dinosaurRequest(), gatewayOptions(new ArchetypeConstraintProvider({
+      narrative_archetype: 'HYPOTHETICAL',
+      suggested_constraints: [{ id: 'require_escalation', kind: 'require_role', role: 'escalation' }],
+    })));
+
+    expect(invalid.ok).toBe(false);
+    expect(valid.ok, JSON.stringify(valid.report.diagnostics)).toBe(true);
+    expect(valid.planning?.input_validation.eligible_for_planning).toBe(true);
+  });
+
+  it('rejette une borne min_scenes impossible avant le Planner final', async () => {
+    const provider = new ArchetypeConstraintProvider({
+      narrative_archetype: 'HYPOTHETICAL',
+      suggested_constraints: [{ id: 'too_many_scenes', kind: 'min_scenes', value: 25 }],
+    });
+    const result = await runCreativeGateway(dinosaurRequest(), {
+      ...gatewayOptions(provider),
+      max_repair_attempts: 0,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.report.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'gateway.output.minimum_scenes_impossible',
+      context: expect.objectContaining({
+        selected_archetype: 'HYPOTHETICAL',
+        maximum_scene_count_for_request: DEFAULT_PLANNER_LIMITS.max_scenes,
+      }),
+    }));
   });
 
   it('répare une incompatibilité sémantique PlannerInput avant le Planner final', async () => {
@@ -209,7 +359,7 @@ describe('P2.4 — Creative Gateway', () => {
     const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
     expect(result.ok).toBe(true);
     expect(provider.planningCalls).toBe(2);
-    expect(provider.repairDiagnostics).toContain('planner.constraint.role_conflict');
+    expect(provider.repairDiagnostics).toContain('gateway.output.archetype_required_role_forbidden');
     expect(result.planning?.input_validation.eligible_for_planning).toBe(true);
   });
 

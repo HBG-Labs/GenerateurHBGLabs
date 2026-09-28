@@ -2,6 +2,7 @@ import type { z } from 'zod';
 
 import {
   DEFAULT_ARCHETYPE_REGISTRY,
+  DEFAULT_PLANNER_LIMITS,
   hashCreativeDocument,
   sortCreativeDiagnostics,
   summarizeDiagnostics,
@@ -48,11 +49,13 @@ import {
 } from './contracts.ts';
 import type { GatewayLimits } from './limits.ts';
 import { DEFAULT_GATEWAY_LIMITS } from './limits.ts';
-import { planAcceptedOutput, resolutionOutputToCreativeResolution } from './mapping.ts';
+import { planAcceptedOutput, planningOutputToPlannerInput, resolutionOutputToCreativeResolution } from './mapping.ts';
+import { createProviderPlanningContext } from './planning-context.ts';
 import type {
   CreativeProvider,
   ProviderContentSlotContext,
   ProviderInvocation,
+  ProviderPlanningContext,
   ProviderResponse,
   ProviderResolutionContext,
 } from './provider.ts';
@@ -260,6 +263,7 @@ function planningSemantics(
   output: PlanningGenerationOutput,
   provider: ProviderMetadata,
   plannerOptions: PlannerOptions,
+  planningContext: ProviderPlanningContext,
 ): CreativeDiagnostic[] {
   const diagnostics: CreativeDiagnostic[] = [];
   const exact: Array<[keyof PlanningGenerationOutput, unknown]> = [
@@ -288,6 +292,113 @@ function planningSemantics(
       `L’archétype « ${output.narrative_archetype} » n’existe pas dans le registre actif.`,
       `Choisir un archétype parmi ${availableArchetypes.join(', ')} ou omettre narrative_archetype.`,
     ));
+  }
+  if (!diagnostics.some((entry) => entry.severity === 'error')) {
+    const plannerInput = planningOutputToPlannerInput(request, output);
+    const selected = registry.select(plannerInput);
+    const active = selected
+      ? planningContext.archetypes.find((entry) => entry.archetype_id === selected.definition.id)
+      : undefined;
+    if (selected && active) {
+      const constraints = [
+        ...request.constraints.map((constraint, index) => ({
+          constraint,
+          path: `$.request.constraints[${index}]`,
+          source: 'request' as const,
+        })),
+        ...output.suggested_constraints.map((constraint, index) => ({
+          constraint,
+          path: `$.suggested_constraints[${index}]`,
+          source: 'provider' as const,
+        })),
+      ];
+      const roleContext = {
+        selected_archetype: active.archetype_id,
+        supported_roles: active.supported_roles.join(','),
+        required_roles: active.required_roles.join(','),
+        optional_roles: active.optional_roles.join(','),
+        ordering_constraints: active.ordering_constraints
+          .map((constraint) => `${constraint.before}>${constraint.after}`)
+          .join(','),
+      };
+      constraints.forEach(({ constraint, path, source }) => {
+        if ((constraint.kind === 'require_role' || constraint.kind === 'forbid_role')
+          && !active.supported_roles.includes(constraint.role)) {
+          diagnostics.push(diagnostic(
+            'gateway.output.archetype_role_unsupported',
+            'error',
+            path,
+            `L’archétype ${active.archetype_id} ne supporte pas le rôle « ${constraint.role} » ciblé par ${constraint.kind}.`,
+            'Choisir un rôle supporté ou un archétype compatible sans mutation silencieuse.',
+            {
+              ...roleContext,
+              incompatible_role: constraint.role,
+              constraint_kind: constraint.kind,
+              constraint_source: source,
+              permitted_role_constraints: active.supported_roles.join(','),
+            },
+          ));
+        }
+        if (constraint.kind === 'forbid_role' && active.required_roles.includes(constraint.role)) {
+          diagnostics.push(diagnostic(
+            'gateway.output.archetype_required_role_forbidden',
+            'error',
+            path,
+            `L’archétype ${active.archetype_id} exige le rôle « ${constraint.role} », qui ne peut pas être interdit.`,
+            'Retirer cette interdiction ou choisir un archétype compatible.',
+            {
+              ...roleContext,
+              incompatible_role: constraint.role,
+              constraint_kind: constraint.kind,
+              constraint_source: source,
+              permitted_forbid_roles: active.supported_roles
+                .filter((role) => !active.required_roles.includes(role))
+                .join(','),
+            },
+          ));
+        }
+      });
+      const limits = plannerOptions.limits ?? DEFAULT_PLANNER_LIMITS;
+      if (constraints.length > limits.max_constraints) diagnostics.push(diagnostic(
+        'gateway.output.constraints_exceeded',
+        'error',
+        '$.suggested_constraints',
+        'Les contraintes cumulées dépassent la limite du Planner actif.',
+        'Réduire les contraintes suggérées sans supprimer les contraintes utilisateur.',
+        {
+          actual: constraints.length,
+          maximum_total_constraints: limits.max_constraints,
+          maximum_suggested_constraints: planningContext.constraint_policy.maximum_suggested_constraints,
+        },
+      ));
+      const minimumScenes = constraints
+        .filter(({ constraint }) => constraint.kind === 'min_scenes')
+        .map(({ constraint }) => constraint.kind === 'min_scenes' ? constraint.value : 0);
+      if (minimumScenes.length > 0
+        && Math.max(...minimumScenes) > active.duration_constraints.maximum_scene_count_for_request) {
+        diagnostics.push(diagnostic(
+          'gateway.output.minimum_scenes_impossible',
+          'error',
+          '$.suggested_constraints',
+          'Le nombre minimal de scènes demandé dépasse la capacité temporelle pré-vérifiable de l’archétype.',
+          'Réduire min_scenes ou choisir un archétype compatible avec la durée imposée.',
+          {
+            selected_archetype: active.archetype_id,
+            requested_minimum_scenes: Math.max(...minimumScenes),
+            maximum_scene_count_for_request: active.duration_constraints.maximum_scene_count_for_request,
+            target_duration_ms: request.target_duration_ms,
+          },
+        ));
+      }
+      if (output.cta.mode === 'explicit' && !active.cta_allowed) diagnostics.push(diagnostic(
+        'gateway.output.archetype_cta_unsupported',
+        'error',
+        '$.cta',
+        `L’archétype ${active.archetype_id} n’autorise pas de CTA explicite.`,
+        'Choisir un archétype autorisant le CTA ou conserver cta.mode=none.',
+        { selected_archetype: active.archetype_id, cta_allowed: active.cta_allowed },
+      ));
+    }
   }
   if (!diagnostics.some((entry) => entry.severity === 'error')) {
     try {
@@ -820,16 +931,12 @@ export async function runCreativeGateway(
   const maxRepairs = Math.min(options.max_repair_attempts ?? 1, limits.max_repair_attempts);
   const timeoutMs = Math.min(options.timeout_ms ?? 30_000, limits.max_timeout_ms);
   const plannerOptions = options.planner ?? {};
-  const activeRegistry = plannerOptions.registry ?? DEFAULT_ARCHETYPE_REGISTRY;
-  const planningContext: NonNullable<ProviderInvocation['planning_context']> = {
-    allowed_archetype_ids: activeRegistry.definitions().map((definition) => definition.id),
-    registry_fingerprint: activeRegistry.fingerprint(),
-  };
+  const planningContext = createProviderPlanningContext(request, plannerOptions);
   const planningStage = await runStage<PlanningGenerationOutput>({
     stage: 'planning', context, provider: options.provider, request, maxRepairs, timeoutMs,
     ...(options.signal === undefined ? {} : { externalSignal: options.signal }),
     planningContext,
-    semantic: (output) => planningSemantics(request, output, provider, plannerOptions),
+    semantic: (output) => planningSemantics(request, output, provider, plannerOptions, planningContext),
   });
   if (!planningStage.ok || !planningStage.output) {
     context.failure = planningStage.failure;
@@ -1012,7 +1119,14 @@ export function replayCreativeGateway(
   const requestValidation = validateCreativeGenerationRequest(snapshot.request);
   context.diagnostics.push(...requestValidation.diagnostics);
   const plannerOptions = options.planner ?? {};
-  context.diagnostics.push(...planningSemantics(snapshot.request, snapshot.planning_output, snapshot.provider, plannerOptions));
+  const planningContext = createProviderPlanningContext(snapshot.request, plannerOptions);
+  context.diagnostics.push(...planningSemantics(
+    snapshot.request,
+    snapshot.planning_output,
+    snapshot.provider,
+    plannerOptions,
+    planningContext,
+  ));
   if (context.diagnostics.some((entry) => entry.severity === 'error') || !requestValidation.value) {
     context.failure = 'schema_invalid';
     return failedResult(context, snapshot.provider, snapshot.hashes.request);

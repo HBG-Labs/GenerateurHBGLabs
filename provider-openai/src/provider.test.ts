@@ -124,14 +124,26 @@ function resolutionOutput(providerRequest: OpenAITransportRequest) {
 class SuccessfulTransport implements OpenAIStructuredTransport {
   readonly calls: OpenAITransportRequest[] = [];
   invalidFirstPlanning = false;
+  incompatibleArchetypeRoleFirst = false;
 
   generate(input: OpenAITransportRequest) {
     this.calls.push(input);
-    const invalid = this.invalidFirstPlanning && input.schema_name === 'creative_planning_output'
-      && this.calls.filter((call) => call.schema_name === 'creative_planning_output').length === 1;
+    const planningAttempt = this.calls.filter((call) => call.schema_name === 'creative_planning_output').length;
+    const invalid = this.invalidFirstPlanning && input.schema_name === 'creative_planning_output' && planningAttempt === 1;
+    const planning = planningOutput(input, invalid);
+    const planningWithRegistryConstraint = this.incompatibleArchetypeRoleFirst
+      && input.schema_name === 'creative_planning_output'
+      ? {
+          ...planning,
+          narrative_archetype: 'REVEAL',
+          suggested_constraints: planningAttempt === 1
+            ? [{ id: 'require_escalation', kind: 'require_role' as const, role: 'escalation' as const }]
+            : [{ id: 'require_tension', kind: 'require_role' as const, role: 'tension' as const }],
+        }
+      : planning;
     return Promise.resolve({
       output: input.schema_name === 'creative_planning_output'
-        ? planningOutput(input, invalid)
+        ? planningWithRegistryConstraint
         : resolutionOutput(input),
       usage: USAGE,
       response_id: `response_${this.calls.length}`,
@@ -183,6 +195,32 @@ describe('P2.5 — OpenAI CreativeProvider adapter', () => {
     expect(result.report.summary.planning_attempts).toBe(2);
     expect(provider.callCount).toBe(3);
     expect(transport.calls[1]?.input).toContain('gateway.output.request_constraint_changed');
+  });
+
+  it('transmet le registre actif et le contexte détaillé lors d’une réparation cross-field', async () => {
+    const transport = new SuccessfulTransport();
+    transport.incompatibleArchetypeRoleFirst = true;
+    const provider = new OpenAICreativeProvider({ transport });
+    const result = await runCreativeGateway(request(), {
+      provider,
+      max_repair_attempts: 1,
+      resolve_asset_bindings: ({ asset_intents }) => asset_intents.map((asset) => ({
+        asset_slot: asset.slot,
+        asset_ref: 'neutral_landscape',
+        provenance: 'fixture' as const,
+      })),
+    });
+
+    expect(result.ok, JSON.stringify(result.report.diagnostics)).toBe(true);
+    expect(transport.calls).toHaveLength(3);
+    const firstPlanning = transport.calls[0]?.input ?? '';
+    const repairPlanning = transport.calls[1]?.input ?? '';
+    expect(firstPlanning).toContain('supported_roles');
+    expect(firstPlanning).toContain('required_roles');
+    expect(firstPlanning).toContain('ordering_constraints');
+    expect(repairPlanning).toContain('gateway.output.archetype_role_unsupported');
+    expect(repairPlanning).toContain('incompatible_role');
+    expect(repairPlanning).toContain('permitted_role_constraints');
   });
 
   it('refuse proprement l’absence de secret sans le placer dans la configuration', () => {

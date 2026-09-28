@@ -20,6 +20,7 @@ function repairContext(invocation: ProviderInvocation): string {
     code: item.code,
     path: item.path,
     message: item.message,
+    context: item.context ?? null,
     suggested_action: item.suggested_action ?? null,
   })));
 }
@@ -34,7 +35,7 @@ export function createOpenAIPrompt(invocation: ProviderInvocation): OpenAIPrompt
   if (invocation.stage === 'planning') {
     return {
       prompt_version: OPENAI_PLANNING_PROMPT_VERSION,
-      instructions: `${COMMON_CONTRACT}\n\nConstruis une proposition éditoriale structurée pour le Planner déterministe. Le hook doit être immédiat. N’écris pas encore les scènes, la narration complète ni les textes écran. Préserve toutes les contraintes immuables. Utilise narrative_archetype=null seulement si aucune suggestion fiable n’est possible. Le français doit être naturel et sans formulation de chatbot.`,
+      instructions: `${COMMON_CONTRACT}\n\nConstruis une proposition éditoriale structurée pour le Planner déterministe. Le hook doit être immédiat. N’écris pas encore les scènes, la narration complète ni les textes écran. Préserve toutes les contraintes immuables. Choisis uniquement un archétype décrit dans active_archetype_registry. Toute contrainte require_role ou forbid_role doit cibler un supported_role de cet archétype ; ne jamais interdire un required_role. Respecte ordering_constraints, cta_allowed, duration_constraints et constraint_policy. Les IDs des contraintes suggérées doivent être uniques et distincts des request_constraint_ids. Utilise narrative_archetype=null seulement si aucune suggestion fiable n’est possible. En réparation, corrige la combinaison signalée sans substituer silencieusement le sens créatif. Le français doit être naturel et sans formulation de chatbot.`,
       input: canonicalCreativeJson({
         task: 'planning',
         request: invocation.request,

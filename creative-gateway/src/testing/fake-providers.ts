@@ -184,16 +184,55 @@ export class RepairableArchetypeProvider extends ValidProvider {
 export class RegistryAwareProvider extends ValidProvider {
   override readonly metadata: ProviderMetadata = metadata('registry_aware_provider');
   allowedArchetypes: readonly string[] = [];
+  planningContexts: NonNullable<ProviderInvocation['planning_context']>[] = [];
 
   override async generate(invocation: ProviderInvocation): Promise<ProviderResponse> {
     const valid = await super.generate(invocation);
     if (invocation.stage !== 'planning') return valid;
     this.allowedArchetypes = invocation.planning_context?.allowed_archetype_ids ?? [];
+    if (invocation.planning_context) this.planningContexts.push(invocation.planning_context);
     return {
       ...valid,
       output: {
         ...(valid.output as PlanningGenerationOutput),
         narrative_archetype: this.allowedArchetypes[0],
+      },
+    };
+  }
+}
+
+export class ArchetypeConstraintProvider extends ValidProvider {
+  override readonly metadata: ProviderMetadata = metadata('archetype_constraint_provider');
+  planningCalls = 0;
+  repairDiagnostics: readonly string[] = [];
+  repairDiagnosticContexts: readonly unknown[] = [];
+  planningContexts: NonNullable<ProviderInvocation['planning_context']>[] = [];
+  private readonly initial: Pick<PlanningGenerationOutput, 'narrative_archetype' | 'suggested_constraints'>;
+  private readonly repaired: Pick<PlanningGenerationOutput, 'narrative_archetype' | 'suggested_constraints'> | undefined;
+
+  constructor(
+    initial: Pick<PlanningGenerationOutput, 'narrative_archetype' | 'suggested_constraints'>,
+    repaired?: Pick<PlanningGenerationOutput, 'narrative_archetype' | 'suggested_constraints'>,
+  ) {
+    super();
+    this.initial = initial;
+    this.repaired = repaired;
+  }
+
+  override async generate(invocation: ProviderInvocation): Promise<ProviderResponse> {
+    const valid = await super.generate(invocation);
+    if (invocation.stage !== 'planning') return valid;
+    this.planningCalls += 1;
+    this.repairDiagnostics = invocation.repair_diagnostics.map((entry) => entry.code);
+    this.repairDiagnosticContexts = invocation.repair_diagnostics.map((entry) => entry.context ?? null);
+    if (invocation.planning_context) this.planningContexts.push(invocation.planning_context);
+    const variant = this.planningCalls > 1 && this.repaired ? this.repaired : this.initial;
+    return {
+      ...valid,
+      output: {
+        ...(valid.output as PlanningGenerationOutput),
+        narrative_archetype: variant.narrative_archetype,
+        suggested_constraints: variant.suggested_constraints,
       },
     };
   }
