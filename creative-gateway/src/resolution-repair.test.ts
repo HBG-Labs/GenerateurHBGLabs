@@ -40,7 +40,7 @@ const resolutionContext: ProviderResolutionContext = {
     semantic_context: entry.semantic_context, constraints: entry.constraints,
     required: entry.required, language: entry.language,
     factual_requirement: entry.factual_requirement, status: entry.status,
-    allowed_scene_ids: [`scene_${index + 1}`], reading_budget_applies: true,
+    allowed_scene_ids: index === 0 ? ['scene_1', 'scene_1_alternative'] : [`scene_${index + 1}`], reading_budget_applies: true,
     scene_time_budgets: [{
       scene_id: `scene_${index + 1}`, available_ms: 2_904, maximum_total_words: 11,
       maximum_recommended_characters_per_entry: 72,
@@ -126,6 +126,40 @@ function validPatch(): ResolutionRepairPatch {
   };
 }
 
+function specificRepairRequest() {
+  const specificOutput: ResolutionGenerationOutput = {
+    ...output,
+    content: output.content.map((entry) => entry.slot_id === 'slot_1'
+      ? { ...entry, scene_id: 'scene_1' }
+      : entry),
+  };
+  const built = buildResolutionRepairRequest({
+    request,
+    output: specificOutput,
+    diagnostics: [violation('slot_1', 'gateway.output.content_reading_budget_exceeded')],
+    resolution_context: resolutionContext,
+    content_slots: slots,
+    attempt: 1,
+  });
+  if (!built) throw new Error('Specific repair request absent.');
+  return { request: built, output: specificOutput };
+}
+
+function specificPatch(): ResolutionRepairPatch {
+  const specific = specificRepairRequest();
+  return {
+    schema: 'resolution-repair-patch', schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
+    request_id: specific.request.request_id, plan_id: specific.request.plan_id,
+    items: [{
+      target: { slot_id: 'slot_1', scene_id: 'scene_1' },
+      replacement: {
+        scene_id: 'scene_1', text: 'Texte bref', provenance: 'provider_generated',
+        uncertainty: 'none', source_required: false,
+      },
+    }],
+  };
+}
+
 describe('Resolution targeted repair', () => {
   it('dérive exactement deux targets parmi sept slots et agrège les diagnostics', () => {
     const repair = repairRequest();
@@ -153,6 +187,52 @@ describe('Resolution targeted repair', () => {
     expect(hashCreativeDocument(stableAfter)).toBe(hashCreativeDocument(stableBefore));
   });
 
+  it('préserve la portée générique et donc toutes les scènes autorisées', () => {
+    const requestForRepair = repairRequest();
+    const merged = mergeResolutionRepairPatch(output, requestForRepair, validPatch());
+    expect(merged.ok).toBe(true);
+    expect(requestForRepair.targets[0]?.allowed_scene_ids).toEqual(['scene_1', 'scene_1_alternative']);
+    expect(merged.output?.content.find((entry) => entry.slot_id === 'slot_1')?.scene_id).toBeUndefined();
+  });
+
+  it('refuse qu’une target générique devienne spécifique avant merge', () => {
+    const patch = validPatch();
+    patch.items[0] = {
+      ...patch.items[0]!,
+      replacement: { ...patch.items[0]!.replacement, scene_id: 'scene_1' },
+    };
+    const result = mergeResolutionRepairPatch(output, repairRequest(), patch);
+    expect(result.ok).toBe(false);
+    expect(result.output).toBeNull();
+    expect(result.diagnostics.map((entry) => entry.code)).toContain('gateway.repair_scope_mismatch');
+  });
+
+  it('accepte une target spécifique uniquement lorsque sa scène reste identique', () => {
+    const specific = specificRepairRequest();
+    const result = mergeResolutionRepairPatch(specific.output, specific.request, specificPatch());
+    expect(result.ok).toBe(true);
+    expect(result.output?.content.find((entry) => entry.slot_id === 'slot_1')?.scene_id).toBe('scene_1');
+  });
+
+  it('refuse qu’une target spécifique devienne générique', () => {
+    const specific = specificRepairRequest();
+    const patch = specificPatch();
+    patch.items[0] = { ...patch.items[0]!, replacement: { ...patch.items[0]!.replacement, scene_id: null } };
+    const result = mergeResolutionRepairPatch(specific.output, specific.request, patch);
+    expect(result.diagnostics.map((entry) => entry.code)).toContain('gateway.repair_scope_mismatch');
+  });
+
+  it('refuse qu’une target spécifique change vers une autre scène pourtant autorisée', () => {
+    const specific = specificRepairRequest();
+    const patch = specificPatch();
+    patch.items[0] = {
+      ...patch.items[0]!,
+      replacement: { ...patch.items[0]!.replacement, scene_id: 'scene_1_alternative' },
+    };
+    const result = mergeResolutionRepairPatch(specific.output, specific.request, patch);
+    expect(result.diagnostics.map((entry) => entry.code)).toContain('gateway.repair_scope_mismatch');
+  });
+
   it('refuse une troisième cible non autorisée', () => {
     const patch = validPatch();
     const extra = output.content[2]!;
@@ -173,11 +253,11 @@ describe('Resolution targeted repair', () => {
     expect(result.diagnostics.map((entry) => entry.code)).toContain('gateway.repair_patch.target_not_allowed');
   });
 
-  it('refuse un mauvais scene_id de remplacement', () => {
+  it('refuse un scene_id de remplacement différent de la target', () => {
     const patch = validPatch();
     patch.items[0] = { ...patch.items[0]!, replacement: { ...patch.items[0]!.replacement, scene_id: 'scene_unknown' } };
     const result = mergeResolutionRepairPatch(output, repairRequest(), patch);
-    expect(result.diagnostics.map((entry) => entry.code)).toContain('gateway.repair_patch.scene_not_allowed');
+    expect(result.diagnostics.map((entry) => entry.code)).toContain('gateway.repair_scope_mismatch');
   });
 
   it('refuse une target manquante', () => {

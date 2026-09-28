@@ -253,16 +253,29 @@ export function mergeResolutionRepairPatch(
     ));
     if (target) {
       const replacementScene = item.replacement.scene_id;
-      if (replacementScene === null && !target.generic_resolution_allowed) diagnostics.push(repairDiagnostic(
-        'gateway.repair_patch.generic_resolution_forbidden', `$.items[${index}].replacement.scene_id`,
-        'Cette cible n’autorise pas de résolution générique.', 'Choisir une scène autorisée.',
-        { slot_id: item.target.slot_id },
+      if (replacementScene !== target.target.scene_id) diagnostics.push(repairDiagnostic(
+        'gateway.repair_scope_mismatch', `$.items[${index}].replacement.scene_id`,
+        'Le patch tente de modifier la portée scène de la target canonique.',
+        'Recopier exactement scene_id depuis target sans rendre une cible générique spécifique, ni l’inverse.',
+        {
+          slot_id: item.target.slot_id,
+          target_scene_id: target.target.scene_id,
+          replacement_scene_id: replacementScene,
+          allowed_scene_ids: target.allowed_scene_ids.join(','),
+        },
       ));
-      if (replacementScene !== null && !target.allowed_scene_ids.includes(replacementScene)) diagnostics.push(repairDiagnostic(
-        'gateway.repair_patch.scene_not_allowed', `$.items[${index}].replacement.scene_id`,
-        'La scène de remplacement n’est pas autorisée pour ce ContentSlot.', 'Choisir une scène de allowed_scene_ids.',
-        { slot_id: item.target.slot_id, scene_id: replacementScene, allowed_scene_ids: target.allowed_scene_ids.join(',') },
-      ));
+      else {
+        if (replacementScene === null && !target.generic_resolution_allowed) diagnostics.push(repairDiagnostic(
+          'gateway.repair_patch.generic_resolution_forbidden', `$.items[${index}].replacement.scene_id`,
+          'Cette cible n’autorise pas de résolution générique.', 'Choisir une scène autorisée.',
+          { slot_id: item.target.slot_id },
+        ));
+        if (replacementScene !== null && !target.allowed_scene_ids.includes(replacementScene)) diagnostics.push(repairDiagnostic(
+          'gateway.repair_patch.scene_not_allowed', `$.items[${index}].replacement.scene_id`,
+          'La scène de remplacement n’est pas autorisée pour ce ContentSlot.', 'Choisir une scène de allowed_scene_ids.',
+          { slot_id: item.target.slot_id, scene_id: replacementScene, allowed_scene_ids: target.allowed_scene_ids.join(',') },
+        ));
+      }
     }
   });
   request.targets.forEach((target) => {
@@ -309,6 +322,26 @@ export function mergeResolutionRepairPatch(
     }));
 
   const output = ResolutionGenerationOutputSchema.parse({ ...base, content: mergedContent });
+  const lostScopes = request.targets.filter((target) => !output.content.some((entry) => (
+    resolutionRepairTargetKey(outputTarget(entry)) === resolutionRepairTargetKey(target.target)
+  )));
+  if (lostScopes.length > 0) {
+    return {
+      ok: false,
+      output: null,
+      patch,
+      diagnostics: lostScopes.map((target) => repairDiagnostic(
+        'gateway.repair_scope_mismatch', '$.items',
+        'Le résultat fusionné ne conserve pas la portée scène canonique de la target.',
+        'Conserver exactement le slot_id et le scene_id de chaque target pendant le repair.',
+        {
+          slot_id: target.target.slot_id,
+          target_scene_id: target.target.scene_id,
+          allowed_scene_ids: target.allowed_scene_ids.join(','),
+        },
+      )),
+    };
+  }
   const targetKeys = new Set(request.targets.map((target) => resolutionRepairTargetKey(target.target)));
   const beforeStable = base.content.filter((entry) => !targetKeys.has(resolutionRepairTargetKey(outputTarget(entry))));
   const remainingHashes = new Map<string, number>();

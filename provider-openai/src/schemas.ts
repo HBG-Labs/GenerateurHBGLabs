@@ -51,14 +51,16 @@ export type OpenAIResolutionOutput = z.infer<typeof OpenAIResolutionOutputSchema
 
 export function createOpenAIResolutionRepairPatchSchema(request: ResolutionRepairRequest) {
   const slotIds = [...new Set(request.targets.map((target) => target.target.slot_id))];
-  const sceneIds = [...new Set(request.targets.flatMap((target) => [
-    ...target.allowed_scene_ids,
-    ...(target.target.scene_id === null ? [] : [target.target.scene_id]),
-  ]))];
+  const sceneIds = [...new Set(request.targets.flatMap((target) => (
+    target.target.scene_id === null ? [] : [target.target.scene_id]
+  )))];
+  const includesGenericTarget = request.targets.some((target) => target.target.scene_id === null);
   const slotSchema = z.enum(slotIds as [string, ...string[]]);
   const sceneSchema = sceneIds.length === 0
-    ? StableIdSchema.nullable()
-    : z.enum(sceneIds as [string, ...string[]]).nullable();
+    ? z.null()
+    : includesGenericTarget
+      ? z.enum(sceneIds as [string, ...string[]]).nullable()
+      : z.enum(sceneIds as [string, ...string[]]);
   const itemSchema = ResolutionRepairPatchSchema.shape.items.element.extend({
     target: ResolutionRepairPatchSchema.shape.items.element.shape.target.extend({
       slot_id: slotSchema,

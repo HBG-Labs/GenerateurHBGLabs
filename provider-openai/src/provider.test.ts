@@ -336,6 +336,48 @@ describe('P2.5 — OpenAI CreativeProvider adapter', () => {
         },
       }],
     }).success).toBe(true);
+    expect(schema.safeParse({
+      schema: 'resolution-repair-patch', schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
+      request_id: 'request_test', plan_id: 'plan_test',
+      items: [{
+        target: { slot_id: 'slot_test', scene_id: null },
+        replacement: {
+          scene_id: 'scene_test', text: 'Scope interdit', provenance: 'provider_generated',
+          uncertainty: 'none', source_required: false,
+        },
+      }],
+    }).success).toBe(false);
+
+    const specificRequest = ResolutionRepairRequestSchema.parse({
+      ...repairRequest,
+      targets: repairRequest.targets.map((target) => ({
+        ...target,
+        target: { slot_id: target.target.slot_id, scene_id: 'scene_test' },
+        previous_content: target.previous_content === null
+          ? null
+          : { ...target.previous_content, scene_id: 'scene_test' },
+      })),
+    });
+    const specificSchema = createOpenAIResolutionRepairPatchSchema(specificRequest);
+    const specificPatch = {
+      schema: 'resolution-repair-patch', schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
+      request_id: 'request_test', plan_id: 'plan_test',
+      items: [{
+        target: { slot_id: 'slot_test', scene_id: 'scene_test' },
+        replacement: {
+          scene_id: 'scene_test', text: 'Scope préservé', provenance: 'provider_generated',
+          uncertainty: 'none', source_required: false,
+        },
+      }],
+    };
+    expect(specificSchema.safeParse(specificPatch).success).toBe(true);
+    expect(specificSchema.safeParse({
+      ...specificPatch,
+      items: specificPatch.items.map((item) => ({
+        ...item,
+        replacement: { ...item.replacement, scene_id: null },
+      })),
+    }).success).toBe(false);
   });
 
   it.each([

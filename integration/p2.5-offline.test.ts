@@ -188,8 +188,14 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
     const subtitleTarget = this.mode === 'combined_repair' ? combinedTarget : context.content_slots.find((slot) => (
       slot.constraints.channels.includes('spoken') && !slot.constraints.channels.includes('on_screen')
     ))?.slot_id;
+    const spokenSlots = context.content_slots.filter((slot) => slot.constraints.channels.includes('spoken'));
+    const multiSceneSpoken = spokenSlots.find((slot) => slot.allowed_scene_ids.length > 1);
+    const tripleSubtitleSlots = [
+      ...(multiSceneSpoken === undefined ? [] : [multiSceneSpoken]),
+      ...spokenSlots.filter((slot) => slot.slot_id !== multiSceneSpoken?.slot_id),
+    ].slice(0, 3);
     const subtitleTargets = new Set(this.mode === 'subtitle_triple_repair'
-      ? context.content_slots.filter((slot) => slot.constraints.channels.includes('spoken')).slice(0, 3).map((slot) => slot.slot_id)
+      ? tripleSubtitleSlots.map((slot) => slot.slot_id)
       : subtitleTarget === undefined ? [] : [subtitleTarget]);
     const temporalTarget = this.mode === 'combined_repair' ? combinedTarget : context.content_slots.find((slot) => (
       slot.allowed_scene_ids.length > 1
@@ -614,7 +620,8 @@ describe('P2.5 — adapter réel, transport offline', () => {
     const repairPayload = JSON.parse(transport.requests.at(-1)!.input) as {
       resolution_repair_request: {
         targets: Array<{
-          target: { slot_id: string };
+          target: { slot_id: string; scene_id: string | null };
+          allowed_scene_ids: string[];
           subtitle_constraint: { content_relative_maximum_words: number } | null;
           effective_concision: { maximum_words: number } | null;
         }>;
@@ -629,6 +636,10 @@ describe('P2.5 — adapter réel, transport offline', () => {
     ))).toBe(true);
     expect(result.report.resolution_repair?.initial_invalid_targets).toHaveLength(3);
     expect(result.report.resolution_repair?.patched_targets).toHaveLength(3);
+    const genericMultiScene = targets.find((entry) => (
+      entry.target.scene_id === null && entry.allowed_scene_ids.length > 1
+    ));
+    expect(genericMultiScene).toBeDefined();
     const targetIds = new Set(targets.map((entry) => entry.target.slot_id));
     const initial = transport.outputs[0] as { content: Array<{ slot_id: string; scene_id?: string | null; text: string }> };
     const stableBefore = initial.content.filter((entry) => !targetIds.has(entry.slot_id)).map((entry) => ({
@@ -638,6 +649,11 @@ describe('P2.5 — adapter réel, transport offline', () => {
       ...entry, scene_id: entry.scene_id ?? undefined,
     }));
     expect(stableAfter).toEqual(stableBefore);
+    expect(result.snapshot!.resolution_output.content.find((entry) => (
+      entry.slot_id === genericMultiScene?.target.slot_id
+    ))?.scene_id).toBeUndefined();
+    expect(result.report.diagnostics.map((entry) => entry.code))
+      .not.toContain('gateway.output.required_scene_resolution_missing');
     const compiled = compileP24GatewayResult(result, 'signal');
     expect(compiled.p1.preflight.summary?.errors ?? 0).toBe(0);
     expect(compiled.p1.preflight.issues.map((entry) => entry.code)).not.toContain('text.overflow');

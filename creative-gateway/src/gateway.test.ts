@@ -464,22 +464,25 @@ describe('P2.4 — Creative Gateway', () => {
     expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.unknown_content_slot');
   });
 
-  it('répare un mauvais ID puis accepte toutes les résolutions spécifiques', async () => {
+  it('refuse qu’un repair change un mauvais ID vers une scène spécifique', async () => {
     const provider = new SceneBindingProvider('repair_specific');
     const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
-    expect(result.ok, JSON.stringify(result.report.diagnostics)).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.report.failure_kind).toBe('repair_exhausted');
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.repair_scope_mismatch');
     expect(provider.resolutionCalls).toBe(2);
     expect(provider.repairDiagnostics).toContain('gateway.output.scene_not_allowed_for_slot');
   });
 
-  it('répare un mauvais ID puis accepte une résolution générique', async () => {
+  it('refuse qu’un repair change un mauvais ID vers une portée générique', async () => {
     const provider = new SceneBindingProvider('repair_generic');
     const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
-    expect(result.ok, JSON.stringify(result.report.diagnostics)).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.report.failure_kind).toBe('repair_exhausted');
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.repair_scope_mismatch');
     expect(provider.resolutionCalls).toBe(2);
     expect(provider.repairDiagnostics).toContain('gateway.output.scene_not_allowed_for_slot');
-    expect(result.creative_resolution?.content_slots.filter((entry) => entry.required)
-      .every((entry) => entry.status === 'resolved')).toBe(true);
+    expect(result.creative_resolution).toBeNull();
   });
 
   it('borne la réparation et refuse un provider toujours invalide', async () => {
