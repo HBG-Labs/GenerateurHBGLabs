@@ -30,7 +30,8 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
   calls = 0;
   resolutionCalls = 0;
   readonly requests: OpenAITransportRequest[] = [];
-  readonly mode: 'valid' | 'too_long' | 'repair' | 'subtitle_too_long' | 'subtitle_repair' = 'valid';
+  readonly outputs: unknown[] = [];
+  readonly mode: 'valid' | 'too_long' | 'repair' | 'repair_still_long' | 'repair_changes_valid' | 'subtitle_too_long' | 'subtitle_repair' = 'valid';
   resolutionContexts: Array<{
     plan_id: string;
     content_slots: Array<{
@@ -74,7 +75,7 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
     asset_intents: Array<{ id: string; slot: string; purpose: string }>;
   }> = [];
 
-  constructor(mode: 'valid' | 'too_long' | 'repair' | 'subtitle_too_long' | 'subtitle_repair' = 'valid') {
+  constructor(mode: 'valid' | 'too_long' | 'repair' | 'repair_still_long' | 'repair_changes_valid' | 'subtitle_too_long' | 'subtitle_repair' = 'valid') {
     this.mode = mode;
   }
 
@@ -100,37 +101,83 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
     const context = payload['resolution_context'] as OfflineStructuredTransport['resolutionContexts'][number];
     this.resolutionCalls += 1;
     this.resolutionContexts.push(context);
-    const mustBeLong = this.mode === 'too_long' || (this.mode === 'repair' && this.resolutionCalls === 1);
+    const mustBeLong = this.mode === 'too_long'
+      || (['repair', 'repair_still_long', 'repair_changes_valid'].includes(this.mode) && this.resolutionCalls === 1);
     const mustOverflowSubtitle = this.mode === 'subtitle_too_long'
       || (this.mode === 'subtitle_repair' && this.resolutionCalls === 1);
     const subtitleTarget = context.content_slots.find((slot) => (
       slot.constraints.channels.includes('spoken') && !slot.constraints.channels.includes('on_screen')
     ))?.slot_id;
+    const temporalTarget = context.content_slots.find((slot) => (
+      slot.allowed_scene_ids.length > 1
+      && slot.constraints.channels.includes('on_screen')
+      && !slot.constraints.channels.includes('spoken')
+    ))?.slot_id ?? context.content_slots.find((slot) => (
+      slot.allowed_scene_ids.length > 1 && slot.constraints.channels.includes('on_screen')
+    ))?.slot_id ?? context.content_slots.find((slot) => (
+      slot.constraints.channels.includes('on_screen') && !slot.constraints.channels.includes('spoken')
+    ))?.slot_id ?? context.content_slots.find((slot) => slot.constraints.channels.includes('on_screen'))?.slot_id;
+    const previous = payload['previous_output'] as { content: Array<{
+      slot_id: string;
+      scene_id: string | null;
+      text: string;
+      provenance: string;
+      uncertainty: string;
+      source_required: boolean;
+    }>; asset_descriptions: unknown[] } | null;
+    const repairDiagnostics = typeof payload['repair_diagnostics'] === 'string'
+      && payload['repair_diagnostics'].trimStart().startsWith('[')
+      ? JSON.parse(payload['repair_diagnostics']) as Array<{ context?: Record<string, unknown> }>
+      : [];
+    const repairTargets = new Map<string, number | null>();
+    repairDiagnostics.forEach((entry) => {
+      const slotId = entry.context?.['slot_id'];
+      if (typeof slotId !== 'string' || entry.context?.['repair_target'] !== true) return;
+      const maximum = entry.context['effective_maximum_slot_words'];
+      const current = repairTargets.get(slotId);
+      if (typeof maximum === 'number') repairTargets.set(slotId, current === undefined || current === null ? maximum : Math.min(current, maximum));
+      else if (!repairTargets.has(slotId)) repairTargets.set(slotId, null);
+    });
+    const repairedContent = previous?.content.map((entry) => {
+      if (!repairTargets.has(entry.slot_id)) {
+        return this.mode === 'repair_changes_valid'
+          ? { ...entry, text: `${entry.text} modifié` }
+          : entry;
+      }
+      const maximum = repairTargets.get(entry.slot_id);
+      const wordCount = typeof maximum === 'number'
+        ? Math.max(1, maximum + (this.mode === 'repair_still_long' ? 1 : 0))
+        : 2;
+      return { ...entry, text: Array.from({ length: wordCount }, () => 'mot').join(' ') };
+    });
+    const content = repairedContent ?? context.content_slots.map((slot) => ({
+      slot_id: slot.slot_id, scene_id: null,
+      text: (mustOverflowSubtitle && slot.slot_id === subtitleTarget
+        ? 'W'.repeat(Math.min(120, slot.constraints.max_characters))
+        : mustBeLong && slot.slot_id === temporalTarget
+        ? Array.from(
+            { length: Math.max(8, Math.min(24, Math.floor((slot.constraints.max_characters + 1) / 4))) },
+            () => 'mot',
+          ).join(' ')
+        : slot.role === 'hook_text'
+          ? 'ET SI LES DINOSAURES REVENAIENT ?'
+          : 'Nos villes devraient changer de rythme.').slice(0, slot.constraints.max_characters),
+      provenance: 'provider_generated', uncertainty: slot.factual_requirement === 'none' ? 'none' : 'unknown',
+      source_required: slot.factual_requirement === 'source_required',
+    }));
+    const output = {
+      schema: 'creative-generation-output', schema_version: '0.1.0', stage: 'resolution',
+      request_id: request.request_id, plan_id: context.plan_id, provenance: 'provider_generated',
+      content,
+      asset_descriptions: previous?.asset_descriptions ?? context.asset_intents.map((asset) => ({
+        asset_intent_id: asset.id, asset_slot: asset.slot,
+        description: `Illustration conceptuelle : ${asset.purpose}`, provenance: 'provider_generated',
+      })),
+    };
+    this.outputs.push(output);
     return Promise.resolve({
       response_id: 'offline_resolution', model: 'gpt-6-luna', usage: USAGE,
-      output: {
-        schema: 'creative-generation-output', schema_version: '0.1.0', stage: 'resolution',
-        request_id: request.request_id, plan_id: context.plan_id, provenance: 'provider_generated',
-        content: context.content_slots.map((slot) => ({
-          slot_id: slot.slot_id, scene_id: null,
-          text: (mustOverflowSubtitle && slot.slot_id === subtitleTarget
-            ? 'W'.repeat(Math.min(120, slot.constraints.max_characters))
-            : mustBeLong
-            ? Array.from(
-                { length: Math.max(8, Math.min(24, Math.floor((slot.constraints.max_characters + 1) / 4))) },
-                () => 'mot',
-              ).join(' ')
-            : slot.role === 'hook_text'
-              ? 'ET SI LES DINOSAURES REVENAIENT ?'
-              : 'Nos villes devraient changer de rythme.').slice(0, slot.constraints.max_characters),
-          provenance: 'provider_generated', uncertainty: slot.factual_requirement === 'none' ? 'none' : 'unknown',
-          source_required: slot.factual_requirement === 'source_required',
-        })),
-        asset_descriptions: context.asset_intents.map((asset) => ({
-          asset_intent_id: asset.id, asset_slot: asset.slot,
-          description: `Illustration conceptuelle : ${asset.purpose}`, provenance: 'provider_generated',
-        })),
-      },
+      output,
     });
   }
 }
@@ -228,12 +275,27 @@ describe('P2.5 — adapter réel, transport offline', () => {
     expect(diagnostics.length).toBeGreaterThan(0);
     expect(diagnostics.every((entry) =>
       typeof entry.context?.['available_ms'] === 'number'
+      && typeof entry.context?.['available_scene_ms'] === 'number'
+      && typeof entry.context?.['already_allocated_ms'] === 'number'
+      && typeof entry.context?.['remaining_slot_ms'] === 'number'
       && typeof entry.context?.['required_ms'] === 'number'
-      && typeof entry.context?.['maximum_total_words'] === 'number')).toBe(true);
+      && typeof entry.context?.['maximum_total_words'] === 'number'
+      && typeof entry.context?.['maximum_slot_words'] === 'number'
+      && typeof entry.context?.['effective_maximum_slot_words'] === 'number'
+      && typeof entry.context?.['current_word_count'] === 'number'
+      && entry.context?.['repair_target'] === true)).toBe(true);
+    expect(diagnostics.every((entry) => (
+      Number(entry.context?.['current_word_count']) > Number(entry.context?.['maximum_slot_words'])
+    ))).toBe(true);
     const multiSceneSlotIds = new Set(transport.resolutionContexts[0]!.content_slots
       .filter((slot) => slot.allowed_scene_ids.length > 1)
       .map((slot) => slot.slot_id));
     expect(diagnostics.some((entry) => multiSceneSlotIds.has(String(entry.context?.['slot_id'])))).toBe(true);
+    const genericDiagnostic = diagnostics.find((entry) => multiSceneSlotIds.has(String(entry.context?.['slot_id'])))!;
+    const genericSlotDiagnostics = diagnostics.filter((entry) => entry.context?.['slot_id'] === genericDiagnostic.context?.['slot_id']);
+    expect(genericSlotDiagnostics.every((entry) => entry.context?.['effective_maximum_slot_words']
+      === Math.min(...genericSlotDiagnostics.map((candidate) => Number(candidate.context?.['maximum_slot_words']))))).toBe(true);
+    expect(result.report.diagnostics.map((entry) => entry.code)).not.toContain('gateway.output.subtitle_geometry_overflow');
   });
 
   it('répare sémantiquement un texte trop long puis franchit P1 temporal', async () => {
@@ -260,8 +322,72 @@ describe('P2.5 — adapter réel, transport offline', () => {
     expect(transport.resolutionCalls).toBe(2);
     expect(transport.calls).toBe(3);
     expect(transport.requests.at(-1)?.input).toContain('gateway.output.content_reading_budget_exceeded');
+    const repairPayload = JSON.parse(transport.requests.at(-1)!.input) as {
+      previous_output: { content: Array<{ slot_id: string; scene_id?: string; text: string }> };
+      repair_diagnostics: string;
+    };
+    const repairDiagnostics = JSON.parse(repairPayload.repair_diagnostics) as Array<{ context: Record<string, unknown> }>;
+    const targetIds = new Set(repairDiagnostics.flatMap((entry) => (
+      entry.context['repair_target'] === true ? [String(entry.context['slot_id'])] : []
+    )));
+    expect(targetIds.size).toBeGreaterThan(0);
+    const before = transport.outputs[0] as { content: Array<{ slot_id: string; scene_id?: string; text: string }> };
+    const after = transport.outputs[1] as { content: Array<{ slot_id: string; scene_id?: string; text: string }> };
+    const stable = (entries: typeof before.content) => entries.filter((entry) => !targetIds.has(entry.slot_id)).map((entry) => ({
+      ...entry,
+      scene_id: entry.scene_id ?? null,
+    }));
+    expect(stable(after.content)).toEqual(stable(before.content));
+    after.content.filter((entry) => targetIds.has(entry.slot_id)).forEach((entry) => {
+      const maximum = Math.min(...repairDiagnostics
+        .filter((diagnostic) => diagnostic.context['slot_id'] === entry.slot_id)
+        .map((diagnostic) => Number(diagnostic.context['effective_maximum_slot_words'])));
+      expect(entry.text.split(/\s+/u)).toHaveLength(maximum);
+    });
     const compiled = compileP24GatewayResult(result, 'signal');
     expect(compiled.p1.preflight.summary?.errors ?? 0).toBe(0);
+  });
+
+  it('épuise le repair lorsque le slot ciblé reste au-dessus de son maximum exact', async () => {
+    const transport = new OfflineStructuredTransport('repair_still_long');
+    const style = p23Style('signal');
+    const result = await runCreativeGateway(p24Request(), {
+      provider: new OpenAICreativeProvider({ transport }),
+      max_repair_attempts: 1,
+      reading_policy: {
+        profile: SHORT_FORM_DEFAULT_PROFILE,
+        resolved_style: style,
+        pattern: pattern(),
+        platform_presets: platforms(),
+        font_resources: p14FontResources(style),
+        render_scale: 1,
+        minimum_readable_size: 28,
+      },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.report.failure_kind).toBe('repair_exhausted');
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.content_reading_budget_exceeded');
+    expect(transport.resolutionCalls).toBe(2);
+  });
+
+  it('refuse une réparation qui modifie un slot valide non ciblé', async () => {
+    const transport = new OfflineStructuredTransport('repair_changes_valid');
+    const style = p23Style('signal');
+    const result = await runCreativeGateway(p24Request(), {
+      provider: new OpenAICreativeProvider({ transport }),
+      max_repair_attempts: 1,
+      reading_policy: {
+        profile: SHORT_FORM_DEFAULT_PROFILE,
+        resolved_style: style,
+        pattern: pattern(),
+        platform_presets: platforms(),
+        font_resources: p14FontResources(style),
+        render_scale: 1,
+        minimum_readable_size: 28,
+      },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.repair_modified_valid_content');
   });
 
   it('rejette un contenu parlé qui dépasse la géométrie réelle des sous-titres', async () => {
@@ -289,6 +415,7 @@ describe('P2.5 — adapter réel, transport offline', () => {
         context: expect.objectContaining({ maximum_lines: 2, overflow_reason: expect.any(String) }),
       }),
     ]));
+    expect(result.report.diagnostics.map((entry) => entry.code)).not.toContain('gateway.output.content_reading_budget_exceeded');
   });
 
   it('répare uniquement le sous-titre trop long puis franchit SubtitlePlan P1', async () => {

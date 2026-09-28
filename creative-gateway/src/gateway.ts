@@ -21,6 +21,7 @@ import {
   type CreativeReadingBudget,
   type CreativeReadingPolicy,
   type CreativeResolution,
+  type CreativeSlotReadingBudget,
   type CreativeSubtitleFitBudget,
 } from '@motion-engine/creative-compiler';
 
@@ -656,29 +657,62 @@ function readingSemantics(
       : entry.suggested_action,
   }));
   const diagnostics: CreativeDiagnostic[] = [];
-  inspection.issues.forEach((issue) => {
-    const contributors = output.content.flatMap((entry, index) => {
-      const target = targetMap.get(entry.slot_id);
-      if (!target?.reading_budget_applies) return [];
-      const applies = entry.scene_id === issue.scene_id
-        || (entry.scene_id === undefined && target.allowed_scene_ids.includes(issue.scene_id));
-      return applies ? [{ entry, index }] : [];
+  const allocationsByOutput = new Map<number, CreativeSlotReadingBudget[]>();
+  inspection.slot_budgets.forEach((allocation) => {
+    const index = output.content.findIndex((entry) => {
+      if (entry.slot_id !== allocation.slot_id) return false;
+      return entry.scene_id === undefined || entry.scene_id === allocation.scene_id;
     });
-    contributors.forEach(({ entry, index }) => diagnostics.push(diagnostic(
+    if (index < 0 || !targetMap.get(allocation.slot_id)?.reading_budget_applies) return;
+    const values = allocationsByOutput.get(index) ?? [];
+    values.push(allocation);
+    allocationsByOutput.set(index, values);
+  });
+  allocationsByOutput.forEach((allocations, index) => {
+    const entry = output.content[index]!;
+    const effectiveMaximumWords = Math.min(...allocations.map((allocation) => allocation.maximum_slot_words));
+    const effectiveRemainingMs = Math.min(...allocations.map((allocation) => allocation.remaining_slot_ms));
+    allocations.forEach((allocation) => diagnostics.push(diagnostic(
       'gateway.output.content_reading_budget_exceeded',
       'error',
       `$.content[${index}].text`,
-      'Le contenu cumulé de la scène dépasse sa fenêtre de lecture certifiée.',
-      'Raccourcir le contenu tout en préservant son rôle sémantique ; ne modifier ni la scène ni sa durée.',
+      'Ce ContentSlot dépasse le budget temporel qui lui reste après les autres contenus de la scène.',
+      `Réécrire uniquement le slot ${entry.slot_id} avec au maximum ${effectiveMaximumWords} mot(s), en préservant son rôle et son sens ; ne modifier aucun autre slot, ID, timing ou structure.`,
       {
         slot_id: entry.slot_id,
-        scene_id: issue.scene_id,
-        available_ms: issue.available_ms,
-        required_ms: issue.required_ms,
-        maximum_total_words: issue.maximum_total_words,
+        scene_id: allocation.scene_id,
+        available_ms: allocation.available_scene_ms,
+        available_scene_ms: allocation.available_scene_ms,
+        already_allocated_ms: allocation.already_allocated_ms,
+        already_allocated_words: allocation.already_allocated_words,
+        remaining_slot_ms: allocation.remaining_slot_ms,
+        required_ms: allocation.current_required_ms,
+        current_required_ms: allocation.current_required_ms,
+        current_slot_required_ms: allocation.current_slot_required_ms,
+        maximum_total_words: allocation.maximum_total_words,
+        maximum_slot_words: allocation.maximum_slot_words,
+        effective_maximum_slot_words: effectiveMaximumWords,
+        effective_remaining_slot_ms: effectiveRemainingMs,
+        current_word_count: allocation.current_word_count,
+        repair_target: true,
+        generic_resolution: entry.scene_id === undefined,
       },
     )));
   });
+  inspection.issues.filter((issue) => !inspection.slot_budgets.some((budget) => budget.scene_id === issue.scene_id))
+    .forEach((issue) => diagnostics.push(diagnostic(
+      'gateway.output.scene_reading_budget_unattributed',
+      'error',
+      '$.content',
+      'La scène dépasse son budget temporel, mais aucun ContentSlot provider modifiable ne porte le texte responsable.',
+      'Corriger le CreativePlan ou son contenu déjà résolu avant Stage B.',
+      {
+        scene_id: issue.scene_id,
+        available_scene_ms: issue.available_ms,
+        current_required_ms: issue.required_ms,
+        maximum_total_words: issue.maximum_total_words,
+      },
+    )));
   const subtitleInspection = inspectCreativeSubtitleFeasibility({
     plan,
     planning_report: report,
@@ -717,6 +751,7 @@ function readingSemantics(
         available_width: issue.analysis.available_width,
         available_height: issue.analysis.available_height,
         overflow_reason: issue.analysis.overflow_reason ?? 'unknown',
+        repair_target: true,
       },
     ));
   });
@@ -756,6 +791,39 @@ interface StageResult<T> {
   readonly failure: GatewayFailureKind | null;
 }
 
+function targetedRepairStabilityDiagnostics(
+  previous: PlanningGenerationOutput | ResolutionGenerationOutput | null,
+  current: PlanningGenerationOutput | ResolutionGenerationOutput,
+  repairDiagnostics: readonly CreativeDiagnostic[],
+): CreativeDiagnostic[] {
+  if (!previous || previous.stage !== 'resolution' || current.stage !== 'resolution') return [];
+  const targets = new Set(repairDiagnostics.flatMap((entry) => (
+    entry.context?.['repair_target'] === true && typeof entry.context['slot_id'] === 'string'
+      ? [entry.context['slot_id']]
+      : []
+  )));
+  if (targets.size === 0) return [];
+  const currentByKey = new Map(current.content.map((entry) => [`${entry.slot_id}:${entry.scene_id ?? '*'}`, entry]));
+  return previous.content.flatMap((entry) => {
+    if (targets.has(entry.slot_id)) return [];
+    const key = `${entry.slot_id}:${entry.scene_id ?? '*'}`;
+    const repaired = currentByKey.get(key);
+    if (repaired && hashCreativeDocument(repaired) === hashCreativeDocument(entry)) return [];
+    return [diagnostic(
+      'gateway.output.repair_modified_valid_content',
+      'error',
+      '$.content',
+      'La réparation a modifié ou supprimé un ContentSlot qui n’était pas ciblé par les diagnostics.',
+      'Restaurer exactement le contenu précédent de ce slot et modifier uniquement les slots marqués repair_target=true.',
+      {
+        slot_id: entry.slot_id,
+        scene_id: entry.scene_id ?? 'generic',
+        repair_target: false,
+      },
+    )];
+  });
+}
+
 async function runStage<T extends PlanningGenerationOutput | ResolutionGenerationOutput>(input: {
   readonly stage: 'planning' | 'resolution';
   readonly context: RunContext;
@@ -772,6 +840,7 @@ async function runStage<T extends PlanningGenerationOutput | ResolutionGeneratio
   const validatingState = input.stage === 'planning' ? 'PLANNING_VALIDATING' : 'RESOLUTION_VALIDATING';
   transition(input.context, pendingState, `${input.stage}.provider_pending`);
   let repairDiagnostics: CreativeDiagnostic[] = [];
+  let repairPreviousOutput: PlanningGenerationOutput | ResolutionGenerationOutput | null = null;
   for (let attempt = 0; attempt <= input.maxRepairs; attempt += 1) {
     if (attempt > 0) transition(input.context, pendingState, `${input.stage}.repair_requested`);
     if (input.stage === 'planning') input.context.planningAttempts += 1;
@@ -788,6 +857,7 @@ async function runStage<T extends PlanningGenerationOutput | ResolutionGeneratio
         ...(input.planningContext === undefined ? {} : { planning_context: input.planningContext }),
         ...(input.resolutionContext === undefined ? {} : { resolution_context: input.resolutionContext }),
         repair_diagnostics: repairDiagnostics,
+        ...(attempt > 0 && repairPreviousOutput ? { repair_previous_output: repairPreviousOutput } : {}),
       }, input.timeoutMs, input.externalSignal);
       input.context.providerMs += elapsedMs(providerStarted);
       input.context.usage = mergeUsage(input.context.usage, response.usage);
@@ -814,11 +884,17 @@ async function runStage<T extends PlanningGenerationOutput | ResolutionGeneratio
       if (!parsed.success) current.push(...zodDiagnostics(parsed.error, input.stage));
       else {
         output = parsed.data as T;
+        if (attempt > 0) current.push(...targetedRepairStabilityDiagnostics(
+          repairPreviousOutput,
+          output,
+          repairDiagnostics,
+        ));
         current.push(...input.semantic(output));
       }
     }
     input.context.validationMs += elapsedMs(validationStarted);
     if (!current.some((entry) => entry.severity === 'error') && output) return { ok: true, output, failure: null };
+    if (!repairPreviousOutput && output) repairPreviousOutput = output;
     repairDiagnostics = sortCreativeDiagnostics(current);
     if (attempt === input.maxRepairs) {
       input.context.diagnostics.push(...repairDiagnostics, diagnostic(

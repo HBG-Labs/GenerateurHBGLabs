@@ -9,9 +9,11 @@ import type {
 import type {
   CreativeGenerationRequest,
   GatewayFailureKind,
+  PlanningGenerationOutput,
   PromptContract,
   ProviderMetadata,
   ProviderUsage,
+  ResolutionGenerationOutput,
 } from './contracts.ts';
 
 export interface ProviderResolutionContext {
@@ -102,6 +104,8 @@ export interface ProviderInvocation {
   readonly planning_context?: ProviderPlanningContext;
   readonly resolution_context?: ProviderResolutionContext;
   readonly repair_diagnostics: readonly CreativeDiagnostic[];
+  /** Dernière sortie structurée valide au niveau schéma, mais refusée sémantiquement. */
+  readonly repair_previous_output?: PlanningGenerationOutput | ResolutionGenerationOutput;
   readonly signal: AbortSignal;
 }
 

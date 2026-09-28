@@ -77,6 +77,15 @@ describe('Creative Compiler P2.3', () => {
     expect(inspected.ok).toBe(false);
     expect(inspected.issues.length).toBeGreaterThan(0);
     expect(inspected.issues.every((issue) => issue.required_ms > issue.available_ms)).toBe(true);
+    expect(inspected.slot_budgets.length).toBeGreaterThan(0);
+    expect(inspected.slot_budgets.every((budget) => (
+      budget.available_scene_ms > 0
+      && budget.already_allocated_ms >= 0
+      && budget.remaining_slot_ms >= 0
+      && budget.current_required_ms > budget.available_scene_ms
+      && budget.current_word_count > budget.maximum_slot_words
+      && budget.maximum_slot_words + budget.already_allocated_words === budget.maximum_total_words
+    ))).toBe(true);
   });
 
   it('refuse Stage B lorsque même le contenu minimal ne tient pas dans la fenêtre P1', () => {
