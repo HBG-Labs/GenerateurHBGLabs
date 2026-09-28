@@ -23,16 +23,27 @@ export function createOpenAIPlanningOutputSchema(allowedArchetypeIds: readonly s
 export const OpenAIPlanningOutputSchema = createOpenAIPlanningOutputSchema(ARCHETYPE_IDS);
 export type OpenAIPlanningOutput = z.infer<typeof OpenAIPlanningOutputSchema>;
 
-const OpenAIResolutionContentSchema = ResolutionContentSchema.extend({
-  scene_id: StableIdSchema.nullable(),
-  provenance: z.literal('provider_generated'),
-}).strict();
+export function createOpenAIResolutionOutputSchema(allowedSceneIds?: readonly string[]) {
+  const sceneIdSchema = allowedSceneIds === undefined
+    ? StableIdSchema
+    : (() => {
+        const parsedIds = [...new Set(allowedSceneIds.map((id) => StableIdSchema.parse(id)))];
+        return parsedIds.length === 0
+          ? StableIdSchema
+          : z.enum(parsedIds as [string, ...string[]]);
+      })();
+  const contentSchema = ResolutionContentSchema.extend({
+    scene_id: sceneIdSchema.nullable(),
+    provenance: z.literal('provider_generated'),
+  }).strict();
+  return ResolutionGenerationOutputSchema.extend({
+    provenance: z.literal('provider_generated'),
+    content: z.array(contentSchema).max(128),
+    asset_descriptions: ResolutionGenerationOutputSchema.shape.asset_descriptions,
+  }).strict();
+}
 
-export const OpenAIResolutionOutputSchema = ResolutionGenerationOutputSchema.extend({
-  provenance: z.literal('provider_generated'),
-  content: z.array(OpenAIResolutionContentSchema).max(128),
-  asset_descriptions: ResolutionGenerationOutputSchema.shape.asset_descriptions,
-}).strict();
+export const OpenAIResolutionOutputSchema = createOpenAIResolutionOutputSchema();
 export type OpenAIResolutionOutput = z.infer<typeof OpenAIResolutionOutputSchema>;
 
 export function planningWireToGateway(output: OpenAIPlanningOutput): PlanningGenerationOutput {

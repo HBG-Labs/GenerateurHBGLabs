@@ -8,6 +8,7 @@ import {
   type AssetIntent,
   type ContentSlot,
   type CreativeDiagnostic,
+  type PlanningReport,
   type PlannerOptions,
   type PlannerInput,
   type StoryPlanningResult,
@@ -42,7 +43,13 @@ import {
 import type { GatewayLimits } from './limits.ts';
 import { DEFAULT_GATEWAY_LIMITS } from './limits.ts';
 import { planAcceptedOutput, resolutionOutputToCreativeResolution } from './mapping.ts';
-import type { CreativeProvider, ProviderInvocation, ProviderResponse } from './provider.ts';
+import type {
+  CreativeProvider,
+  ProviderContentSlotContext,
+  ProviderInvocation,
+  ProviderResponse,
+  ProviderResolutionContext,
+} from './provider.ts';
 import { GatewayProviderError } from './provider.ts';
 import { validateCreativeGenerationRequest } from './request.ts';
 import { inspectGatewayInput, redactSensitiveText } from './security.ts';
@@ -119,10 +126,12 @@ function diagnostic(
   path: string,
   message: string,
   suggestedAction?: string,
+  diagnosticContext?: CreativeDiagnostic['context'],
 ): CreativeDiagnostic {
   return {
     code, severity, path, message: redactSensitiveText(message),
     ...(suggestedAction === undefined ? {} : { suggested_action: suggestedAction }),
+    ...(diagnosticContext === undefined ? {} : { context: diagnosticContext }),
   };
 }
 
@@ -298,6 +307,7 @@ function resolutionSemantics(
   planId: string,
   slots: readonly ContentSlot[],
   assets: readonly AssetIntent[],
+  resolutionContext: ProviderResolutionContext,
 ): CreativeDiagnostic[] {
   const diagnostics: CreativeDiagnostic[] = [];
   if (output.request_id !== request.request_id) diagnostics.push(diagnostic(
@@ -311,8 +321,10 @@ function resolutionSemantics(
     'Un provider non-test ne peut pas déclarer sa sortie comme fixture.',
   ));
   const slotMap = new Map(slots.map((slot) => [slot.id, slot]));
+  const targetMap = new Map(resolutionContext.content_slots.map((slot) => [slot.slot_id, slot]));
   const assetMap = new Map(assets.map((asset) => [asset.slot, asset]));
   const seenContent = new Set<string>();
+  const contentBySlot = new Map<string, ResolutionGenerationOutput['content'][number][]>();
   output.content.forEach((entry, index) => {
     const key = `${entry.slot_id}:${entry.scene_id ?? '*'}`;
     if (seenContent.has(key)) diagnostics.push(diagnostic(
@@ -320,9 +332,43 @@ function resolutionSemantics(
     ));
     seenContent.add(key);
     const slot = slotMap.get(entry.slot_id);
+    const target = targetMap.get(entry.slot_id);
     if (!slot) {
       diagnostics.push(diagnostic('gateway.output.unknown_content_slot', 'error', `$.content[${index}].slot_id`, 'Le slot de contenu n’existe pas dans le PlanningReport.'));
       return;
+    }
+    if (!target) {
+      diagnostics.push(diagnostic(
+        'gateway.output.content_slot_topology_missing', 'error', `$.content[${index}].slot_id`,
+        'Le ContentSlot ne possède aucune topologie de scène canonique dans le contexte de résolution.',
+        'Reconstruire le contexte Stage B depuis le PlanningReport P2.2 courant.',
+        { slot_id: entry.slot_id },
+      ));
+      return;
+    }
+    const entries = contentBySlot.get(entry.slot_id) ?? [];
+    entries.push(entry);
+    contentBySlot.set(entry.slot_id, entries);
+    if (entry.scene_id === undefined) {
+      if (!target.generic_resolution_allowed) diagnostics.push(diagnostic(
+        'gateway.output.generic_resolution_forbidden', 'error', `$.content[${index}].scene_id`,
+        'Une résolution générique n’est pas autorisée pour ce ContentSlot.',
+        'Fournir une résolution spécifique pour chaque scène autorisée.',
+        { slot_id: entry.slot_id, allowed_scene_ids: target.allowed_scene_ids.join(',') },
+      ));
+    } else if (!target.allowed_scene_ids.includes(entry.scene_id)) {
+      diagnostics.push(diagnostic(
+        'gateway.output.scene_not_allowed_for_slot', 'error', `$.content[${index}].scene_id`,
+        'La scène reçue n’appartient pas à la topologie canonique de ce ContentSlot.',
+        target.generic_resolution_allowed
+          ? 'Choisir une scène autorisée ou utiliser scene_id=null pour toutes les scènes autorisées.'
+          : 'Choisir une scène parmi les scènes autorisées.',
+        {
+          slot_id: entry.slot_id,
+          received_scene_id: entry.scene_id,
+          allowed_scene_ids: target.allowed_scene_ids.join(','),
+        },
+      ));
     }
     if ([...entry.text].length > slot.constraints.max_characters) diagnostics.push(diagnostic(
       'gateway.output.content_too_long', 'error', `$.content[${index}].text`, 'Le contenu dépasse la limite déclarée par le ContentSlot.',
@@ -337,6 +383,38 @@ function resolutionSemantics(
       'Un provider non-test ne peut pas déclarer un contenu comme fixture.',
     ));
   });
+  resolutionContext.content_slots.forEach((target) => {
+    if (target.allowed_scene_ids.length === 0) diagnostics.push(diagnostic(
+      'gateway.output.content_slot_without_scene', 'error', '$.content',
+      'Un ContentSlot ne cible aucune scène dans le PlanningReport courant.',
+      'Corriger la topologie beat/scène avant Stage B.',
+      { slot_id: target.slot_id },
+    ));
+    const entries = contentBySlot.get(target.slot_id) ?? [];
+    const genericEntries = entries.filter((entry) => entry.scene_id === undefined);
+    const specificEntries = entries.filter((entry) => entry.scene_id !== undefined);
+    if (genericEntries.length > 0 && specificEntries.length > 0) diagnostics.push(diagnostic(
+      'gateway.output.ambiguous_slot_resolution', 'error', '$.content',
+      'Une résolution générique et une résolution spécifique ciblent simultanément le même ContentSlot.',
+      'Choisir soit scene_id=null, soit une résolution spécifique pour chaque scène autorisée.',
+      { slot_id: target.slot_id, allowed_scene_ids: target.allowed_scene_ids.join(',') },
+    ));
+    if (!target.required || target.status === 'resolved' || genericEntries.length > 0) return;
+    const resolvedSceneIds = new Set(specificEntries.map((entry) => entry.scene_id));
+    const missingSceneIds = target.allowed_scene_ids.filter((sceneId) => !resolvedSceneIds.has(sceneId));
+    if (missingSceneIds.length > 0) diagnostics.push(diagnostic(
+      'gateway.output.required_scene_resolution_missing', 'error', '$.content',
+      'Un ContentSlot requis ne couvre pas toutes ses scènes canoniques.',
+      target.generic_resolution_allowed
+        ? 'Résoudre chaque scène manquante ou fournir une résolution générique avec scene_id=null.'
+        : 'Résoudre chaque scène manquante explicitement.',
+      {
+        slot_id: target.slot_id,
+        missing_scene_ids: missingSceneIds.join(','),
+        allowed_scene_ids: target.allowed_scene_ids.join(','),
+      },
+    ));
+  });
   const seenAssets = new Set<string>();
   output.asset_descriptions.forEach((entry, index) => {
     if (seenAssets.has(entry.asset_slot)) diagnostics.push(diagnostic(
@@ -347,6 +425,61 @@ function resolutionSemantics(
     if (!asset || asset.id !== entry.asset_intent_id) diagnostics.push(diagnostic(
       'gateway.output.unknown_asset_intent', 'error', `$.asset_descriptions[${index}]`, 'La description ne correspond à aucun AssetIntent du plan.',
     ));
+  });
+  return diagnostics;
+}
+
+function buildProviderResolutionContext(
+  planId: string,
+  slots: readonly ContentSlot[],
+  report: PlanningReport,
+  assets: readonly AssetIntent[],
+): ProviderResolutionContext {
+  const scenesByBeat = new Map<string, string[]>();
+  report.scenes.forEach((scene) => scene.beat_ids.forEach((beatId) => {
+    const sceneIds = scenesByBeat.get(beatId) ?? [];
+    if (!sceneIds.includes(scene.scene_id)) sceneIds.push(scene.scene_id);
+    scenesByBeat.set(beatId, sceneIds);
+  }));
+  const contentSlots: ProviderContentSlotContext[] = slots.map((slot) => ({
+    slot_id: slot.id,
+    beat_id: slot.beat_id,
+    role: slot.role,
+    semantic_context: slot.semantic_context,
+    constraints: slot.constraints,
+    required: slot.required,
+    language: slot.language,
+    factual_requirement: slot.factual_requirement,
+    status: slot.status,
+    allowed_scene_ids: [...(scenesByBeat.get(slot.beat_id) ?? [])],
+    generic_resolution_allowed: true,
+  }));
+  return { plan_id: planId, content_slots: contentSlots, asset_intents: assets };
+}
+
+function resolutionInvariantDiagnostics(
+  resolution: CreativeResolution,
+  targets: ProviderResolutionContext,
+): CreativeDiagnostic[] {
+  const diagnostics: CreativeDiagnostic[] = [];
+  const expectedTargets = new Set(targets.content_slots.flatMap((slot) =>
+    slot.allowed_scene_ids.map((sceneId) => `${slot.slot_id}:${sceneId}`)));
+  resolution.content_slots.forEach((entry) => {
+    const key = `${entry.slot_id}:${entry.scene_id}`;
+    if (!expectedTargets.has(key)) diagnostics.push({
+      code: 'gateway.resolution.unexpected_content_target', severity: 'error', path: '$.creative_resolution.content_slots',
+      node_id: entry.slot_id, scene_id: entry.scene_id,
+      message: 'CreativeResolution contient une cible slot/scène absente de la topologie canonique.',
+      context: { slot_id: entry.slot_id, scene_id: entry.scene_id },
+      suggested_action: 'Reconstruire CreativeResolution uniquement depuis le PlanningReport courant.',
+    });
+    if (entry.required && entry.status !== 'resolved') diagnostics.push({
+      code: 'gateway.resolution.required_target_unresolved', severity: 'error', path: '$.creative_resolution.content_slots',
+      node_id: entry.slot_id, scene_id: entry.scene_id,
+      message: 'Une cible requise reste non résolue après la frontière Gateway Stage B.',
+      context: { slot_id: entry.slot_id, scene_id: entry.scene_id },
+      suggested_action: 'Réparer la sortie provider afin de résoudre cette cible avant P2.3.',
+    });
   });
   return diagnostics;
 }
@@ -630,16 +763,19 @@ export async function runCreativeGateway(
   }
   transition(context, 'PLANNED', 'planning.accepted');
   const creativePlan = planned.planning.creative_plan;
+  const resolutionContext = buildProviderResolutionContext(
+    creativePlan.plan_id,
+    planned.planning.content_slots,
+    planned.planning.report,
+    creativePlan.asset_intents,
+  );
   const resolutionStage = await runStage<ResolutionGenerationOutput>({
     stage: 'resolution', context, provider: options.provider, request, maxRepairs, timeoutMs,
     ...(options.signal === undefined ? {} : { externalSignal: options.signal }),
-    resolutionContext: {
-      plan_id: creativePlan.plan_id,
-      content_slots: planned.planning.content_slots,
-      asset_intents: creativePlan.asset_intents,
-    },
+    resolutionContext,
     semantic: (output) => resolutionSemantics(
       request, output, provider, creativePlan.plan_id, planned.planning.content_slots, creativePlan.asset_intents,
+      resolutionContext,
     ),
   });
   if (!resolutionStage.ok || !resolutionStage.output) {
@@ -689,6 +825,13 @@ export async function runCreativeGateway(
     asset_bindings: validatedBindings.bindings,
     source_verifications: validatedBindings.verifications,
   });
+  const resolutionDiagnostics = resolutionInvariantDiagnostics(creativeResolution, resolutionContext);
+  context.diagnostics.push(...resolutionDiagnostics);
+  if (resolutionDiagnostics.some((entry) => entry.severity === 'error')) {
+    context.failure = 'unresolved_required_content';
+    context.resolutionMs += elapsedMs(resolutionStarted);
+    return failedResult(context, provider, requestHash, planned.planner_input, planned.planning);
+  }
   context.resolutionMs += elapsedMs(resolutionStarted);
   transition(context, 'RESOLVED', 'resolution.accepted');
   const planningHash = hashCreativeDocument(planningStage.output);
@@ -768,6 +911,12 @@ export function replayCreativeGateway(
     return failedResult(context, snapshot.provider, snapshot.hashes.request, planned.planner_input, planned.planning);
   }
   transition(context, 'PLANNED', 'replay.planned');
+  const resolutionContext = buildProviderResolutionContext(
+    planned.planning.creative_plan.plan_id,
+    planned.planning.content_slots,
+    planned.planning.report,
+    planned.planning.creative_plan.asset_intents,
+  );
   context.diagnostics.push(...resolutionSemantics(
     snapshot.request,
     snapshot.resolution_output,
@@ -775,6 +924,7 @@ export function replayCreativeGateway(
     planned.planning.creative_plan.plan_id,
     planned.planning.content_slots,
     planned.planning.creative_plan.asset_intents,
+    resolutionContext,
   ));
   const validatedBindings = validateBindings(
     snapshot.asset_bindings,
@@ -796,6 +946,11 @@ export function replayCreativeGateway(
     asset_bindings: validatedBindings.bindings,
     source_verifications: validatedBindings.verifications,
   });
+  context.diagnostics.push(...resolutionInvariantDiagnostics(resolution, resolutionContext));
+  if (context.diagnostics.some((entry) => entry.severity === 'error')) {
+    context.failure = 'semantic_invalid';
+    return failedResult(context, snapshot.provider, snapshot.hashes.request, planned.planner_input, planned.planning);
+  }
   transition(context, 'RESOLVED', 'replay.resolved');
   transition(context, 'READY_FOR_COMPILE', 'replay.accepted');
   return {

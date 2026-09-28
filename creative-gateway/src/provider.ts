@@ -15,8 +15,24 @@ import type {
 
 export interface ProviderResolutionContext {
   readonly plan_id: string;
-  readonly content_slots: readonly ContentSlot[];
+  readonly content_slots: readonly ProviderContentSlotContext[];
   readonly asset_intents: readonly AssetIntent[];
+}
+
+export interface ProviderContentSlotContext {
+  readonly slot_id: ContentSlot['id'];
+  readonly beat_id: ContentSlot['beat_id'];
+  readonly role: ContentSlot['role'];
+  readonly semantic_context: ContentSlot['semantic_context'];
+  readonly constraints: ContentSlot['constraints'];
+  readonly required: ContentSlot['required'];
+  readonly language: ContentSlot['language'];
+  readonly factual_requirement: ContentSlot['factual_requirement'];
+  readonly status: ContentSlot['status'];
+  /** Scènes canoniques P2.2 auxquelles ce slot peut être appliqué. */
+  readonly allowed_scene_ids: readonly string[];
+  /** `scene_id = null` signifie appliquer la même résolution à toutes les scènes autorisées. */
+  readonly generic_resolution_allowed: boolean;
 }
 
 export interface ProviderPlanningContext {

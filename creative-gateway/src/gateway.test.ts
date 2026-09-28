@@ -8,6 +8,8 @@ import {
 } from '@motion-engine/creative-core';
 
 import { runCreativeGateway, replayCreativeGateway } from './gateway.ts';
+import type { ResolutionGenerationOutput } from './contracts.ts';
+import type { ProviderInvocation, ProviderResponse } from './provider.ts';
 import { createCreativeGenerationRequest } from './request.ts';
 import { dinosaurRequest, gatewayOptions } from './test-support.ts';
 import {
@@ -27,6 +29,84 @@ import {
   UnavailableProvider,
   ValidProvider,
 } from './testing/fake-providers.ts';
+
+type SceneBindingMode =
+  | 'specific'
+  | 'unknown'
+  | 'other_beat'
+  | 'ambiguous'
+  | 'duplicate'
+  | 'missing'
+  | 'unknown_slot'
+  | 'repair_specific'
+  | 'repair_generic';
+
+class SceneBindingProvider extends ValidProvider {
+  readonly mode: SceneBindingMode;
+  resolutionCalls = 0;
+  repairDiagnostics: readonly string[] = [];
+  resolutionContexts: NonNullable<ProviderInvocation['resolution_context']>[] = [];
+
+  constructor(mode: SceneBindingMode) {
+    super();
+    this.mode = mode;
+  }
+
+  override async generate(invocation: ProviderInvocation): Promise<ProviderResponse> {
+    const response = await super.generate(invocation);
+    if (invocation.stage !== 'resolution' || !invocation.resolution_context) return response;
+    this.resolutionCalls += 1;
+    this.repairDiagnostics = invocation.repair_diagnostics.map((entry) => entry.code);
+    this.resolutionContexts.push(invocation.resolution_context);
+    const output = structuredClone(response.output) as ResolutionGenerationOutput;
+    const targetBySlot = new Map(invocation.resolution_context.content_slots.map((slot) => [slot.slot_id, slot]));
+    const specific = (): ResolutionGenerationOutput => ({
+      ...output,
+      content: output.content.flatMap((entry) =>
+        (targetBySlot.get(entry.slot_id)?.allowed_scene_ids ?? []).map((sceneId) => ({ ...entry, scene_id: sceneId }))),
+    });
+    if (this.mode === 'specific' || (this.mode === 'repair_specific' && this.resolutionCalls > 1)) {
+      return { ...response, output: specific() };
+    }
+    if (this.mode === 'repair_generic' && this.resolutionCalls > 1) return response;
+    if (this.mode === 'unknown' || this.mode === 'repair_specific' || this.mode === 'repair_generic') {
+      return {
+        ...response,
+        output: { ...output, content: output.content.map((entry, index) => index === 0 ? { ...entry, scene_id: 'scene_unknown' } : entry) },
+      };
+    }
+    if (this.mode === 'other_beat') {
+      const first = output.content[0]!;
+      const target = targetBySlot.get(first.slot_id)!;
+      const otherSceneId = invocation.resolution_context.content_slots
+        .flatMap((slot) => slot.allowed_scene_ids)
+        .find((sceneId) => !target.allowed_scene_ids.includes(sceneId))!;
+      return {
+        ...response,
+        output: { ...output, content: output.content.map((entry, index) => index === 0 ? { ...entry, scene_id: otherSceneId } : entry) },
+      };
+    }
+    if (this.mode === 'ambiguous') {
+      const first = output.content[0]!;
+      const sceneId = targetBySlot.get(first.slot_id)!.allowed_scene_ids[0]!;
+      return { ...response, output: { ...output, content: [...output.content, { ...first, scene_id: sceneId }] } };
+    }
+    if (this.mode === 'missing') {
+      return { ...response, output: { ...output, content: output.content.slice(1) } };
+    }
+    if (this.mode === 'unknown_slot') {
+      return {
+        ...response,
+        output: {
+          ...output,
+          content: output.content.map((entry, index) => index === 0 ? { ...entry, slot_id: 'slot_unknown' } : entry),
+        },
+      };
+    }
+    const first = output.content[0]!;
+    return { ...response, output: { ...output, content: [...output.content, { ...first }] } };
+  }
+}
 
 describe('P2.4 — Creative Gateway', () => {
   it('dérive une identité et une idempotency key stables', () => {
@@ -131,6 +211,105 @@ describe('P2.4 — Creative Gateway', () => {
     expect(provider.planningCalls).toBe(2);
     expect(provider.repairDiagnostics).toContain('planner.constraint.role_conflict');
     expect(result.planning?.input_validation.eligible_for_planning).toBe(true);
+  });
+
+  it('accepte uniquement des scene_id autorisés pour chaque ContentSlot', async () => {
+    const provider = new SceneBindingProvider('specific');
+    const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
+    expect(result.ok).toBe(true);
+    expect(result.creative_resolution?.content_slots.every((entry) => entry.status === 'resolved')).toBe(true);
+    const context = provider.resolutionContexts[0]!;
+    expect(context.content_slots.every((slot) =>
+      slot.allowed_scene_ids.length > 0
+      && slot.semantic_context.length > 0
+      && slot.generic_resolution_allowed)).toBe(true);
+  });
+
+  it('rejette un scene_id inconnu avant Creative Compiler', async () => {
+    const result = await runCreativeGateway(dinosaurRequest(), {
+      ...gatewayOptions(new SceneBindingProvider('unknown')),
+      max_repair_attempts: 0,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.creative_resolution).toBeNull();
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.scene_not_allowed_for_slot');
+    const diagnostic = result.report.diagnostics.find((entry) => entry.code === 'gateway.output.scene_not_allowed_for_slot');
+    expect(diagnostic?.context).toMatchObject({ received_scene_id: 'scene_unknown' });
+    expect(diagnostic?.context?.['allowed_scene_ids']).not.toBe('');
+  });
+
+  it('rejette une scène valide appartenant à un autre beat', async () => {
+    const result = await runCreativeGateway(dinosaurRequest(), {
+      ...gatewayOptions(new SceneBindingProvider('other_beat')),
+      max_repair_attempts: 0,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.scene_not_allowed_for_slot');
+  });
+
+  it('développe une résolution générique sur toutes les scènes autorisées de façon déterministe', async () => {
+    const provider = new ValidProvider();
+    const first = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
+    const second = replayCreativeGateway(first.snapshot);
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    expect(second.creative_resolution).toEqual(first.creative_resolution);
+    expect(first.creative_resolution?.content_slots.every((entry) => entry.status === 'resolved')).toBe(true);
+  });
+
+  it('rejette une résolution générique et spécifique simultanée pour le même slot', async () => {
+    const result = await runCreativeGateway(dinosaurRequest(), {
+      ...gatewayOptions(new SceneBindingProvider('ambiguous')),
+      max_repair_attempts: 0,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.ambiguous_slot_resolution');
+  });
+
+  it('rejette un duplicate slot_id + scene_id', async () => {
+    const result = await runCreativeGateway(dinosaurRequest(), {
+      ...gatewayOptions(new SceneBindingProvider('duplicate')),
+      max_repair_attempts: 0,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.duplicate_slot_resolution');
+  });
+
+  it('rejette un slot requis manquant avant CreativeResolution', async () => {
+    const result = await runCreativeGateway(dinosaurRequest(), {
+      ...gatewayOptions(new SceneBindingProvider('missing')),
+      max_repair_attempts: 0,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.creative_resolution).toBeNull();
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.required_scene_resolution_missing');
+  });
+
+  it('rejette une résolution supplémentaire ciblant un slot inconnu', async () => {
+    const result = await runCreativeGateway(dinosaurRequest(), {
+      ...gatewayOptions(new SceneBindingProvider('unknown_slot')),
+      max_repair_attempts: 0,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.unknown_content_slot');
+  });
+
+  it('répare un mauvais ID puis accepte toutes les résolutions spécifiques', async () => {
+    const provider = new SceneBindingProvider('repair_specific');
+    const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
+    expect(result.ok).toBe(true);
+    expect(provider.resolutionCalls).toBe(2);
+    expect(provider.repairDiagnostics).toContain('gateway.output.scene_not_allowed_for_slot');
+  });
+
+  it('répare un mauvais ID puis accepte une résolution générique', async () => {
+    const provider = new SceneBindingProvider('repair_generic');
+    const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
+    expect(result.ok).toBe(true);
+    expect(provider.resolutionCalls).toBe(2);
+    expect(provider.repairDiagnostics).toContain('gateway.output.scene_not_allowed_for_slot');
+    expect(result.creative_resolution?.content_slots.filter((entry) => entry.required)
+      .every((entry) => entry.status === 'resolved')).toBe(true);
   });
 
   it('borne la réparation et refuse un provider toujours invalide', async () => {

@@ -91,7 +91,7 @@ function resolutionOutput(invocation: ProviderInvocation, variant = 0): Resoluti
       const candidates = ROLE_TEXT[slot.role];
       const selected = candidates[index % candidates.length]!;
       return {
-        slot_id: slot.id,
+        slot_id: slot.slot_id,
         text: variant === 0 ? selected : `${selected} Variante ${variant + 1}.`,
         provenance: 'fixture' as const,
         uncertainty: slot.factual_requirement === 'none' ? 'none' as const : 'unknown' as const,

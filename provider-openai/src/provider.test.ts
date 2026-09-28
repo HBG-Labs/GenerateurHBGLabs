@@ -24,6 +24,7 @@ import {
   OpenAIPlanningOutputSchema,
   OpenAIResolutionOutputSchema,
   createOpenAIPlanningOutputSchema,
+  createOpenAIResolutionOutputSchema,
 } from './schemas.ts';
 import { mapOpenAIError, type OpenAIStructuredTransport, type OpenAITransportRequest } from './transport.ts';
 
@@ -84,10 +85,12 @@ function resolutionOutput(providerRequest: OpenAITransportRequest) {
     resolution_context: {
       plan_id: string;
       content_slots: Array<{
-        id: string;
+        slot_id: string;
         role: string;
         factual_requirement: string;
         constraints: { max_characters: number };
+        allowed_scene_ids: string[];
+        generic_resolution_allowed: boolean;
       }>;
       asset_intents: Array<{ id: string; slot: string; purpose: string }>;
     };
@@ -100,7 +103,7 @@ function resolutionOutput(providerRequest: OpenAITransportRequest) {
     plan_id: payload.resolution_context.plan_id,
     provenance: 'provider_generated' as const,
     content: payload.resolution_context.content_slots.map((slot) => ({
-      slot_id: slot.id,
+      slot_id: slot.slot_id,
       scene_id: null,
       text: slot.role === 'hook_text'
         ? 'ET SI LES DINOSAURES REVENAIENT ?'.slice(0, slot.constraints.max_characters)
@@ -221,6 +224,34 @@ describe('P2.5 — OpenAI CreativeProvider adapter', () => {
     expect(activeSchema.safeParse({ ...output, narrative_archetype: 'EXPLAINER' }).success).toBe(true);
     expect(activeSchema.safeParse({ ...output, narrative_archetype: 'DYSTOPIE_ALTERNATIVE' }).success).toBe(false);
     expect(() => zodTextFormat(activeSchema, 'planning_active_registry')).not.toThrow();
+  });
+
+  it('borne le JSON Schema resolution aux scènes exposées par le contexte actif', () => {
+    const activeSchema = createOpenAIResolutionOutputSchema(['scene_allowed']);
+    const providerRequest = {
+      input: JSON.stringify({
+        request: request(),
+        resolution_context: {
+          plan_id: 'plan_test',
+          content_slots: [{
+            slot_id: 'slot_test', role: 'narration', factual_requirement: 'none',
+            constraints: { max_characters: 120 }, allowed_scene_ids: ['scene_allowed'],
+            generic_resolution_allowed: true,
+          }],
+          asset_intents: [],
+        },
+      }),
+    } as OpenAITransportRequest;
+    const output = resolutionOutput(providerRequest);
+    expect(activeSchema.safeParse({
+      ...output,
+      content: output.content.map((entry) => ({ ...entry, scene_id: 'scene_allowed' })),
+    }).success).toBe(true);
+    expect(activeSchema.safeParse({
+      ...output,
+      content: output.content.map((entry) => ({ ...entry, scene_id: 'scene_unknown' })),
+    }).success).toBe(false);
+    expect(() => zodTextFormat(activeSchema, 'resolution_active_scenes')).not.toThrow();
   });
 
   it.each([

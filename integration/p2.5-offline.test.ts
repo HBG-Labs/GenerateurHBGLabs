@@ -45,7 +45,14 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
     }
     const context = payload['resolution_context'] as {
       plan_id: string;
-      content_slots: Array<{ id: string; role: string; factual_requirement: string; constraints: { max_characters: number } }>;
+      content_slots: Array<{
+        slot_id: string;
+        role: string;
+        factual_requirement: string;
+        constraints: { max_characters: number };
+        allowed_scene_ids: string[];
+        generic_resolution_allowed: boolean;
+      }>;
       asset_intents: Array<{ id: string; slot: string; purpose: string }>;
     };
     return Promise.resolve({
@@ -54,7 +61,7 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
         schema: 'creative-generation-output', schema_version: '0.1.0', stage: 'resolution',
         request_id: request.request_id, plan_id: context.plan_id, provenance: 'provider_generated',
         content: context.content_slots.map((slot) => ({
-          slot_id: slot.id, scene_id: null,
+          slot_id: slot.slot_id, scene_id: null,
           text: (slot.role === 'hook_text' ? 'ET SI LES DINOSAURES REVENAIENT ?' : 'Nos villes devraient changer de rythme.').slice(0, slot.constraints.max_characters),
           provenance: 'provider_generated', uncertainty: slot.factual_requirement === 'none' ? 'none' : 'unknown',
           source_required: slot.factual_requirement === 'source_required',
@@ -93,5 +100,7 @@ describe('P2.5 — adapter réel, transport offline', () => {
     expect(replayed.creative_compile.report.hashes.motion_spec).toBe(direct.creative_compile.report.hashes.motion_spec);
     expect(replayed.p1.hashes.render_plan).toBe(direct.p1.hashes.render_plan);
     expect(direct.p1.preflight.summary?.errors ?? 0).toBe(0);
+    expect(direct.creative_compile.report.diagnostics.map((entry) => entry.code)).not.toContain('creative_compile.content_required_unresolved');
+    expect(direct.creative_compile.report.diagnostics.map((entry) => entry.code)).not.toContain('creative_compile.narration_required_unresolved');
   });
 });

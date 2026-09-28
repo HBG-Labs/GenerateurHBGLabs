@@ -21,6 +21,7 @@ import {
   OpenAIPlanningOutputSchema,
   OpenAIResolutionOutputSchema,
   createOpenAIPlanningOutputSchema,
+  createOpenAIResolutionOutputSchema,
   planningWireToGateway,
   resolutionWireToGateway,
 } from './schemas.ts';
@@ -68,13 +69,16 @@ export class OpenAICreativeProvider implements CreativeProvider {
     const planningSchema = invocation.planning_context
       ? createOpenAIPlanningOutputSchema(invocation.planning_context.allowed_archetype_ids)
       : OpenAIPlanningOutputSchema;
+    const resolutionSchema = invocation.resolution_context
+      ? createOpenAIResolutionOutputSchema(invocation.resolution_context.content_slots.flatMap((slot) => slot.allowed_scene_ids))
+      : OpenAIResolutionOutputSchema;
     try {
       const response = await this.#transport.generate({
         model: this.config.model,
         instructions: prompt.instructions,
         input: prompt.input,
         schema_name: invocation.stage === 'planning' ? 'creative_planning_output' : 'creative_resolution_output',
-        schema: invocation.stage === 'planning' ? planningSchema : OpenAIResolutionOutputSchema,
+        schema: invocation.stage === 'planning' ? planningSchema : resolutionSchema,
         reasoning_effort: this.config.reasoning_effort,
         max_output_tokens: this.config.max_output_tokens,
         safety_identifier: invocation.request.idempotency_key,
@@ -85,7 +89,7 @@ export class OpenAICreativeProvider implements CreativeProvider {
         const wire = planningSchema.safeParse(response.output);
         if (wire.success) output = planningWireToGateway(wire.data);
       } else {
-        const wire = OpenAIResolutionOutputSchema.safeParse(response.output);
+        const wire = resolutionSchema.safeParse(response.output);
         if (wire.success) output = resolutionWireToGateway(wire.data);
       }
       this.#logger?.({
