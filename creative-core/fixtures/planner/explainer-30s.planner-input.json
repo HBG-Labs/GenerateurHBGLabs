@@ -1,0 +1,26 @@
+{
+  "schema": "planner-input",
+  "schema_version": "0.1.0",
+  "input_id": "sunset_explainer_30s",
+  "topic": "Pourquoi le ciel devient-il rouge au coucher du soleil ?",
+  "creative_goal": "educate",
+  "audience": { "description": "Public général", "knowledge_level": "beginner" },
+  "language": "fr",
+  "locale": "fr-FR",
+  "target_duration_ms": 30000,
+  "target_format": "vertical_short",
+  "tone": ["clear", "warm"],
+  "pacing": "measured",
+  "information_density": "medium",
+  "narrative_archetype": "EXPLAINER",
+  "desired_reaction": "Compréhension et curiosité",
+  "factual_mode": "factual",
+  "cta": { "mode": "none" },
+  "constraints": [{ "id": "sunset_narration_required", "kind": "require_narration" }],
+  "provided_content": [
+    { "id": "sunset_hook_text", "role": "hook_text", "text": "Pourquoi le ciel rougit-il le soir ?", "channels": ["spoken", "on_screen"] },
+    { "id": "sunset_explanation_text", "role": "explanation", "text": "La lumière traverse davantage d’atmosphère, qui disperse plus fortement les couleurs courtes.", "channels": ["spoken"], "source_slot": "sunset_science_source" },
+    { "id": "sunset_example_text", "role": "narration", "text": "Les rouges et les oranges deviennent alors plus visibles.", "channels": ["spoken"] },
+    { "id": "sunset_takeaway_text", "role": "narration", "text": "La couleur vient donc du trajet de la lumière dans l’atmosphère.", "channels": ["spoken", "on_screen"] }
+  ]
+}

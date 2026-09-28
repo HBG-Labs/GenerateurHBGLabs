@@ -1,0 +1,33 @@
+{
+  "schema": "planner-input",
+  "schema_version": "0.1.0",
+  "input_id": "invalid_planner_input",
+  "topic": "Entrée contradictoire",
+  "creative_goal": "explain",
+  "audience": { "description": "Test", "knowledge_level": "mixed" },
+  "language": "fr",
+  "locale": "fr-FR",
+  "target_duration_ms": 1000,
+  "target_format": "square",
+  "tone": ["neutral"],
+  "pacing": "aggressive",
+  "information_density": "high",
+  "narrative_archetype": "UNKNOWN_ARCHETYPE",
+  "desired_reaction": "Test",
+  "factual_mode": "mixed",
+  "cta": { "mode": "none", "text": "Texte contradictoire" },
+  "constraints": [
+    { "id": "duplicate_constraint", "kind": "require_role", "role": "hook" },
+    { "id": "forbid_hook", "kind": "forbid_role", "role": "hook" },
+    { "id": "min_ten_scenes", "kind": "min_scenes", "value": 10 },
+    { "id": "max_two_scenes", "kind": "max_scenes", "value": 2 },
+    { "id": "require_voice", "kind": "require_narration" },
+    { "id": "forbid_voice", "kind": "forbid_narration" },
+    { "id": "require_image", "kind": "require_asset", "asset_kind": "image" },
+    { "id": "forbid_image", "kind": "forbid_asset", "asset_kind": "image" },
+    { "id": "require_no_asset", "kind": "require_asset", "asset_kind": "none" }
+  ],
+  "provided_content": [
+    { "id": "duplicate_constraint", "role": "narration", "text": "Contenu parlé interdit.", "channels": ["spoken"] }
+  ]
+}

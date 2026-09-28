@@ -1,0 +1,24 @@
+{
+  "schema": "planner-input",
+  "schema_version": "0.1.0",
+  "input_id": "minimal_hypothetical_5s",
+  "topic": "Et si tout s’arrêtait une seconde ?",
+  "creative_goal": "hypothetical",
+  "audience": { "description": "Public général", "knowledge_level": "mixed" },
+  "language": "fr",
+  "locale": "fr-FR",
+  "target_duration_ms": 5000,
+  "target_format": "vertical_short",
+  "tone": ["dramatic"],
+  "pacing": "medium",
+  "information_density": "minimal",
+  "narrative_archetype": "HYPOTHETICAL",
+  "desired_reaction": "Interrogation",
+  "factual_mode": "creative",
+  "cta": { "mode": "none" },
+  "constraints": [],
+  "provided_content": [
+    { "id": "minimal_hook_text", "role": "hook_text", "text": "Et si tout s’arrêtait ?", "channels": ["on_screen"] },
+    { "id": "minimal_reveal_text", "role": "reveal", "text": "Une seconde suffirait à tout changer.", "channels": ["on_screen"] }
+  ]
+}

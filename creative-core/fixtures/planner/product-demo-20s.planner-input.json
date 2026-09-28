@@ -1,0 +1,26 @@
+{
+  "schema": "planner-input",
+  "schema_version": "0.1.0",
+  "input_id": "generic_timer_demo_20s",
+  "topic": "Régler un minuteur générique en trois gestes",
+  "creative_goal": "demonstrate",
+  "audience": { "description": "Utilisateur découvrant le produit", "knowledge_level": "unaware" },
+  "language": "fr",
+  "locale": "fr-FR",
+  "target_duration_ms": 20000,
+  "target_format": "landscape",
+  "tone": ["precise", "reassuring"],
+  "pacing": "medium",
+  "information_density": "medium",
+  "narrative_archetype": "DEMONSTRATION",
+  "desired_reaction": "Confiance dans la simplicité d’usage",
+  "factual_mode": "creative",
+  "cta": { "mode": "none" },
+  "constraints": [{ "id": "timer_image_required", "kind": "require_asset", "asset_kind": "image" }],
+  "provided_content": [
+    { "id": "timer_context_text", "role": "narration", "text": "Le réglage commence depuis l’écran principal.", "channels": ["spoken"] },
+    { "id": "timer_action_text", "role": "narration", "text": "Choisissez la durée, ajustez-la, puis démarrez.", "channels": ["spoken", "on_screen"] },
+    { "id": "timer_result_text", "role": "narration", "text": "Le compte à rebours est lancé.", "channels": ["spoken", "on_screen"] },
+    { "id": "timer_takeaway_text", "role": "narration", "text": "Trois gestes suffisent.", "channels": ["spoken", "on_screen"] }
+  ]
+}

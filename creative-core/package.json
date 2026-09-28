@@ -1,7 +1,7 @@
 {
   "name": "@motion-engine/creative-core",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Contrat créatif déterministe et indépendant de tout renderer ou provider.",
   "exports": {

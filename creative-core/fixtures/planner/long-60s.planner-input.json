@@ -1,0 +1,27 @@
+{
+  "schema": "planner-input",
+  "schema_version": "0.1.0",
+  "input_id": "ocean_current_60s",
+  "topic": "Et si les grands courants océaniques ralentissaient fortement ?",
+  "creative_goal": "hypothetical",
+  "audience": { "description": "Public curieux de climat", "knowledge_level": "intermediate" },
+  "language": "fr",
+  "locale": "fr-FR",
+  "target_duration_ms": 60000,
+  "target_format": "vertical_short",
+  "tone": ["dramatic", "precise"],
+  "pacing": "measured",
+  "information_density": "high",
+  "narrative_archetype": "HYPOTHETICAL",
+  "desired_reaction": "Comprendre une chaîne de conséquences",
+  "factual_mode": "factual",
+  "cta": { "mode": "soft" },
+  "constraints": [
+    { "id": "ocean_narration_required", "kind": "require_narration" },
+    { "id": "ocean_min_scenes", "kind": "min_scenes", "value": 7 }
+  ],
+  "provided_content": [
+    { "id": "ocean_hook_text", "role": "hook_text", "text": "Et si les courants océaniques ralentissaient ?", "channels": ["spoken", "on_screen"] },
+    { "id": "ocean_cta_text", "role": "cta", "text": "Retenez surtout que tout est lié.", "channels": ["spoken", "on_screen"] }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema": "planner-input",
+  "schema_version": "0.1.0",
+  "input_id": "earth_stop_30s",
+  "topic": "Et si la Terre arrêtait de tourner pendant 5 secondes ?",
+  "creative_goal": "curiosity",
+  "audience": { "description": "Public francophone curieux de sciences", "knowledge_level": "beginner" },
+  "language": "fr",
+  "locale": "fr-FR",
+  "target_duration_ms": 30000,
+  "target_format": "vertical_short",
+  "tone": ["dramatic", "clear"],
+  "pacing": "fast",
+  "information_density": "high",
+  "narrative_archetype": "HYPOTHETICAL",
+  "desired_reaction": "Surprise puis compréhension",
+  "factual_mode": "mixed",
+  "cta": { "mode": "none" },
+  "constraints": [{ "id": "earth_narration_required", "kind": "require_narration" }],
+  "provided_content": []
+}
