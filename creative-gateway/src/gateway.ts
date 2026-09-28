@@ -591,6 +591,28 @@ function resolutionSemantics(
   return diagnostics;
 }
 
+const TOPOLOGY_BLOCKING_RESOLUTION_DIAGNOSTIC_CODES = new Set([
+  'gateway.output.request_mismatch',
+  'gateway.output.plan_mismatch',
+  'gateway.output.duplicate_slot_resolution',
+  'gateway.output.unknown_content_slot',
+  'gateway.output.content_slot_topology_missing',
+  'gateway.output.generic_resolution_forbidden',
+  'gateway.output.scene_not_allowed_for_slot',
+  'gateway.output.content_slot_without_scene',
+  'gateway.output.ambiguous_slot_resolution',
+  'gateway.output.required_scene_resolution_missing',
+]);
+
+function hasTopologyBlockingResolutionDiagnostic(
+  diagnostics: readonly CreativeDiagnostic[],
+): boolean {
+  return diagnostics.some((entry) => (
+    entry.severity === 'error'
+    && TOPOLOGY_BLOCKING_RESOLUTION_DIAGNOSTIC_CODES.has(entry.code)
+  ));
+}
+
 function buildProviderResolutionContext(
   planId: string,
   slots: readonly ContentSlot[],
@@ -688,14 +710,13 @@ function readingSemantics(
     })),
     policy,
   });
-  if (inspection.diagnostics.length > 0) return inspection.diagnostics.map((entry) => ({
+  const diagnostics: CreativeDiagnostic[] = inspection.diagnostics.map((entry) => ({
     ...entry,
     code: `gateway.reading_preflight.${entry.code}`,
     suggested_action: entry.code === 'creative_compile.text_runs_exceeded'
       ? 'Raccourcir le contenu tout en préservant son rôle sémantique.'
       : entry.suggested_action,
   }));
-  const diagnostics: CreativeDiagnostic[] = [];
   const allocationsByOutput = new Map<number, CreativeSlotReadingBudget[]>();
   inspection.slot_budgets.forEach((allocation) => {
     const index = output.content.findIndex((entry) => {
@@ -903,7 +924,10 @@ function runResolutionPreflight(input: ResolutionPreflightInput): CreativeDiagno
     input.assets,
     input.resolutionContext,
   );
-  if (!diagnostics.some((entry) => entry.severity === 'error') && input.readingPolicy) {
+  // Les analyses P1 partagées ont besoin d’une topologie exploitable, pas d’un
+  // rapport sémantique entièrement vierge. Une erreur factuelle, de provenance
+  // ou de longueur reste donc cumulée avec temporal/typography/geometry.
+  if (!hasTopologyBlockingResolutionDiagnostic(diagnostics) && input.readingPolicy) {
     diagnostics.push(...readingSemantics(
       input.output,
       input.plan,

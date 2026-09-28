@@ -271,7 +271,9 @@ export class P26MatrixProvider implements CreativeProvider {
     | 'missing_glyph_exhausted'
     | 'multiple_missing_glyphs'
     | 'multiple_missing_targets'
-    | 'factual_requirement';
+    | 'factual_requirement'
+    | 'cumulative_preflight'
+    | 'cumulative_multi_error';
   calls = 0;
 
   constructor(
@@ -285,7 +287,9 @@ export class P26MatrixProvider implements CreativeProvider {
       | 'missing_glyph_exhausted'
       | 'multiple_missing_glyphs'
       | 'multiple_missing_targets'
-      | 'factual_requirement' = 'none',
+      | 'factual_requirement'
+      | 'cumulative_preflight'
+      | 'cumulative_multi_error' = 'none',
   ) {
     this.entry = entry;
     this.repairMode = repairMode;
@@ -332,6 +336,7 @@ export class P26MatrixProvider implements CreativeProvider {
       slot.constraints.channels.includes('spoken') && slot.constraints.channels.includes('on_screen')
     ));
     const spokenTargets = context.content_slots.filter((slot) => slot.constraints.channels.includes('spoken'));
+    const cumulativeTargetIds = new Set(spokenTargets.slice(0, 3).map((slot) => slot.slot_id));
     return {
       schema: 'creative-generation-output',
       schema_version: '0.1.0',
@@ -363,14 +368,31 @@ export class P26MatrixProvider implements CreativeProvider {
             ? 'Premier contenu分钟.'
             : 'Second contenu世界.';
         }
+        if (this.repairMode === 'cumulative_preflight' && cumulativeTargetIds.has(slot.slot_id)) {
+          text = Array.from({ length: 64 }, () => 'W').join(' ')
+            .slice(0, slot.constraints.max_characters);
+        }
+        if (this.repairMode === 'cumulative_multi_error' && slot.slot_id === combinedTarget?.slot_id) {
+          text = Array.from({ length: 64 }, () => 'W').join(' ')
+            .slice(0, slot.constraints.max_characters);
+        }
+        if (this.repairMode === 'cumulative_multi_error'
+          && slot.slot_id === spokenTargets.find((target) => target.slot_id !== combinedTarget?.slot_id)?.slot_id) {
+          text = 'Cette formulation contient plusieurs caractères分钟世界.';
+        }
         const sourceRequired = slot.factual_requirement === 'source_required';
+        const factualMismatch = (
+          this.repairMode === 'factual_requirement'
+          || this.repairMode === 'cumulative_preflight'
+          || this.repairMode === 'cumulative_multi_error'
+        ) && slot.slot_id === (combinedTarget?.slot_id ?? context.content_slots[0]?.slot_id);
         return {
           slot_id: slot.slot_id,
           ...(sceneId === undefined ? {} : { scene_id: sceneId }),
           text,
           provenance: 'fixture' as const,
           uncertainty: slot.factual_requirement === 'none' ? 'none' as const : 'unknown' as const,
-          source_required: this.repairMode === 'factual_requirement' && slotIndex === 0
+          source_required: factualMismatch
             ? !sourceRequired
             : sourceRequired,
         };

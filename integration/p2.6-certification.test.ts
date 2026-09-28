@@ -151,6 +151,44 @@ describe('P2.6 — certification offline du Creative Director', () => {
     expect(compiled.p1.preflight.summary?.errors ?? 0).toBe(0);
   });
 
+  it('agrège factual et subtitle geometry dès le premier Full Stage B Preflight', async () => {
+    const entry = p26Case('science_explainer');
+    const provider = new P26MatrixProvider(entry, 'cumulative_preflight');
+    const gateway = await buildP26GatewayRun(entry, provider);
+    expect(gateway.ok, JSON.stringify(gateway.report.diagnostics)).toBe(true);
+    expect(provider.calls).toBe(3);
+    expect(gateway.report.resolution_repair?.attempt_count).toBe(1);
+    const codes = new Set(gateway.report.resolution_repair?.diagnostic_codes_by_target.flatMap((target) => target.codes));
+    expect(codes).toContain('gateway.output.factual_requirement_changed');
+    expect(codes).toContain('gateway.output.subtitle_geometry_overflow');
+    expect(codes).toContain('gateway.output.content_reading_budget_exceeded');
+    expect(gateway.report.resolution_repair?.initial_invalid_targets.length).toBeGreaterThan(1);
+    expect(gateway.report.resolution_repair?.remaining_invalid_targets).toEqual([]);
+    const compiled = compileP26GatewayResult(gateway);
+    expect(compiled.p1.preflight.summary?.errors ?? 0).toBe(0);
+  });
+
+  it('agrège factual, temporal, geometry et missing glyph dans le même repair borné', async () => {
+    const entry = p26Case('science_explainer');
+    const provider = new P26MatrixProvider(entry, 'cumulative_multi_error');
+    const gateway = await buildP26GatewayRun(entry, provider);
+    expect(gateway.ok, JSON.stringify(gateway.report.diagnostics)).toBe(true);
+    expect(provider.calls).toBe(3);
+    expect(gateway.report.resolution_repair?.attempt_count).toBe(1);
+    const targets = gateway.report.resolution_repair?.diagnostic_codes_by_target ?? [];
+    const codes = new Set(targets.flatMap((target) => target.codes));
+    expect(codes).toContain('gateway.output.factual_requirement_changed');
+    expect(codes).toContain('gateway.output.content_reading_budget_exceeded');
+    expect(codes).toContain('gateway.output.subtitle_geometry_overflow');
+    expect(codes).toContain('gateway.output.font_missing_glyph');
+    expect(targets.some((target) => (
+      target.codes.includes('gateway.output.factual_requirement_changed')
+      && target.codes.includes('gateway.output.content_reading_budget_exceeded')
+      && target.codes.includes('gateway.output.subtitle_geometry_overflow')
+    ))).toBe(true);
+    expect(gateway.report.resolution_repair?.remaining_invalid_targets).toEqual([]);
+  });
+
   it('bloque proprement une liaison de scène invalide sans snapshot trompeur', async () => {
     const entry = p26Case('comparison');
     const gateway = await buildP26GatewayRun(entry, new P26MatrixProvider(entry, 'scene_binding'));
@@ -158,6 +196,9 @@ describe('P2.6 — certification offline du Creative Director', () => {
     expect(gateway.snapshot).toBeNull();
     expect(gateway.creative_resolution).toBeNull();
     expect(gateway.report.diagnostics.some((entry) => entry.code.includes('scene'))).toBe(true);
+    expect(gateway.report.diagnostics.map((entry) => entry.code)).not.toContain('gateway.output.content_reading_budget_exceeded');
+    expect(gateway.report.diagnostics.map((entry) => entry.code)).not.toContain('gateway.output.subtitle_geometry_overflow');
+    expect(gateway.report.diagnostics.map((entry) => entry.code)).not.toContain('gateway.output.font_missing_glyph');
   });
 
   it('bloque proprement un provider toujours invalide après repair borné', async () => {
