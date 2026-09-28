@@ -8,3 +8,4 @@ export * from './request.ts';
 export * from './resolution-repair.ts';
 export * from './security.ts';
 export * from './snapshot.ts';
+export * from './typography-failures.ts';

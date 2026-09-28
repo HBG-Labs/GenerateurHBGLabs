@@ -262,12 +262,28 @@ export class P26MatrixProvider implements CreativeProvider {
   };
 
   readonly entry: P26CertificationCase;
-  readonly repairMode: 'none' | 'combined' | 'scene_binding' | 'repair_exhausted';
+  readonly repairMode:
+    | 'none'
+    | 'combined'
+    | 'scene_binding'
+    | 'repair_exhausted'
+    | 'missing_glyph'
+    | 'missing_glyph_exhausted'
+    | 'multiple_missing_glyphs'
+    | 'multiple_missing_targets';
   calls = 0;
 
   constructor(
     entry: P26CertificationCase,
-    repairMode: 'none' | 'combined' | 'scene_binding' | 'repair_exhausted' = 'none',
+    repairMode:
+      | 'none'
+      | 'combined'
+      | 'scene_binding'
+      | 'repair_exhausted'
+      | 'missing_glyph'
+      | 'missing_glyph_exhausted'
+      | 'multiple_missing_glyphs'
+      | 'multiple_missing_targets' = 'none',
   ) {
     this.entry = entry;
     this.repairMode = repairMode;
@@ -313,6 +329,7 @@ export class P26MatrixProvider implements CreativeProvider {
     const combinedTarget = context.content_slots.find((slot) => (
       slot.constraints.channels.includes('spoken') && slot.constraints.channels.includes('on_screen')
     ));
+    const spokenTargets = context.content_slots.filter((slot) => slot.constraints.channels.includes('spoken'));
     return {
       schema: 'creative-generation-output',
       schema_version: '0.1.0',
@@ -330,6 +347,19 @@ export class P26MatrixProvider implements CreativeProvider {
           && slot.slot_id === combinedTarget?.slot_id) {
           text = Array.from({ length: 96 }, () => 'W').join(' ')
             .slice(0, slot.constraints.max_characters);
+        }
+        if ((this.repairMode === 'missing_glyph' || this.repairMode === 'missing_glyph_exhausted')
+          && slot.slot_id === spokenTargets[0]?.slot_id) {
+          text = 'Le Soleil revient dans huit分钟.';
+        }
+        if (this.repairMode === 'multiple_missing_glyphs' && slot.slot_id === spokenTargets[0]?.slot_id) {
+          text = 'Le Soleil revient dans huit分钟世界.';
+        }
+        if (this.repairMode === 'multiple_missing_targets'
+          && spokenTargets.slice(0, 2).some((target) => target.slot_id === slot.slot_id)) {
+          text = slot.slot_id === spokenTargets[0]?.slot_id
+            ? 'Premier contenu分钟.'
+            : 'Second contenu世界.';
         }
         return {
           slot_id: slot.slot_id,
@@ -361,7 +391,7 @@ export class P26MatrixProvider implements CreativeProvider {
         target: target.target,
         replacement: {
           scene_id: target.target.scene_id,
-          text: this.repairMode === 'repair_exhausted'
+          text: this.repairMode === 'repair_exhausted' || this.repairMode === 'missing_glyph_exhausted'
             ? target.previous_content?.text ?? 'ÉLECTRICITÉ '.repeat(24).trim()
             : 'Sens essentiel.',
           provenance: 'fixture',

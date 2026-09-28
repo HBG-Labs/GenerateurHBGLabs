@@ -18,10 +18,13 @@ import {
   deriveCreativeReadingBudgets,
   inspectCreativeReadingFeasibility,
   inspectCreativeSubtitleFeasibility,
+  splitCreativeVoiceText,
   type CreativeReadingBudget,
   type CreativeReadingPolicy,
   type CreativeResolution,
   type CreativeSlotReadingBudget,
+  type CreativeSubtitleFitIssue,
+  type CreativeSubtitleInspectionResult,
   type CreativeSubtitleFitBudget,
 } from '@motion-engine/creative-compiler';
 
@@ -74,6 +77,7 @@ import {
 } from './resolution-repair.ts';
 import { inspectGatewayInput, redactSensitiveText } from './security.ts';
 import { createGatewaySnapshot, verifyGatewaySnapshot } from './snapshot.ts';
+import { classifyGatewayTypographyFailure } from './typography-failures.ts';
 
 const EMPTY_USAGE: ProviderUsage = {
   input_units: null,
@@ -748,23 +752,101 @@ function readingSemantics(
         maximum_total_words: issue.maximum_total_words,
       },
     )));
-  const subtitleInspection = inspectCreativeSubtitleFeasibility({
-    plan,
-    planning_report: report,
-    content_slots: slots,
-    content: output.content.map((entry) => ({
-      slot_id: entry.slot_id,
-      ...(entry.scene_id === undefined ? {} : { scene_id: entry.scene_id }),
-      text: entry.text,
-      ...(slotMap.get(entry.slot_id)?.factual_requirement === 'source_required'
-        ? { source_slot: 'reading_budget_source' }
-        : {}),
-    })),
-    policy,
-  });
+  const subtitleInputContent = output.content.map((entry) => ({
+    slot_id: entry.slot_id,
+    ...(entry.scene_id === undefined ? {} : { scene_id: entry.scene_id }),
+    text: entry.text,
+    ...(slotMap.get(entry.slot_id)?.factual_requirement === 'source_required'
+      ? { source_slot: 'reading_budget_source' }
+      : {}),
+  }));
+  let subtitleInspection: CreativeSubtitleInspectionResult;
+  try {
+    subtitleInspection = inspectCreativeSubtitleFeasibility({
+      plan,
+      planning_report: report,
+      content_slots: slots,
+      content: subtitleInputContent,
+      policy,
+    });
+  } catch (error) {
+    // Vérifie d'abord que l'erreur globale appartient bien au modèle typé et
+    // fermé. Cette fonction relance les erreurs inconnues/programming errors.
+    classifyGatewayTypographyFailure(error);
+    const issues: CreativeSubtitleFitIssue[] = [];
+    const typographyDiagnostics: CreativeDiagnostic[] = [];
+    const seenFailures = new Set<string>();
+    output.content.forEach((entry, outputIndex) => {
+      const slot = slotMap.get(entry.slot_id);
+      if (!slot?.constraints.channels.includes('spoken')) return;
+      splitCreativeVoiceText(entry.text).forEach((segment, segmentIndex) => {
+        const segmentContent = [{
+          slot_id: entry.slot_id,
+          ...(entry.scene_id === undefined ? {} : { scene_id: entry.scene_id }),
+          text: segment,
+          ...(slot.factual_requirement === 'source_required'
+            ? { source_slot: 'reading_budget_source' }
+            : {}),
+        }];
+        try {
+          const segmentInspection = inspectCreativeSubtitleFeasibility({
+            plan,
+            planning_report: report,
+            content_slots: slots,
+            content: segmentContent,
+            policy,
+          });
+          issues.push(...segmentInspection.issues.map((issue) => ({ ...issue, segment_index: segmentIndex })));
+          typographyDiagnostics.push(...segmentInspection.diagnostics);
+        } catch (segmentError) {
+          const failure = classifyGatewayTypographyFailure(segmentError);
+          const target = targetMap.get(entry.slot_id);
+          const affectedSceneIds = entry.scene_id === undefined
+            ? target?.allowed_scene_ids ?? []
+            : [entry.scene_id];
+          const sceneId = affectedSceneIds[0];
+          const targetKey = `${entry.slot_id}:${entry.scene_id ?? '*'}:${failure.gateway_code}`;
+          if (seenFailures.has(targetKey)) return;
+          seenFailures.add(targetKey);
+          const subtitleRole = policy.resolved_style.style.subtitle_style.type;
+          const typeKey = subtitleRole.startsWith('type.') ? subtitleRole.slice('type.'.length) : subtitleRole;
+          const type = policy.resolved_style.style.typography.scale[typeKey];
+          typographyDiagnostics.push({
+            ...diagnostic(
+              failure.gateway_code,
+              'error',
+              `$.content[${outputIndex}].text`,
+              failure.message,
+              failure.suggested_action,
+              {
+                slot_id: entry.slot_id,
+                scene_id: sceneId ?? null,
+                allowed_scene_ids: affectedSceneIds.join(','),
+                segment_index: segmentIndex,
+                content_role: slot.role,
+                typography_error_code: failure.typography_code,
+                style_id: policy.resolved_style.sources.style.id,
+                typography_role: subtitleRole,
+                font_family: type?.family ?? 'unknown',
+                repair_target: failure.repairable,
+                generic_resolution: entry.scene_id === undefined,
+              },
+            ),
+            node_id: entry.slot_id,
+            ...(sceneId === undefined ? {} : { scene_id: sceneId }),
+          });
+        }
+      });
+    });
+    subtitleInspection = {
+      ok: issues.length === 0 && typographyDiagnostics.length === 0,
+      issues,
+      diagnostics: typographyDiagnostics,
+    };
+  }
   if (subtitleInspection.diagnostics.length > 0) diagnostics.push(...subtitleInspection.diagnostics.map((entry) => ({
     ...entry,
-    code: `gateway.subtitle_preflight.${entry.code}`,
+    code: entry.code.startsWith('gateway.') ? entry.code : `gateway.subtitle_preflight.${entry.code}`,
   })));
   subtitleInspection.issues.forEach((issue) => {
     const outputIndex = output.content.findIndex((entry) => entry.slot_id === issue.slot_id

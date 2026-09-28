@@ -75,6 +75,67 @@ describe('P2.6 — certification offline du Creative Director', () => {
     expect(compiled.p1.preflight.summary?.errors ?? 0).toBe(0);
   });
 
+  it('contient missing_glyph dans un diagnostic ciblé puis répare sans fuite TypographyEngineError', async () => {
+    const entry = p26Case('minimal_short');
+    const provider = new P26MatrixProvider(entry, 'missing_glyph');
+    const gateway = await buildP26GatewayRun(entry, provider);
+    expect(gateway.ok, JSON.stringify(gateway.report.diagnostics)).toBe(true);
+    expect(provider.calls).toBe(3);
+    expect(gateway.report.resolution_repair?.attempt_count).toBe(1);
+    expect(gateway.report.resolution_repair?.diagnostic_codes_by_target).toEqual([
+      expect.objectContaining({ codes: expect.arrayContaining(['gateway.output.font_missing_glyph']) }),
+    ]);
+    const initialDiagnostic = gateway.report.resolution_repair?.diagnostic_codes_by_target[0];
+    expect(initialDiagnostic?.target.slot_id).toMatch(/^slot_/u);
+    const repairedTarget = gateway.snapshot?.provenance.resolution_repair?.repaired_targets[0];
+    expect(repairedTarget).toEqual(initialDiagnostic?.target);
+    expect(gateway.report.resolution_repair?.remaining_invalid_targets).toEqual([]);
+    expect(gateway.snapshot?.resolution_output.content.some((item) => /[\u4e00-\u9fff]/u.test(item.text))).toBe(false);
+    const compiled = compileP26GatewayResult(gateway);
+    expect(compiled.p1.preflight.summary?.errors ?? 0).toBe(0);
+  });
+
+  it('épuise proprement le repair si le provider conserve le missing glyph', async () => {
+    const entry = p26Case('minimal_short');
+    const gateway = await buildP26GatewayRun(entry, new P26MatrixProvider(entry, 'missing_glyph_exhausted'));
+    expect(gateway.ok).toBe(false);
+    expect(gateway.report.failure_kind).toBe('repair_exhausted');
+    expect(gateway.report.diagnostics.map((item) => item.code)).toContain('gateway.output.font_missing_glyph');
+    const diagnostic = gateway.report.diagnostics.find((item) => item.code === 'gateway.output.font_missing_glyph');
+    expect(diagnostic).toMatchObject({
+      severity: 'error',
+      node_id: expect.stringMatching(/^slot_/u),
+      context: {
+        typography_error_code: 'font.missing_glyph',
+        content_role: expect.any(String),
+        segment_index: 0,
+        repair_target: true,
+      },
+    });
+    expect(diagnostic?.context?.['font_family']).not.toBe('unknown');
+    expect(gateway.snapshot).toBeNull();
+    expect(gateway.creative_resolution).toBeNull();
+  });
+
+  it('regroupe plusieurs glyphes absents d’une target en un seul patch borné', async () => {
+    const entry = p26Case('minimal_short');
+    const gateway = await buildP26GatewayRun(entry, new P26MatrixProvider(entry, 'multiple_missing_glyphs'));
+    expect(gateway.ok, JSON.stringify(gateway.report.diagnostics)).toBe(true);
+    expect(gateway.report.resolution_repair?.initial_invalid_targets).toHaveLength(1);
+    expect(gateway.report.resolution_repair?.patched_targets).toHaveLength(1);
+  });
+
+  it('répare plusieurs targets missing_glyph dans un seul appel ciblé', async () => {
+    const entry = p26Case('hypothetical');
+    const provider = new P26MatrixProvider(entry, 'multiple_missing_targets');
+    const gateway = await buildP26GatewayRun(entry, provider);
+    expect(gateway.ok, JSON.stringify(gateway.report.diagnostics)).toBe(true);
+    expect(provider.calls).toBe(3);
+    expect(gateway.report.resolution_repair?.initial_invalid_targets).toHaveLength(2);
+    expect(gateway.report.resolution_repair?.patched_targets).toHaveLength(2);
+    expect(gateway.report.resolution_repair?.remaining_invalid_targets).toEqual([]);
+  });
+
   it('bloque proprement une liaison de scène invalide sans snapshot trompeur', async () => {
     const entry = p26Case('comparison');
     const gateway = await buildP26GatewayRun(entry, new P26MatrixProvider(entry, 'scene_binding'));

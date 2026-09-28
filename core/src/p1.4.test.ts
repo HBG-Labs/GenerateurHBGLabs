@@ -79,6 +79,20 @@ describe('HarfBuzz, variable fonts et fitting', () => {
     }
   });
 
+  it('conserve font.missing_glyph comme erreur P1 bloquante', () => {
+    try {
+      engine.shape('分钟', 72, 0, {
+        sha256: variableHash,
+        data: variableBytes,
+        axes: { wght: 500, wdth: 82 },
+      }, 'fr-FR');
+      throw new Error('les glyphes absents auraient dû être refusés');
+    } catch (error) {
+      expect(error).toBeInstanceOf(TypographyEngineError);
+      expect((error as TypographyEngineError).diagnostic.code).toBe('font.missing_glyph');
+    }
+  });
+
   it('wrappe puis réduit par paliers sans franchir la taille lisible', () => {
     const binary = { sha256: variableHash, data: variableBytes, axes: { wght: 500, wdth: 82 } };
     const result = fitText({
