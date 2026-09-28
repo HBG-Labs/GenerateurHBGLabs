@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { stripVTControlCharacters } from 'node:util';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -19,7 +20,8 @@ afterAll(() => rmSync(sandbox, { recursive: true, force: true }));
 
 function run(args: string[]) {
   const result = spawnSync(process.execPath, args, { cwd: isolatedCore, encoding: 'utf8', timeout: 240_000 });
-  return { status: result.status, output: `${result.stdout ?? ''}\n${result.stderr ?? ''}` };
+  const output = stripVTControlCharacters(`${result.stdout ?? ''}\n${result.stderr ?? ''}`);
+  return { status: result.status, output };
 }
 
 describe('isolement du cœur', () => {
