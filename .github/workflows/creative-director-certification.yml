@@ -1,0 +1,109 @@
+name: P2.6 Creative Director Certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref containing the P2.6 certification harness.'
+        required: true
+        default: 'feature/social-creative-director'
+        type: string
+      expected_sha:
+        description: 'Exact commit SHA that must be checked out before any provider call.'
+        required: true
+        type: string
+      confirmation:
+        description: 'Type RUN_P2_6_CERTIFICATION to authorize the bounded paid provider matrix.'
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  certify-creative-director:
+    if: ${{ inputs.confirmation == 'RUN_P2_6_CERTIFICATION' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: true
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: gpt-6-luna
+    steps:
+      - name: Checkout requested certification ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Verify exact certification SHA before provider access
+        shell: bash
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          if [ "$actual_sha" != "${{ inputs.expected_sha }}" ]; then
+            echo "Refusing provider execution: checked out SHA does not match expected_sha."
+            echo "actual_sha=$actual_sha"
+            exit 1
+          fi
+          echo "verified_sha=$actual_sha"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install exact dependency graph
+        run: npm ci
+
+      - name: Detect explicitly configured provider secret
+        id: auth
+        shell: bash
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "REAL PROVIDER NOT EXECUTED — repository secret OPENAI_API_KEY is absent."
+          fi
+
+      - name: Offline P1/P2 quality gate
+        run: npm run check
+
+      - name: Restore immutable P2.5 Dinosaurs certification reference
+        if: ${{ steps.auth.outputs.configured == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: p2.5-real-provider-*
+          path: out/p2.5/real-provider
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 36487283879
+
+      - name: Real bounded P2.6 provider matrix and representative renders
+        if: ${{ steps.auth.outputs.configured == 'true' }}
+        run: npm run p2.6:real
+
+      - name: Verify P2.6 evidence integrity
+        if: ${{ steps.auth.outputs.configured == 'true' }}
+        shell: bash
+        run: |
+          test -s out/p2.6/certification/dinosaurs-p2.5-reference/p2-5-dinosaurs.mp4
+          test -s out/p2.6/certification/science_explainer/p2-6-explainer.mp4
+          test -s out/p2.6/certification/product_demo/p2-6-product-demo.mp4
+          test -s out/p2.6/certification/minimal_short/p2-6-minimal-short.mp4
+          test -s out/p2.6/certification/certification-report.json
+          test -s out/p2.6/certification/security-report.json
+          test -s out/p2.6/certification/artifact-integrity.json
+          grep -q '"status":"PASS"' out/p2.6/certification/certification-report.json
+          grep -q '"status":"PASS"' out/p2.6/certification/security-report.json
+
+      - name: Upload P2.6 certification evidence
+        if: ${{ always() && steps.auth.outputs.configured == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2.6-creative-director-certification-${{ inputs.expected_sha }}
+          path: out/p2.6/certification/
+          if-no-files-found: error
+          retention-days: 30

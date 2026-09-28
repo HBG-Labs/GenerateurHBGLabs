@@ -16,12 +16,12 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "check": "npm run typecheck && npm run lint && npm run test:unit && npm run test:integration && npm run golden:verify:p2.4 && npm run golden:verify:p2.3 && npm run golden:verify:p2.2 && npm run golden:verify:p1.6 && npm run test:p1.6 && npm run test:contamination && npm run test:isolation && npm run test:renderer-smoke",
+    "check": "npm run typecheck && npm run lint && npm run test:unit && npm run test:integration && npm run golden:verify:p2.6 && npm run golden:verify:p2.4 && npm run golden:verify:p2.3 && npm run golden:verify:p2.2 && npm run golden:verify:p1.6 && npm run test:p1.6 && npm run test:contamination && npm run test:isolation && npm run test:renderer-smoke",
     "typecheck": "npm run typecheck -w @motion-engine/provider-openai && npm run typecheck -w @motion-engine/creative-gateway && npm run typecheck -w @motion-engine/creative-compiler && npm run typecheck -w @motion-engine/creative-core && npm run typecheck -w @motion-engine/core && npm run typecheck -w @motion-engine/renderer-remotion && tsc --noEmit -p tsconfig.json",
     "lint": "npm run lint -w @motion-engine/provider-openai && npm run lint -w @motion-engine/creative-gateway && npm run lint -w @motion-engine/creative-compiler && npm run lint -w @motion-engine/creative-core && npm run lint -w @motion-engine/core && npm run lint -w @motion-engine/renderer-remotion && eslint .",
-    "test": "npm run test:unit && npm run test:integration && npm run golden:verify:p2.4 && npm run golden:verify:p2.3 && npm run golden:verify:p2.2 && npm run golden:verify:p1.6 && npm run test:p1.6 && npm run test:contamination && npm run test:isolation && npm run test:renderer-smoke",
+    "test": "npm run test:unit && npm run test:integration && npm run golden:verify:p2.6 && npm run golden:verify:p2.4 && npm run golden:verify:p2.3 && npm run golden:verify:p2.2 && npm run golden:verify:p1.6 && npm run test:p1.6 && npm run test:contamination && npm run test:isolation && npm run test:renderer-smoke",
     "test:unit": "npm run test -w @motion-engine/provider-openai && npm run test -w @motion-engine/creative-gateway && npm run test -w @motion-engine/creative-compiler && npm run test -w @motion-engine/creative-core && npm run test -w @motion-engine/core && npm run test -w @motion-engine/renderer-remotion",
-    "test:integration": "vitest run integration/examples.test.ts integration/boundaries.test.ts integration/pipeline.test.ts integration/p1.3-pipeline.test.ts integration/p1.4-pipeline.test.ts integration/p1.5-pipeline.test.ts integration/p2.1-determinism.test.ts integration/p2.2-determinism.test.ts integration/p2.3-pipeline.test.ts integration/p2.3-determinism.test.ts integration/p2.4-pipeline.test.ts integration/p2.4-determinism.test.ts integration/p2.5-offline.test.ts",
+    "test:integration": "vitest run integration/examples.test.ts integration/boundaries.test.ts integration/pipeline.test.ts integration/p1.3-pipeline.test.ts integration/p1.4-pipeline.test.ts integration/p1.5-pipeline.test.ts integration/p2.1-determinism.test.ts integration/p2.2-determinism.test.ts integration/p2.3-pipeline.test.ts integration/p2.3-determinism.test.ts integration/p2.4-pipeline.test.ts integration/p2.4-determinism.test.ts integration/p2.5-offline.test.ts integration/p2.6-certification.test.ts",
     "test:contamination": "vitest run integration/contamination.test.ts integration/creative-contamination.test.ts integration/creative-compiler-contamination.test.ts integration/creative-gateway-contamination.test.ts integration/provider-openai-boundary.test.ts",
     "test:isolation": "vitest run integration/isolation.test.ts integration/creative-isolation.test.ts integration/creative-compiler-isolation.test.ts integration/creative-gateway-isolation.test.ts",
     "test:renderer-smoke": "vitest run integration/render-frame.smoke.test.ts integration/render-motion-frame.smoke.test.ts integration/render-visual-frame.smoke.test.ts",
@@ -33,6 +33,7 @@
     "render:p2.3": "vitest run integration/render-video.p2.3.test.ts",
     "test:provider:real": "tsx scripts/p2.5-idea-to-video.ts --certify",
     "p2.5:real": "tsx scripts/p2.5-idea-to-video.ts --certify",
+    "p2.6:real": "tsx scripts/p2.6-certification.ts --certify",
     "generate:idea": "tsx scripts/p2.5-idea-to-video.ts",
     "test:p1.6": "vitest run integration/p1.6-certification.test.ts integration/p1.6-failure-injection.test.ts integration/p1.6-typography.test.ts",
     "golden:verify:p1.6": "node --experimental-strip-types scripts/p1.6-semantic-golden.ts",
@@ -44,6 +45,8 @@
     "golden:update:p2.3": "node --experimental-strip-types scripts/p2.3-semantic-golden.ts --update",
     "golden:verify:p2.4": "node --experimental-strip-types scripts/p2.4-semantic-golden.ts",
     "golden:update:p2.4": "node --experimental-strip-types scripts/p2.4-semantic-golden.ts --update",
+    "golden:verify:p2.6": "node --experimental-strip-types scripts/p2.6-semantic-golden.ts",
+    "golden:update:p2.6": "node --experimental-strip-types scripts/p2.6-semantic-golden.ts --update",
     "fonts:prepare": "node scripts/prepare-fonts.mjs",
     "benchmark:text-engines": "node scripts/benchmark-text-engines.mjs"
   },
