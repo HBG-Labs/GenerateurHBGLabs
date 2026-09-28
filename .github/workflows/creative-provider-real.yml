@@ -1,0 +1,70 @@
+name: P2.5 Real Creative Provider
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type RUN_REAL_PROVIDER to authorize the two-stage paid provider run.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  idea-to-video:
+    if: ${{ inputs.confirmation == 'RUN_REAL_PROVIDER' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: true
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: gpt-6-luna
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install exact dependency graph
+        run: npm ci
+
+      - name: Detect explicitly configured provider secret
+        id: auth
+        shell: bash
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "REAL PROVIDER NOT EXECUTED — repository secret OPENAI_API_KEY is absent."
+          fi
+
+      - name: Offline quality gate
+        run: npm run check
+
+      - name: Real two-stage provider and MP4 gate
+        if: ${{ steps.auth.outputs.configured == 'true' }}
+        run: npm run p2.5:real
+
+      - name: Verify real output integrity
+        if: ${{ steps.auth.outputs.configured == 'true' }}
+        shell: bash
+        run: |
+          test -s out/p2.5/real-provider/p2-5-dinosaurs.mp4
+          test -s out/p2.5/real-provider/accepted-provider-snapshot.json
+          test -s out/p2.5/real-provider/replay-proof.json
+          test -s out/p2.5/real-provider/artifact-integrity.json
+
+      - name: Upload real provider evidence
+        if: ${{ always() && steps.auth.outputs.configured == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2.5-real-provider-${{ github.sha }}
+          path: out/p2.5/real-provider/
+          if-no-files-found: error
+          retention-days: 14
