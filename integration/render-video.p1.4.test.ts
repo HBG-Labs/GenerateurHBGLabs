@@ -71,7 +71,7 @@ function manifest(
     resolvedStyle: style,
     plan,
     platformPresets: platforms(),
-    toolchain: { node: process.version, remotion: '4.0.529', chromium: executable ?? null, ffmpeg: 'Remotion bundled' },
+    toolchain: { node: process.version, package_manager: 'npm@11.17.0', lockfile_sha256: '0'.repeat(64), remotion: '4.0.529', chromium: executable ?? null, ffmpeg: 'Remotion bundled (version not exposed)', renderer_package: '0.5.0', os: process.platform, arch: process.arch },
     renderConfig: {
       width: plan.canvas.width,
       height: plan.canvas.height,

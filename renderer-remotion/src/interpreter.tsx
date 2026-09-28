@@ -12,7 +12,30 @@ export interface GenericCompositionProps extends Record<string, unknown> {
 
 const TRACKS = new Set(['opacity', 'translate_x', 'translate_y', 'scale', 'rotate', 'clip_top', 'clip_right', 'clip_bottom', 'clip_left', 'path_progress', 'color']);
 
-export function assertP15Plan(plan: RenderPlan): void {
+export class RendererPlanValidationError extends Error {
+  readonly diagnostics: readonly { code: string; path: string; message: string }[];
+  constructor(diagnostics: readonly { code: string; path: string; message: string }[]) {
+    super(diagnostics.map((diagnostic) => diagnostic.message).join('; '));
+    this.name = 'RendererPlanValidationError';
+    this.diagnostics = diagnostics;
+  }
+}
+
+export function assertP15Plan(input: unknown): asserts input is RenderPlan {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new RendererPlanValidationError([{
+    code: 'render_plan.invalid', path: '', message: 'Le renderer exige un RenderPlan objet déjà validé par le Core.',
+  }]);
+  const plan = input as Partial<RenderPlan>;
+  if (plan.schema !== 'render-plan') throw new RendererPlanValidationError([{
+    code: 'render_plan.invalid', path: 'schema', message: 'Document render-plan attendu.',
+  }]);
+  if (plan.schema_version !== '0.3.0') throw new RendererPlanValidationError([{
+    code: 'render_plan.version_unsupported', path: 'schema_version',
+    message: `RenderPlan 0.3.0 attendu, reçu ${String(plan.schema_version)}. Recompilation requise.`,
+  }]);
+  if (!plan.canvas || !Array.isArray(plan.scenes) || !Array.isArray(plan.fonts) || !Array.isArray(plan.assets) || !plan.requirements || !plan.preflight) throw new RendererPlanValidationError([{
+    code: 'render_plan.invalid', path: '', message: 'RenderPlan résolu incomplet. Recompilation requise.',
+  }]);
   const visit = (node: PlanNode): void => {
     for (const track of node.tracks) if (!TRACKS.has(track.property)) throw new Error(`Track « ${track.property} » inconnu du renderer générique.`);
     if (node.type === 'group' || node.type === 'mask') node.children.forEach(visit);

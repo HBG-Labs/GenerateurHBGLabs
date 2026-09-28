@@ -28,7 +28,7 @@ import { buildQualityPreflight } from '../visual/preflight.ts';
 import { rendererRequirements, assertRenderGate } from '../rendering/capabilities.ts';
 import type { RendererDescriptor } from '../rendering/capabilities.ts';
 import { buildDependencyGraph } from './dependency-graph.ts';
-import { assertInputLimits, assertPlanLimits } from './limits.ts';
+import { assertAuxiliaryPlanLimits, assertInputLimits, assertPlanLimits } from './limits.ts';
 import { compileAudioPlan, compileSubtitlePlan } from './plans.ts';
 import { assertStyleVersionPolicy } from '../style/version-policy.ts';
 import type { StyleVersionBaseline } from '../style/version-policy.ts';
@@ -38,7 +38,7 @@ import type { ReproducibilityManifest } from '../contracts/manifest.ts';
 import { validatePatternDefinition, validatePlatformPresets, validateRenderPlan, validateSpec } from '../validation/validate.ts';
 import type { MotionSceneSpec } from '../contracts/motion-spec.ts';
 
-export const COMPILER_VERSION = '0.4.0';
+export const COMPILER_VERSION = '0.5.0';
 
 export interface FontResource {
   file: string;
@@ -76,6 +76,60 @@ export class CompileError extends Error {
     this.name = 'CompileError';
     this.diagnostics = diagnostics;
   }
+}
+
+export type CompilerMeasuredPhase =
+  | 'validate_inputs'
+  | 'resolve_dependencies'
+  | 'resolve_temporal'
+  | 'resolve_layout'
+  | 'resolve_typography'
+  | 'resolve_assets'
+  | 'compile_behaviors'
+  | 'resolve_audio_plan'
+  | 'resolve_subtitles'
+  | 'quality_preflight'
+  | 'build_render_plan'
+  | 'build_manifest';
+
+export interface CompilerPhaseMetrics {
+  schema: 'compiler-phase-metrics';
+  schema_version: '0.1.0';
+  total_ms: number;
+  phases_ms: Record<CompilerMeasuredPhase, number>;
+}
+
+class CompileProfiler {
+  readonly #phases = Object.fromEntries([
+    'validate_inputs', 'resolve_dependencies', 'resolve_temporal', 'resolve_layout', 'resolve_typography',
+    'resolve_assets', 'compile_behaviors', 'resolve_audio_plan', 'resolve_subtitles', 'quality_preflight',
+    'build_render_plan', 'build_manifest',
+  ].map((phase) => [phase, 0])) as Record<CompilerMeasuredPhase, number>;
+  readonly #now: () => number;
+
+  constructor(now: () => number) { this.#now = now; }
+
+  start(): number { return this.#now(); }
+
+  finish(phase: CompilerMeasuredPhase, started: number): void { this.add(phase, this.#now() - started); }
+
+  add(phase: CompilerMeasuredPhase, milliseconds: number): void {
+    this.#phases[phase] += milliseconds;
+  }
+
+  measure<T>(phase: CompilerMeasuredPhase, task: () => T): T {
+    const started = this.#now();
+    try { return task(); }
+    finally { this.add(phase, this.#now() - started); }
+  }
+
+  snapshot(totalMs: number): CompilerPhaseMetrics {
+    return { schema: 'compiler-phase-metrics', schema_version: '0.1.0', total_ms: totalMs, phases_ms: { ...this.#phases } };
+  }
+}
+
+function measured<T>(profile: CompileProfiler | undefined, phase: CompilerMeasuredPhase, task: () => T): T {
+  return profile ? profile.measure(phase, task) : task();
 }
 
 function failValidation(label: string, result: { ok: boolean; issues?: readonly { path: string; message: string }[] }): void {
@@ -175,6 +229,7 @@ interface CompileContext {
   fps: number;
   minimumReadableSize: number;
   textEngine: HarfBuzzTextEngine;
+  profiler?: CompileProfiler;
 }
 
 function nodeBase(layer: Layer, box: Box, tracks: PlanNode['tracks']): Pick<PlanNode, 'id' | 'box' | 'origin' | 'opacity' | 'transform' | 'must_be_safe' | 'tracks'> {
@@ -195,6 +250,7 @@ function nodeBase(layer: Layer, box: Box, tracks: PlanNode['tracks']): Pick<Plan
 }
 
 function compileText(layer: TextLayer, box: Box, context: CompileContext): PlanTextNode {
+  const started = context.profiler?.start() ?? 0;
   const type = resolveType(context.style, layer.style.type);
   const family = context.style.style.typography.families[type.family];
   if (!family) throw new CompileError(`Famille typographique « ${type.family} » introuvable.`);
@@ -269,12 +325,15 @@ function compileText(layer: TextLayer, box: Box, context: CompileContext): PlanT
     top += line.height;
     return result;
   });
-  return { ...nodeBase(layer, box, compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY)), type: 'text', align: layer.style.align ?? 'start', lines };
+  context.profiler?.finish('resolve_typography', started);
+  const tracks = measured(context.profiler, 'compile_behaviors', () => compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY));
+  return { ...nodeBase(layer, box, tracks), type: 'text', align: layer.style.align ?? 'start', lines };
 }
 
 function compileShape(layer: ShapeLayer, box: Box, context: CompileContext): PlanNode {
+  const tracks = measured(context.profiler, 'compile_behaviors', () => compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY));
   return {
-    ...nodeBase(layer, box, compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY)),
+    ...nodeBase(layer, box, tracks),
     type: 'shape',
     shape: layer.shape,
     radius: layer.radius ? resolveSpace(context.style, layer.radius, context.scaleX) : 0,
@@ -308,6 +367,7 @@ function focusTrackContext(layer: ImageLayer, resource: ImageResource, box: Box)
 }
 
 function compileImage(layer: ImageLayer, box: Box, context: CompileContext): PlanImageNode {
+  const started = context.profiler?.start() ?? 0;
   const resource = context.assetResources[layer.asset];
   if (!resource) throw new CompileError(`asset.missing: « ${layer.asset} » absent`);
   validateImageResource(resource);
@@ -319,8 +379,10 @@ function compileImage(layer: ImageLayer, box: Box, context: CompileContext): Pla
     provenance: resource.provenance, semantic_regions: resource.regions,
     transformations: [`fit:${layer.fit}`, `focal:${focal.x.toFixed(4)},${focal.y.toFixed(4)}`, `crop:${placement.crop.x.toFixed(3)},${placement.crop.y.toFixed(3)},${placement.crop.w.toFixed(3)},${placement.crop.h.toFixed(3)}`, `grade:${treatment.grade}`],
   });
+  context.profiler?.finish('resolve_assets', started);
+  const tracks = measured(context.profiler, 'compile_behaviors', () => compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY, focusTrackContext(layer, resource, box)));
   return {
-    ...nodeBase(layer, box, compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY, focusTrackContext(layer, resource, box))),
+    ...nodeBase(layer, box, tracks),
     type: 'image', asset: resource.ref, fit: layer.fit, crop: placement.crop, destination: placement.destination, focal_point: focal,
     semantic_regions: resource.regions,
     treatment: {
@@ -347,8 +409,9 @@ function compilePath(layer: PathLayer, box: Box, context: CompileContext, siblin
   const motif = 'motif' in layer.geometry ? context.style.style.motifs[tokenKey(layer.geometry.motif, 'motif')] : undefined;
   const geometry = matchedGeometry(layer, box, siblings) ?? layer.geometry;
   const d = compileNormalizedPath(geometry, box, motif && motif.kind === 'line' ? motif.length_cols / context.style.style.grid.columns : 1);
+  const tracks = measured(context.profiler, 'compile_behaviors', () => compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY));
   return {
-    ...nodeBase(layer, box, compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY)),
+    ...nodeBase(layer, box, tracks),
     type: 'path', d,
     stroke: { color: resolveColor(context.style, layer.style.stroke), width: (context.style.style.strokes[tokenKey(layer.style.weight, 'stroke')] ?? 1) * context.scaleX, cap: layer.style.cap ?? 'butt', join: layer.style.join ?? 'miter' },
     progress: layer.progress ?? 1,
@@ -460,8 +523,9 @@ function compileMask(layer: MaskLayer, box: Box, context: CompileContext): PlanN
   const local = { x: 0, y: 0, w: box.w, h: box.h };
   const grid = { columns: context.style.style.grid.columns, rows: context.style.style.grid.rows, gutter: context.style.style.grid.gutter * context.scaleX };
   const siblings = new Map(layer.children.map((child) => [child.id, child.placement ? gridPlacementBox(child.placement, local, grid) : local]));
+  const tracks = measured(context.profiler, 'compile_behaviors', () => compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY));
   return {
-    ...nodeBase(layer, box, compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY)),
+    ...nodeBase(layer, box, tracks),
     type: 'mask',
     clip: { shape: layer.clip.shape, radius: layer.clip.radius ? resolveSpace(context.style, layer.clip.radius, context.scaleX) : 0, mode: layer.clip.mode ?? 'clip', direction: layer.clip.direction ?? 'left_to_right' },
     children: layer.children.map((child) => compileLayer(child, siblings.get(child.id)!, context, siblings)),
@@ -478,13 +542,15 @@ function compileLayer(layer: Layer, box: Box, context: CompileContext, siblings:
 }
 
 function compileGroup(group: GroupLayer, groupBox: Box, pattern: PatternDefinition, context: CompileContext): PlanNode {
-  const boxes = childBoxes(group, groupBox, pattern, context);
+  const boxes = measured(context.profiler, 'resolve_layout', () => childBoxes(group, groupBox, pattern, context));
   const children = group.children.map((child) => compileLayer(child, boxes.get(child.id)!, context, boxes));
-  return { ...nodeBase(group, groupBox, compileLayerTracks(group, context.timing, context.style, context.fps, context.scaleY)), type: 'group', children };
+  const tracks = measured(context.profiler, 'compile_behaviors', () => compileLayerTracks(group, context.timing, context.style, context.fps, context.scaleY));
+  return { ...nodeBase(group, groupBox, tracks), type: 'group', children };
 }
 
 /** Compilation pure : aucun accès disque, aucune horloge, aucun hasard. */
-function compileRenderPlan(input: CompileInput): RenderPlan {
+function compileRenderPlan(input: CompileInput, profiler?: CompileProfiler): RenderPlan {
+  const validationStarted = profiler?.start() ?? 0;
   const registry = input.behaviorRegistry ?? P14_BEHAVIOR_REGISTRY;
   assertStyleVersionPolicy(input.resolvedStyle, input.previousStyle ?? null);
   failValidation('PatternDefinition', validatePatternDefinition(input.pattern));
@@ -499,7 +565,9 @@ function compileRenderPlan(input: CompileInput): RenderPlan {
   if (input.spec.system.id !== input.pattern.id || input.spec.system.version !== input.pattern.version) throw new CompileError('Le PatternDefinition ne correspond pas au système déclaré par la spec.');
   const limits = resolveEngineLimits(input.config.limits);
   assertInputLimits(input.spec, input.assetResources ?? {}, limits);
+  profiler?.finish('validate_inputs', validationStarted);
 
+  const layoutStarted = profiler?.start() ?? 0;
   const presetCanvas = input.platformPresets.formats[input.spec.format.preset];
   if (!presetCanvas) throw new CompileError(`Format « ${input.spec.format.preset} » introuvable.`);
   const renderScale = input.config.render_scale ?? 1;
@@ -508,16 +576,17 @@ function compileRenderPlan(input: CompileInput): RenderPlan {
   const platform = input.spec.format.platform_safe_zones[0];
   if (!platform) throw new CompileError('Une plateforme de zone sûre est requise.');
   const safe = resolvedSafeBox(input.platformPresets, platform, input.spec.format.preset, canvas.width, canvas.height, input.resolvedStyle);
+  profiler?.finish('resolve_layout', layoutStarted);
   const fonts = new Map<string, RenderPlan['fonts'][number]>();
   const assets = new Map<string, RenderPlan['assets'][number]>();
   const textEngine = new HarfBuzzTextEngine();
-  const temporal = resolveTemporalPlan({
+  const temporal = measured(profiler, 'resolve_temporal', () => resolveTemporalPlan({
     spec: input.spec, resolvedStyle: input.resolvedStyle, fps: input.config.fps, registry,
     ...(input.config.reduced_motion !== undefined ? { reducedMotion: input.config.reduced_motion } : {}),
     ...(input.config.scene_duration_frames !== undefined ? { fallbackSceneFrames: input.config.scene_duration_frames } : {}),
     ...(input.config.max_render_cost !== undefined ? { maxRenderCost: input.config.max_render_cost } : {}),
     ...(input.config.max_attention_cost !== undefined ? { maxAttentionCost: input.config.max_attention_cost } : {}),
-  });
+  }));
   const scenes = input.spec.scenes.map((scene, index) => {
     if (scene.pattern.id !== input.pattern.id || scene.pattern.version !== input.pattern.version) throw new CompileError(`La scène ${scene.id} utilise un autre pattern.`);
     const timing = temporal.scenes[index];
@@ -528,6 +597,7 @@ function compileRenderPlan(input: CompileInput): RenderPlan {
       scaleY: canvas.height / input.resolvedStyle.style.reference_canvas.height,
       fonts, assets, fontResources: input.fontResources, assetResources: input.assetResources ?? {}, timing, fps: input.config.fps,
       minimumReadableSize: input.config.minimum_readable_size ?? Math.max(14, 28 * renderScale), textEngine,
+      ...(profiler ? { profiler } : {}),
     };
     const nodes = scene.layers.map((layer) => {
       if (layer.primitive !== 'group') throw new CompileError('Le calque racine doit être un Group.');
@@ -555,11 +625,14 @@ function compileRenderPlan(input: CompileInput): RenderPlan {
     scenes,
   };
   const base = { ...baseWithoutRequirements, requirements: rendererRequirements({ scenes, fonts: resolvedFonts }) };
-  const preflight = buildQualityPreflight(base);
+  const preflight = measured(profiler, 'quality_preflight', () => buildQualityPreflight(base));
   if (preflight.status === 'fail') throw new CompileError(`Quality preflight refusé — ${preflight.issues.filter((issue) => issue.severity === 'error').map((issue) => issue.code).join(', ')}`, preflight.issues);
-  const plan = RenderPlanSchema.parse({ ...base, preflight });
-  failValidation('RenderPlan', validateRenderPlan(plan));
-  assertPlanLimits(plan, limits);
+  const plan = measured(profiler, 'build_render_plan', () => {
+    const parsed = RenderPlanSchema.parse({ ...base, preflight });
+    failValidation('RenderPlan', validateRenderPlan(parsed));
+    assertPlanLimits(parsed, limits);
+    return parsed;
+  });
   return plan;
 }
 
@@ -590,33 +663,44 @@ function deepFreeze<T>(value: T): T {
 }
 
 /** Pipeline P1.5 pur : aucun disque, réseau, hasard ou horloge. */
-export function compilePipeline(input: CompileInput): CompilerPipelineResult {
-  let renderPlan = compileRenderPlan(input);
-  const audioPlan = compileAudioPlan(input.spec, input.resolvedStyle, renderPlan);
+function compilePipelineInternal(input: CompileInput, profiler?: CompileProfiler): CompilerPipelineResult {
+  let renderPlan = compileRenderPlan(input, profiler);
+  const audioPlan = measured(profiler, 'resolve_audio_plan', () => compileAudioPlan(input.spec, input.resolvedStyle, renderPlan));
   const minimumReadableSize = input.config.minimum_readable_size ?? Math.max(14, 28 * (input.config.render_scale ?? 1));
-  const subtitles = compileSubtitlePlan(input.spec, input.resolvedStyle, renderPlan, audioPlan, input.fontResources, minimumReadableSize);
+  const subtitles = measured(profiler, 'resolve_subtitles', () => compileSubtitlePlan(input.spec, input.resolvedStyle, renderPlan, audioPlan, input.fontResources, minimumReadableSize));
   if (subtitles.font && !renderPlan.fonts.some((font) => font.id === subtitles.font!.id)) {
     const { preflight: _oldPreflight, requirements: _oldRequirements, ...base } = renderPlan;
     const fonts = [...renderPlan.fonts, subtitles.font].sort((a, b) => a.id.localeCompare(b.id));
     const requirements = rendererRequirements({ scenes: renderPlan.scenes, fonts });
     const draft = { ...base, fonts, requirements };
-    const preflight = buildQualityPreflight(draft, { audioPlan, subtitlePlan: subtitles.plan });
+    const preflight = measured(profiler, 'quality_preflight', () => buildQualityPreflight(draft, { audioPlan, subtitlePlan: subtitles.plan }));
     renderPlan = RenderPlanSchema.parse({ ...draft, preflight });
   } else {
     const { preflight: _oldPreflight, ...draft } = renderPlan;
-    renderPlan = RenderPlanSchema.parse({ ...draft, preflight: buildQualityPreflight(draft, { audioPlan, subtitlePlan: subtitles.plan }) });
+    const preflight = measured(profiler, 'quality_preflight', () => buildQualityPreflight(draft, { audioPlan, subtitlePlan: subtitles.plan }));
+    renderPlan = RenderPlanSchema.parse({ ...draft, preflight });
   }
   assertPlanLimits(renderPlan, resolveEngineLimits(input.config.limits));
-  if (audioPlan.sfx_cues.length > resolveEngineLimits(input.config.limits).max_audio_cues) throw new CompileError('limits.audio_cues');
-  if (subtitles.plan.segments.length > resolveEngineLimits(input.config.limits).max_subtitle_segments) throw new CompileError('limits.subtitle_segments');
-  const graph = buildDependencyGraph(input.spec, renderPlan, audioPlan, subtitles.plan);
-  const result: CompilerPipelineResult = {
+  assertAuxiliaryPlanLimits(audioPlan, subtitles.plan, resolveEngineLimits(input.config.limits));
+  const graph = measured(profiler, 'resolve_dependencies', () => buildDependencyGraph(input.spec, renderPlan, audioPlan, subtitles.plan));
+  const result = measured(profiler, 'build_render_plan', (): CompilerPipelineResult => ({
     render_plan: renderPlan, audio_plan: audioPlan, subtitle_plan: subtitles.plan, preflight: renderPlan.preflight,
     dependency_graph: graph,
     hashes: { render_plan: hashDocument(renderPlan), audio_plan: hashDocument(audioPlan), subtitle_plan: hashDocument(subtitles.plan), dependency_graph: graph.sha256 },
     phases: PURE_COMPILER_PHASES,
-  };
+  }));
   return deepFreeze(result);
+}
+
+export function compilePipeline(input: CompileInput): CompilerPipelineResult {
+  return compilePipelineInternal(input);
+}
+
+export function profileCompilePipeline(input: CompileInput, now: () => number): { result: CompilerPipelineResult; metrics: CompilerPhaseMetrics } {
+  const profiler = new CompileProfiler(now);
+  const started = profiler.start();
+  const result = compilePipelineInternal(input, profiler);
+  return { result, metrics: profiler.snapshot(profiler.start() - started) };
 }
 
 /** Compatibilité P1.1–P1.4 : renvoie la sortie RenderPlan du pipeline fermé. */
@@ -628,6 +712,11 @@ export function compileMotionScene(input: CompileInput): RenderPlan {
 export type CompilationManifestContext = Omit<ManifestInput, 'spec' | 'resolvedStyle' | 'plan' | 'audioPlan' | 'subtitlePlan' | 'dependencyGraph' | 'rendererDescriptor' | 'pattern'>;
 export interface RenderCompilationResult extends CompilerPipelineResult {
   manifest: ReproducibilityManifest;
+}
+
+export interface ProfiledRenderCompilationResult {
+  result: RenderCompilationResult;
+  metrics: CompilerPhaseMetrics;
 }
 
 export function compileForRender(input: CompileInput, renderer: RendererDescriptor, manifest: CompilationManifestContext): RenderCompilationResult {
@@ -645,4 +734,24 @@ export function compileForRender(input: CompileInput, renderer: RendererDescript
     pattern: { id: input.pattern.id, version: input.pattern.version, sha256: hashDocument(input.pattern) },
   });
   return deepFreeze({ ...result, phases: COMPILER_PIPELINE_PHASES, manifest: reproducibilityManifest });
+}
+
+export function profileCompileForRender(input: CompileInput, renderer: RendererDescriptor, manifest: CompilationManifestContext, now: () => number): ProfiledRenderCompilationResult {
+  const profiler = new CompileProfiler(now);
+  const started = profiler.start();
+  const result = compilePipelineInternal(input, profiler);
+  assertRenderGate(result.render_plan, renderer);
+  const reproducibilityManifest = measured(profiler, 'build_manifest', () => buildReproducibilityManifest({
+    ...manifest,
+    spec: input.spec,
+    resolvedStyle: input.resolvedStyle,
+    plan: result.render_plan,
+    audioPlan: result.audio_plan,
+    subtitlePlan: result.subtitle_plan,
+    dependencyGraph: result.dependency_graph,
+    rendererDescriptor: renderer,
+    pattern: { id: input.pattern.id, version: input.pattern.version, sha256: hashDocument(input.pattern) },
+  }));
+  const compilation = deepFreeze({ ...result, phases: COMPILER_PIPELINE_PHASES, manifest: reproducibilityManifest });
+  return { result: compilation, metrics: profiler.snapshot(profiler.start() - started) };
 }

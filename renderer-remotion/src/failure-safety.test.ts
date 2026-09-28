@@ -1,10 +1,10 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { finalizeAtomicOutput } from './remotion-motion-renderer.ts';
+import { finalizeAtomicOutput, renderAtomically } from './remotion-motion-renderer.ts';
 
 describe('finalisation atomique P1.5', () => {
   it('ne remplace la sortie finale qu’après validation du temporaire', () => {
@@ -30,6 +30,21 @@ describe('finalisation atomique P1.5', () => {
       writeFileSync(final, 'référence-valide');
       expect(() => finalizeAtomicOutput(path.join(directory, 'absent.mp4'), final)).toThrow(/temporaire invalide/u);
       expect(readFileSync(final, 'utf8')).toBe('référence-valide');
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('nettoie le temporaire et ne publie rien lors d’une interruption injectée', async () => {
+    const directory = mkdtempSync(path.join(tmpdir(), 'motion-p16-interrupt-'));
+    const final = path.join(directory, 'video.mp4');
+    try {
+      await expect(renderAtomically(final, (temporary) => {
+        writeFileSync(temporary, 'fragment-incomplet');
+        return Promise.reject(new Error('render interrupted'));
+      })).rejects.toThrow('render interrupted');
+      expect(existsSync(final)).toBe(false);
+      expect(readdirSync(directory).some((file) => file.includes('.partial'))).toBe(false);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

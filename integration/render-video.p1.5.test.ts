@@ -55,9 +55,9 @@ describe('références P1.5', () => {
     const renderer = new RemotionMotionRenderer(executable ? { browserExecutable: executable } : {});
     const manifestContext = (substitutionReason?: string) => ({
       createdAt: new Date().toISOString(),
-      engine: { name: '@motion-engine/core', version: '0.4.0', git_commit: state.commit, git_dirty: state.dirty, reference_eligible: true },
+      engine: { name: '@motion-engine/core', version: '0.5.0', git_commit: state.commit, git_dirty: state.dirty, reference_eligible: true },
       platformPresets: platform,
-      toolchain: { node: process.version, remotion: '4.0.529', chromium: chromeVersion, ffmpeg: 'Remotion bundled', renderer_package: REMOTION_RENDERER_VERSION, os: process.platform, arch: process.arch },
+      toolchain: { node: process.version, package_manager: 'npm@11.17.0', lockfile_sha256: sha256File(path.join(WORKSPACE, 'package-lock.json')), remotion: '4.0.529', chromium: chromeVersion, ffmpeg: 'Remotion bundled (version not exposed)', renderer_package: REMOTION_RENDERER_VERSION, os: process.platform, arch: process.arch },
       renderConfig: { width: 540, height: 960, fps: 30, codec: 'h264' as const, crf: null, pixel_format: null },
       ...(substitutionReason ? { substitutionReason } : {}),
     });

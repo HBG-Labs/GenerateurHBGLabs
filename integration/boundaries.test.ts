@@ -27,7 +27,7 @@ describe('frontières Core / renderer-remotion', () => {
     };
     expect(corePackage.dependencies?.['remotion']).toBeUndefined();
     expect(corePackage.dependencies?.['@motion-engine/renderer-remotion']).toBeUndefined();
-    expect(rendererPackage.dependencies?.['@motion-engine/core']).toBe('0.4.0');
+    expect(rendererPackage.dependencies?.['@motion-engine/core']).toBe('0.5.0');
     expect(rendererPackage.dependencies?.['remotion']).toBe('4.0.529');
   });
 

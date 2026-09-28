@@ -1,7 +1,7 @@
 {
   "name": "@motion-engine/core",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "description": "Moteur de motion design programmable, indépendant de toute marque, de tout sujet et de tout style.",
   "exports": {

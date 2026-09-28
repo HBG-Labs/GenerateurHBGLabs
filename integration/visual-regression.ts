@@ -71,8 +71,28 @@ export function comparePngBuffers(
   };
 }
 
-export function comparePngFiles(expectedFile: string, actualFile: string): PerceptualComparison {
-  return comparePngBuffers(readFileSync(expectedFile), readFileSync(actualFile));
+export function comparePngFiles(expectedFile: string, actualFile: string, tolerance: PerceptualTolerance = CROSS_ENVIRONMENT_TOLERANCE): PerceptualComparison {
+  return comparePngBuffers(readFileSync(expectedFile), readFileSync(actualFile), tolerance);
+}
+
+export function createGridBoard(files: readonly string[], columns: number, outputFile: string): void {
+  if (files.length === 0 || columns <= 0) throw new Error('Une planche exige au moins une image et une colonne.');
+  const images = files.map((file) => PNG.sync.read(readFileSync(file)));
+  const width = images[0]!.width;
+  const height = images[0]!.height;
+  if (images.some((image) => image.width !== width || image.height !== height)) throw new Error('Toutes les frames de la planche doivent avoir les mêmes dimensions.');
+  const rows = Math.ceil(images.length / columns);
+  const output = new PNG({ width: width * columns, height: height * rows });
+  images.forEach((source, index) => {
+    const offsetX = (index % columns) * width;
+    const offsetY = Math.floor(index / columns) * height;
+    for (let y = 0; y < height; y += 1) {
+      const sourceStart = y * width * 4;
+      const destinationStart = ((offsetY + y) * output.width + offsetX) * 4;
+      source.data.copy(output.data, destinationStart, sourceStart, sourceStart + width * 4);
+    }
+  });
+  writeFileSync(outputFile, PNG.sync.write(output));
 }
 
 export function createSideBySideBoard(leftFile: string, rightFile: string, outputFile: string): void {

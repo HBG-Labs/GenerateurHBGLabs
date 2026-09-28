@@ -5,7 +5,7 @@ import { StyleBindingSchema } from './motion-spec.ts';
 import { AssetProvenanceSchema, SemanticRegionSchema } from './visual.ts';
 
 export const MANIFEST_SCHEMA = 'reproducibility-manifest';
-export const MANIFEST_VERSION = '0.3.0';
+export const MANIFEST_VERSION = '0.4.0';
 
 /**
  * Tout ce qui détermine le rendu. Deux manifestes d'empreinte égale doivent
@@ -85,6 +85,8 @@ export const ReproducibilityManifestSchema = z.strictObject({
   dependency_graph_sha256: Sha256Schema.nullable(),
   toolchain: z.strictObject({
     node: z.string(),
+    package_manager: z.string(),
+    lockfile_sha256: Sha256Schema,
     remotion: z.string().nullable(),
     chromium: z.string().nullable(),
     ffmpeg: z.string().nullable(),

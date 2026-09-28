@@ -28,8 +28,12 @@ export function formatTypography(sourceText: string, locale: string): FormattedT
     replace(text.replace(/[ \t\u00a0\u202f]*([?!;])/gu, `${NNBSP}$1`), 'punctuation.high_nnbsp');
     replace(text.replace(/[ \t\u00a0\u202f]*:/gu, `${NBSP}:`), 'punctuation.colon_nbsp');
     replace(
+      text.replace(/\b\d{1,3}(?:[ \t\u00a0\u202f]\d{3})+(?:[.,]\d+)?/gu, (number) => number.replace(/[ \t\u00a0\u202f]/gu, NNBSP)),
+      'number.grouping_nnbsp',
+    );
+    replace(
       text.replace(
-        /(\d(?:[.,]\d+)?)[ \t]+(%|‰|°C|°F|kg|mg|g|km|cm|mm|m|s|min|h|kW|W|V|€|EUR)\b/gu,
+        /(\d(?:[.,]\d+)?)[ \t]+(%|‰|°C|°F|kg|mg|g|km|cm|mm|m|s|min|h|kW|W|V|€|EUR)(?=$|\s|[.,;:!?])/gu,
         `$1${NNBSP}$2`,
       ),
       'number.unit_nnbsp',

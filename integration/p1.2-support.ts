@@ -80,7 +80,7 @@ function manifest(spec: MotionSceneSpec, style: ResolvedStyle, plan: RenderPlan,
     resolvedStyle: style,
     plan,
     platformPresets: platforms(),
-    toolchain: { node: process.version, remotion: '4.0.529', chromium: null, ffmpeg: null },
+    toolchain: { node: process.version, package_manager: 'npm@11.17.0', lockfile_sha256: '0'.repeat(64), remotion: '4.0.529', chromium: null, ffmpeg: null },
     renderConfig: {
       width: plan.canvas.width,
       height: plan.canvas.height,

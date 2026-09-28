@@ -51,9 +51,10 @@ export interface ReferenceEligibility {
   reasons: string[];
 }
 
-export function referenceEligibility(input: Pick<ManifestInput, 'engine' | 'plan' | 'platformPresets' | 'renderer' | 'rendererDescriptor'>): ReferenceEligibility {
+export function referenceEligibility(input: Pick<ManifestInput, 'engine' | 'plan' | 'platformPresets' | 'renderer' | 'rendererDescriptor'> & { toolchain?: ManifestInput['toolchain'] }): ReferenceEligibility {
   const reasons: string[] = [];
   if (input.engine.git_dirty ?? true) reasons.push('git_dirty');
+  if (!input.engine.git_commit) reasons.push('git_commit_unknown');
   if (!input.platformPresets) reasons.push('platform_version_unknown');
   if (input.plan.preflight.issues.some((issue) => issue.severity === 'error')) reasons.push('preflight_error');
   if (input.plan.fonts.some((font) => !/^[0-9a-f]{64}$/u.test(font.sha256))) reasons.push('font_unhashed');
@@ -61,6 +62,17 @@ export function referenceEligibility(input: Pick<ManifestInput, 'engine' | 'plan
   const descriptor = input.rendererDescriptor;
   if (!descriptor && !input.renderer) reasons.push('renderer_unknown');
   if (descriptor && rendererCompatibility(input.plan, descriptor).length > 0) reasons.push('renderer_incompatible');
+  const toolchain = input.toolchain;
+  if (!toolchain) reasons.push('toolchain_unknown');
+  else {
+    if (!toolchain.node) reasons.push('node_version_unknown');
+    if (!toolchain.package_manager) reasons.push('package_manager_unknown');
+    if (!/^[0-9a-f]{64}$/u.test(toolchain.lockfile_sha256)) reasons.push('lockfile_unhashed');
+    if (!toolchain.remotion) reasons.push('remotion_version_unknown');
+    if (!toolchain.chromium) reasons.push('chromium_version_unknown');
+    if (!toolchain.renderer_package) reasons.push('renderer_version_unknown');
+    if (!toolchain.os || !toolchain.arch) reasons.push('platform_unknown');
+  }
   return { eligible: reasons.length === 0, reasons: [...new Set(reasons)].sort() };
 }
 

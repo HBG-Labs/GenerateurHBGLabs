@@ -12,10 +12,10 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "check": "npm run typecheck && npm run lint && npm run test:unit && npm run test:integration && npm run test:contamination && npm run test:isolation && npm run test:renderer-smoke",
+    "check": "npm run typecheck && npm run lint && npm run test:unit && npm run test:integration && npm run golden:verify:p1.6 && npm run test:p1.6 && npm run test:contamination && npm run test:isolation && npm run test:renderer-smoke",
     "typecheck": "npm run typecheck -w @motion-engine/core && npm run typecheck -w @motion-engine/renderer-remotion && tsc --noEmit -p tsconfig.json",
     "lint": "npm run lint -w @motion-engine/core && npm run lint -w @motion-engine/renderer-remotion && eslint .",
-    "test": "npm run test:unit && npm run test:integration && npm run test:contamination && npm run test:isolation && npm run test:renderer-smoke",
+    "test": "npm run test:unit && npm run test:integration && npm run golden:verify:p1.6 && npm run test:p1.6 && npm run test:contamination && npm run test:isolation && npm run test:renderer-smoke",
     "test:unit": "npm run test -w @motion-engine/core && npm run test -w @motion-engine/renderer-remotion",
     "test:integration": "vitest run integration/examples.test.ts integration/boundaries.test.ts integration/pipeline.test.ts integration/p1.3-pipeline.test.ts integration/p1.4-pipeline.test.ts integration/p1.5-pipeline.test.ts",
     "test:contamination": "vitest run integration/contamination.test.ts",
@@ -25,6 +25,11 @@
     "render:p1.3": "vitest run integration/render-video.p1.3.test.ts",
     "render:p1.4": "vitest run integration/render-video.p1.4.test.ts",
     "render:p1.5": "vitest run integration/render-video.p1.5.test.ts",
+    "render:p1.6": "vitest run integration/render-video.p1.6.test.ts",
+    "test:p1.6": "vitest run integration/p1.6-certification.test.ts integration/p1.6-failure-injection.test.ts integration/p1.6-typography.test.ts",
+    "golden:verify:p1.6": "node --experimental-strip-types scripts/p1.6-semantic-golden.ts",
+    "golden:update:p1.6": "node --experimental-strip-types scripts/p1.6-semantic-golden.ts --update",
+    "golden:update:visual:p1.6": "vitest run integration/update-p1.6-visual-goldens.test.ts",
     "fonts:prepare": "node scripts/prepare-fonts.mjs",
     "benchmark:text-engines": "node scripts/benchmark-text-engines.mjs"
   },

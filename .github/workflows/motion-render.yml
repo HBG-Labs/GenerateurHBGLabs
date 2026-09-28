@@ -1,4 +1,4 @@
-name: Motion Renderer Smoke
+name: Motion Renderer Linux Certification
 
 on:
   push:
@@ -29,3 +29,28 @@ jobs:
 
       - name: Real renderer smoke
         run: npm run test:renderer-smoke
+
+      - name: Linux toolchain identity
+        run: |
+          uname -a
+          node --version
+          npm --version
+
+      - name: Real Signal and Nocturne certification renders
+        run: npm run render:p1.6
+
+      - name: Verify outputs and visual report
+        run: |
+          test -s out/p1.6/certification/signal.mp4
+          test -s out/p1.6/certification/nocturne.mp4
+          test -s out/p1.6/certification/visual-regression-report.json
+          test -s out/p1.6/certification/certification-report.json
+
+      - name: Upload Linux certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p1.6-linux-certification-${{ github.sha }}
+          path: out/p1.6/certification/
+          if-no-files-found: error
+          retention-days: 30

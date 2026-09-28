@@ -61,7 +61,7 @@ describe('smoke MP4 P1.3', () => {
         resolvedStyle: style,
         plan,
         platformPresets: platforms(),
-        toolchain: { node: process.version, remotion: '4.0.529', chromium: executable ?? null, ffmpeg: 'Remotion bundled' },
+        toolchain: { node: process.version, package_manager: 'npm@11.17.0', lockfile_sha256: '0'.repeat(64), remotion: '4.0.529', chromium: executable ?? null, ffmpeg: 'Remotion bundled (version not exposed)', renderer_package: '0.5.0', os: process.platform, arch: process.arch },
         renderConfig: { width: 540, height: 960, fps: 30, codec: 'h264', crf: null, pixel_format: null },
         ...(substitutionReason ? { substitutionReason } : {}),
       });

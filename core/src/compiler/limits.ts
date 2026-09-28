@@ -1,6 +1,7 @@
 import type { EngineLimits } from '../contracts/limits.ts';
 import type { Layer, MotionSceneSpec } from '../contracts/motion-spec.ts';
 import type { RenderPlan } from '../contracts/render-plan.ts';
+import type { AudioPlan, SubtitlePlan } from '../contracts/render-plan.ts';
 import type { QualityIssue } from '../contracts/visual.ts';
 import type { ImageResource } from '../visual/assets.ts';
 
@@ -48,5 +49,20 @@ export function assertPlanLimits(plan: RenderPlan, limits: EngineLimits): void {
   if (plan.canvas.duration_frames > limits.max_duration_frames) failures.push({ code: 'limits.duration', severity: 'error', path: 'canvas.duration_frames', message: `${plan.canvas.duration_frames} dépasse ${limits.max_duration_frames}`, context: { actual: plan.canvas.duration_frames, limit: limits.max_duration_frames } });
   if (keyframes > limits.max_keyframes) failures.push({ code: 'limits.keyframes', severity: 'error', path: 'scenes', message: `${keyframes} dépasse ${limits.max_keyframes}`, context: { actual: keyframes, limit: limits.max_keyframes } });
   if (plan.fonts.length > limits.max_fonts) failures.push({ code: 'limits.fonts', severity: 'error', path: 'fonts', message: `${plan.fonts.length} dépasse ${limits.max_fonts}`, context: { actual: plan.fonts.length, limit: limits.max_fonts } });
+  if (failures.length > 0) throw new EngineLimitError(failures);
+}
+
+export function assertAuxiliaryPlanLimits(audio: AudioPlan, subtitles: SubtitlePlan, limits: EngineLimits): void {
+  const failures: QualityIssue[] = [];
+  if (audio.sfx_cues.length > limits.max_audio_cues) failures.push({
+    code: 'limits.audio_cues', severity: 'error', path: 'audio.sfx_cues',
+    message: `${audio.sfx_cues.length} dépasse ${limits.max_audio_cues}`,
+    context: { actual: audio.sfx_cues.length, limit: limits.max_audio_cues },
+  });
+  if (subtitles.segments.length > limits.max_subtitle_segments) failures.push({
+    code: 'limits.subtitle_segments', severity: 'error', path: 'subtitles.segments',
+    message: `${subtitles.segments.length} dépasse ${limits.max_subtitle_segments}`,
+    context: { actual: subtitles.segments.length, limit: limits.max_subtitle_segments },
+  });
   if (failures.length > 0) throw new EngineLimitError(failures);
 }

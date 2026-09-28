@@ -73,7 +73,7 @@ describe('la même spec, d’autres styles', () => {
       resolvedStyle: nocturne,
       plan,
       platformPresets: null,
-      toolchain: { node: process.version, remotion: null, chromium: null, ffmpeg: null },
+      toolchain: { node: process.version, package_manager: 'npm@11.17.0', lockfile_sha256: '0'.repeat(64), remotion: null, chromium: null, ffmpeg: null },
       renderConfig: { width: 1080, height: 1920, fps: 30, codec: 'png-still', crf: null, pixel_format: null },
       substitutionReason: 'preuve d’indépendance : même spec, style sans marque',
     });

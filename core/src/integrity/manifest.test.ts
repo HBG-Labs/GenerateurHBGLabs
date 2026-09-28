@@ -27,7 +27,7 @@ function inputFor(resolved: ResolvedStyle, extra: Partial<ManifestInput> = {}): 
     resolvedStyle: resolved,
     plan: planFor(resolved),
     platformPresets: presets,
-    toolchain: { node: 'v24.19.0', remotion: null, chromium: null, ffmpeg: null },
+    toolchain: { node: 'v24.19.0', package_manager: 'npm@11.17.0', lockfile_sha256: '0'.repeat(64), remotion: null, chromium: null, ffmpeg: null },
     renderConfig: { width: 1080, height: 1920, fps: 30, codec: 'png-still', crf: null, pixel_format: null },
     ...extra,
   };
@@ -92,7 +92,7 @@ describe('manifeste de reproductibilité', () => {
     const variants = [
       buildReproducibilityManifest(inputFor(signal, { substitutionReason: 'autre style' })),
       buildReproducibilityManifest(inputFor(ink, { platformPresets: null })),
-      buildReproducibilityManifest(inputFor(ink, { toolchain: { node: 'v24.19.0', remotion: '4.0.529', chromium: null, ffmpeg: null } })),
+      buildReproducibilityManifest(inputFor(ink, { toolchain: { node: 'v24.19.0', package_manager: 'npm@11.17.0', lockfile_sha256: '0'.repeat(64), remotion: '4.0.529', chromium: null, ffmpeg: null } })),
       buildReproducibilityManifest(
         inputFor(ink, { renderConfig: { width: 1080, height: 1920, fps: 60, codec: 'png-still', crf: null, pixel_format: null } }),
       ),

@@ -43,3 +43,8 @@ jobs:
 
       - name: Core isolation tests
         run: npm run test:isolation
+
+      - name: P1.6 semantic golden and certification
+        run: |
+          npm run golden:verify:p1.6
+          npm run test:p1.6

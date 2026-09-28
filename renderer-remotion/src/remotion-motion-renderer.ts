@@ -8,19 +8,15 @@ import { bundle } from '@remotion/bundler';
 import { renderMedia, renderStill, selectComposition } from '@remotion/renderer';
 
 import { assertRenderGate } from '@motion-engine/core';
-import type { MotionRenderer, RenderCapability, RenderFrameRequest, RenderFrameResult, RenderPlan, RenderVideoRequest, RenderVideoResult } from '@motion-engine/core';
+import type { MotionRenderer, RenderFrameRequest, RenderFrameResult, RenderPlan, RenderVideoRequest, RenderVideoResult } from '@motion-engine/core';
 
 import { assertP15Plan } from './interpreter.tsx';
+import { REMOTION_CAPABILITIES } from './capabilities.ts';
 import { REMOTION_RENDERER_VERSION, REMOTION_VERSION } from './version.ts';
 
 export interface RemotionMotionRendererOptions {
   browserExecutable?: string;
 }
-
-export const REMOTION_CAPABILITIES: readonly RenderCapability[] = Object.freeze([
-  'TEXT', 'SHAPE', 'IMAGE', 'PATH', 'MASK', 'GROUP', 'TRANSFORM', 'OPACITY', 'CLIP',
-  'PATH_PROGRESS', 'COLOR', 'VARIABLE_FONT', 'CUT',
-]);
 
 function temporaryOutput(finalFile: string): string {
   const parsed = path.parse(finalFile);
@@ -38,6 +34,16 @@ export function finalizeAtomicOutput(temporary: string, finalFile: string): void
   } catch (error) {
     if (existsSync(backup) && !existsSync(finalFile)) renameSync(backup, finalFile);
     throw error;
+  }
+}
+
+export async function renderAtomically(finalFile: string, producer: (temporaryFile: string) => Promise<void>): Promise<void> {
+  const temporary = temporaryOutput(finalFile);
+  try {
+    await producer(temporary);
+    finalizeAtomicOutput(temporary, finalFile);
+  } finally {
+    if (existsSync(temporary)) rmSync(temporary, { force: true });
   }
 }
 
@@ -106,8 +112,9 @@ export class RemotionMotionRenderer implements MotionRenderer {
   }
 
   async renderFrame(request: RenderFrameRequest): Promise<RenderFrameResult> {
-    assertRenderGate(request.plan, this.descriptor);
     assertP15Plan(request.plan);
+    assertRenderGate(request.plan, this.descriptor);
+    if (this.#browserExecutable && !existsSync(this.#browserExecutable)) throw new Error(`Chromium explicitement indisponible : ${this.#browserExecutable}`);
     if (request.frame < 0 || request.frame >= request.plan.canvas.duration_frames) throw new Error(`Frame ${request.frame} hors du RenderPlan.`);
     const resources = prepareResources(request.plan, request.resource_root);
     mkdirSync(path.dirname(request.output_file), { recursive: true });
@@ -116,13 +123,9 @@ export class RemotionMotionRenderer implements MotionRenderer {
     const browserOptions = this.#browserExecutable ? { browserExecutable: this.#browserExecutable, chromeMode: 'chrome-for-testing' as const } : {};
     const composition = await selectComposition({ serveUrl: bundled.serveUrl, id: 'MotionEngine', inputProps, ...browserOptions });
     const renderStarted = performance.now();
-    const temporary = temporaryOutput(request.output_file);
-    try {
+    await renderAtomically(request.output_file, async (temporary) => {
       await renderStill({ composition, serveUrl: bundled.serveUrl, inputProps, output: temporary, frame: request.frame, imageFormat: 'png', overwrite: true, logLevel: 'warn', ...browserOptions });
-      finalizeAtomicOutput(temporary, request.output_file);
-    } finally {
-      if (existsSync(temporary)) rmSync(temporary, { force: true });
-    }
+    });
     return {
       output_file: request.output_file,
       frame: request.frame,
@@ -137,8 +140,9 @@ export class RemotionMotionRenderer implements MotionRenderer {
   }
 
   async renderVideo(request: RenderVideoRequest): Promise<RenderVideoResult> {
-    assertRenderGate(request.plan, this.descriptor);
     assertP15Plan(request.plan);
+    assertRenderGate(request.plan, this.descriptor);
+    if (this.#browserExecutable && !existsSync(this.#browserExecutable)) throw new Error(`Chromium explicitement indisponible : ${this.#browserExecutable}`);
     const resources = prepareResources(request.plan, request.resource_root);
     mkdirSync(path.dirname(request.output_file), { recursive: true });
     const bundled = await this.#ensureBundle();
@@ -146,13 +150,9 @@ export class RemotionMotionRenderer implements MotionRenderer {
     const browserOptions = this.#browserExecutable ? { browserExecutable: this.#browserExecutable, chromeMode: 'chrome-for-testing' as const } : {};
     const composition = await selectComposition({ serveUrl: bundled.serveUrl, id: 'MotionEngine', inputProps, ...browserOptions });
     const renderStarted = performance.now();
-    const temporary = temporaryOutput(request.output_file);
-    try {
+    await renderAtomically(request.output_file, async (temporary) => {
       await renderMedia({ composition, serveUrl: bundled.serveUrl, inputProps, outputLocation: temporary, codec: 'h264', overwrite: true, logLevel: 'warn', ...browserOptions });
-      finalizeAtomicOutput(temporary, request.output_file);
-    } finally {
-      if (existsSync(temporary)) rmSync(temporary, { force: true });
-    }
+    });
     return {
       output_file: request.output_file,
       bytes: statSync(request.output_file).size,

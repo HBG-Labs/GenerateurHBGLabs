@@ -24,6 +24,8 @@ export { bindingMatches, describeResolved } from './style/binding.ts';
 export { contrastRatio, relativeLuminance } from './style/contrast.ts';
 
 export { canonicalJson, hashDocument, sha256Hex } from './integrity/canonical.ts';
+export { buildSemanticCertificationFingerprint, manifestSemanticHash, SEMANTIC_CERTIFICATION_VERSION } from './integrity/certification.ts';
+export type { SemanticCertificationFingerprint } from './integrity/certification.ts';
 export { buildReproducibilityManifest, manifestHash, verifyManifest, referenceEligibility, ManifestError } from './integrity/manifest.ts';
 export type { ManifestInput } from './integrity/manifest.ts';
 export type { MotionRenderer, RenderFrameRequest, RenderFrameResult, RenderVideoRequest, RenderVideoResult } from './rendering/motion-renderer.ts';
@@ -101,8 +103,8 @@ export type { StyleVersionBaseline } from './style/version-policy.ts';
 
 export { buildMotionSceneSpec, SPEC_BUILDER_VERSION, SpecBuilderError } from './spec-builder/build-spec.ts';
 export type { BuildSpecInput, SpecContentLine } from './spec-builder/build-spec.ts';
-export { compileMotionScene, compilePipeline, compileForRender, COMPILER_PIPELINE_PHASES, COMPILER_VERSION, CompileError } from './compiler/compile.ts';
-export type { CompilationManifestContext, CompileInput, CompilerPipelineResult, FontResource, RenderCompilationResult } from './compiler/compile.ts';
+export { compileMotionScene, compilePipeline, compileForRender, profileCompileForRender, profileCompilePipeline, COMPILER_PIPELINE_PHASES, COMPILER_VERSION, CompileError } from './compiler/compile.ts';
+export type { CompilationManifestContext, CompileInput, CompilerMeasuredPhase, CompilerPhaseMetrics, CompilerPipelineResult, FontResource, ProfiledRenderCompilationResult, RenderCompilationResult } from './compiler/compile.ts';
 export { buildDependencyGraph, affectedNodes } from './compiler/dependency-graph.ts';
 export { compileAudioPlan, compileSubtitlePlan } from './compiler/plans.ts';
-export { assertInputLimits, assertPlanLimits, EngineLimitError } from './compiler/limits.ts';
+export { assertAuxiliaryPlanLimits, assertInputLimits, assertPlanLimits, EngineLimitError } from './compiler/limits.ts';

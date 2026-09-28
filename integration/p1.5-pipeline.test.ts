@@ -172,16 +172,16 @@ describe('P1.5 — fermeture du pipeline', () => {
   it('calcule l’éligibilité et capture un manifeste complet', () => {
     const pipeline = buildP14Pipeline();
     const descriptor = { name: '@motion-engine/renderer-remotion', version: REMOTION_RENDERER_VERSION, capabilities: REMOTION_CAPABILITIES };
-    expect(referenceEligibility({ engine: { name: 'core', version: '0.4.0', git_commit: '705b5a6', git_dirty: true }, plan: pipeline.signalPlan, platformPresets: null, renderer: null, rendererDescriptor: null })).toEqual({ eligible: false, reasons: ['git_dirty', 'platform_version_unknown', 'renderer_unknown'] });
+    expect(referenceEligibility({ engine: { name: 'core', version: '0.5.0', git_commit: '705b5a6', git_dirty: true }, plan: pipeline.signalPlan, platformPresets: null, renderer: null, rendererDescriptor: null })).toEqual({ eligible: false, reasons: ['git_dirty', 'platform_version_unknown', 'renderer_unknown', 'toolchain_unknown'] });
     const manifest = buildReproducibilityManifest({
       createdAt: '2026-09-27T20:00:00-04:00',
-      engine: { name: '@motion-engine/core', version: '0.4.0', git_commit: '705b5a6', git_dirty: false, reference_eligible: true },
+      engine: { name: '@motion-engine/core', version: '0.5.0', git_commit: '705b5a6', git_dirty: false, reference_eligible: true },
       spec: pipeline.spec, resolvedStyle: pipeline.signalStyle, plan: pipeline.signalPlan,
       audioPlan: pipeline.signalPipeline.audio_plan, subtitlePlan: pipeline.signalPipeline.subtitle_plan,
       dependencyGraph: pipeline.signalPipeline.dependency_graph,
       platformPresets: platforms(),
       rendererDescriptor: descriptor,
-      toolchain: { node: process.version, remotion: '4.0.529', chromium: 'Chrome for Testing', ffmpeg: null },
+      toolchain: { node: process.version, package_manager: 'npm@11.17.0', lockfile_sha256: '0'.repeat(64), remotion: '4.0.529', chromium: 'Chrome for Testing', ffmpeg: null, renderer_package: REMOTION_RENDERER_VERSION, os: process.platform, arch: process.arch },
       renderConfig: { width: 540, height: 960, fps: 30, codec: 'h264', crf: 18, pixel_format: 'yuv420p' },
     });
     expect(manifest.engine.reference_eligible).toBe(true);
