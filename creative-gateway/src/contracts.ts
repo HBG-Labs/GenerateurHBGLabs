@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
   ArchetypeIdSchema,
+  ContentSlotRoleSchema,
   CreativeDiagnosticSchema,
   InformationDensitySchema,
   LanguageSchema,
@@ -17,6 +18,7 @@ export const CREATIVE_GENERATION_REQUEST_VERSION = '0.1.0' as const;
 export const CREATIVE_GENERATION_OUTPUT_VERSION = '0.1.0' as const;
 export const CREATIVE_GATEWAY_SNAPSHOT_VERSION = '0.1.0' as const;
 export const CREATIVE_GATEWAY_REPORT_VERSION = '0.1.0' as const;
+export const RESOLUTION_REPAIR_CONTRACT_VERSION = '0.1.0' as const;
 
 export const ProviderCapabilitySchema = z.enum([
   'structured_output',
@@ -131,6 +133,79 @@ export const ResolutionGenerationOutputSchema = z.strictObject({
 });
 export type ResolutionGenerationOutput = z.infer<typeof ResolutionGenerationOutputSchema>;
 
+const NullableResolutionContentSchema = z.strictObject({
+  scene_id: StableIdSchema.nullable(),
+  text: z.string().min(1).max(20_000),
+  provenance: OutputProvenanceSchema,
+  uncertainty: z.enum(['none', 'low', 'medium', 'high', 'unknown']),
+  source_required: z.boolean(),
+});
+
+export const ResolutionRepairTargetIdSchema = z.strictObject({
+  slot_id: StableIdSchema,
+  scene_id: StableIdSchema.nullable(),
+});
+export type ResolutionRepairTargetId = z.infer<typeof ResolutionRepairTargetIdSchema>;
+
+export const ResolutionRepairTargetSchema = z.strictObject({
+  target: ResolutionRepairTargetIdSchema,
+  previous_content: NullableResolutionContentSchema.nullable(),
+  semantic_role: ContentSlotRoleSchema,
+  semantic_context: z.string().min(1).max(4_000),
+  language: LanguageSchema,
+  locale: LocaleSchema,
+  required: z.boolean(),
+  content_constraints: z.strictObject({
+    max_characters: z.number().int().positive().max(20_000),
+    channels: z.array(z.enum(['spoken', 'on_screen'])).min(1).max(2),
+    factual_requirement: z.enum(['none', 'source_recommended', 'source_required']),
+  }),
+  allowed_scene_ids: z.array(StableIdSchema).min(1).max(64),
+  generic_resolution_allowed: z.boolean(),
+  diagnostics: z.array(CreativeDiagnosticSchema).min(1).max(16),
+  temporal_constraint: z.strictObject({
+    available_scene_ms: z.number().int().nonnegative(),
+    already_allocated_ms: z.number().int().nonnegative(),
+    remaining_slot_ms: z.number().int().nonnegative(),
+    current_required_ms: z.number().int().nonnegative(),
+    current_word_count: z.number().int().nonnegative(),
+    maximum_slot_words: z.number().int().nonnegative(),
+  }).nullable(),
+  subtitle_constraint: z.strictObject({
+    maximum_lines: z.number().int().positive(),
+    preferred_size: z.number().positive(),
+    minimum_size: z.number().positive(),
+    available_width: z.number().positive(),
+    available_height: z.number().positive(),
+  }).nullable(),
+});
+export type ResolutionRepairTarget = z.infer<typeof ResolutionRepairTargetSchema>;
+
+export const ResolutionRepairRequestSchema = z.strictObject({
+  schema: z.literal('resolution-repair-request'),
+  schema_version: z.literal(RESOLUTION_REPAIR_CONTRACT_VERSION),
+  request_id: StableIdSchema,
+  plan_id: StableIdSchema,
+  attempt: z.number().int().positive().max(8),
+  targets: z.array(ResolutionRepairTargetSchema).min(1).max(128),
+});
+export type ResolutionRepairRequest = z.infer<typeof ResolutionRepairRequestSchema>;
+
+export const ResolutionRepairPatchItemSchema = z.strictObject({
+  target: ResolutionRepairTargetIdSchema,
+  replacement: NullableResolutionContentSchema,
+});
+export type ResolutionRepairPatchItem = z.infer<typeof ResolutionRepairPatchItemSchema>;
+
+export const ResolutionRepairPatchSchema = z.strictObject({
+  schema: z.literal('resolution-repair-patch'),
+  schema_version: z.literal(RESOLUTION_REPAIR_CONTRACT_VERSION),
+  request_id: StableIdSchema,
+  plan_id: StableIdSchema,
+  items: z.array(ResolutionRepairPatchItemSchema).min(1).max(128),
+});
+export type ResolutionRepairPatch = z.infer<typeof ResolutionRepairPatchSchema>;
+
 export const CreativeGenerationOutputSchema = z.discriminatedUnion('stage', [
   PlanningGenerationOutputSchema,
   ResolutionGenerationOutputSchema,
@@ -227,6 +302,14 @@ export const GatewaySnapshotPayloadSchema = z.strictObject({
     planning_output: OutputProvenanceSchema,
     resolution_output: OutputProvenanceSchema,
     raw_response_policy: z.literal('excluded'),
+    resolution_repair: z.strictObject({
+      occurred: z.literal(true),
+      attempt_count: z.number().int().positive(),
+      repaired_targets: z.array(ResolutionRepairTargetIdSchema).min(1).max(128),
+      diagnostic_codes: z.array(z.string().regex(/^[a-z][a-z0-9_.]*$/)).min(1).max(128),
+      request_contract_version: z.literal(RESOLUTION_REPAIR_CONTRACT_VERSION),
+      patch_contract_version: z.literal(RESOLUTION_REPAIR_CONTRACT_VERSION),
+    }).optional(),
   }),
   hashes: z.strictObject({
     request: Sha256Schema,
@@ -270,6 +353,22 @@ export const CreativeGatewayReportSchema = z.strictObject({
     resolution_attempts: z.number().int().nonnegative(),
   }),
   usage: ProviderUsageSchema,
+  usage_by_stage: z.strictObject({
+    planning: ProviderUsageSchema,
+    initial_resolution: ProviderUsageSchema,
+    resolution_repair: ProviderUsageSchema,
+  }).optional(),
+  resolution_repair: z.strictObject({
+    attempt_count: z.number().int().nonnegative(),
+    initial_invalid_targets: z.array(ResolutionRepairTargetIdSchema).max(128),
+    diagnostic_codes_by_target: z.array(z.strictObject({
+      target: ResolutionRepairTargetIdSchema,
+      codes: z.array(z.string().regex(/^[a-z][a-z0-9_.]*$/)).min(1).max(16),
+    })).max(128),
+    patched_targets: z.array(ResolutionRepairTargetIdSchema).max(128),
+    remaining_invalid_targets: z.array(ResolutionRepairTargetIdSchema).max(128),
+    patch_sha256: Sha256Schema.nullable(),
+  }).optional(),
   metrics: GatewayMetricsSchema,
   hashes: z.strictObject({
     request: Sha256Schema.nullable(),

@@ -31,7 +31,7 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
   resolutionCalls = 0;
   readonly requests: OpenAITransportRequest[] = [];
   readonly outputs: unknown[] = [];
-  readonly mode: 'valid' | 'too_long' | 'repair' | 'repair_still_long' | 'repair_changes_valid' | 'subtitle_too_long' | 'subtitle_repair' = 'valid';
+  readonly mode: 'valid' | 'too_long' | 'repair' | 'repair_still_long' | 'repair_changes_valid' | 'subtitle_too_long' | 'subtitle_repair' | 'combined_repair' = 'valid';
   resolutionContexts: Array<{
     plan_id: string;
     content_slots: Array<{
@@ -75,7 +75,7 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
     asset_intents: Array<{ id: string; slot: string; purpose: string }>;
   }> = [];
 
-  constructor(mode: 'valid' | 'too_long' | 'repair' | 'repair_still_long' | 'repair_changes_valid' | 'subtitle_too_long' | 'subtitle_repair' = 'valid') {
+  constructor(mode: 'valid' | 'too_long' | 'repair' | 'repair_still_long' | 'repair_changes_valid' | 'subtitle_too_long' | 'subtitle_repair' | 'combined_repair' = 'valid') {
     this.mode = mode;
   }
 
@@ -98,17 +98,84 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
         },
       });
     }
+    if (input.schema_name === 'creative_resolution_repair_patch') {
+      this.resolutionCalls += 1;
+      const repair = payload['resolution_repair_request'] as {
+        request_id: string;
+        plan_id: string;
+        targets: Array<{
+          target: { slot_id: string; scene_id: string | null };
+          previous_content: {
+            text: string;
+            provenance: 'provider_generated';
+            uncertainty: 'none' | 'low' | 'medium' | 'high' | 'unknown';
+            source_required: boolean;
+          } | null;
+          temporal_constraint: { maximum_slot_words: number } | null;
+        }>;
+      };
+      const items = repair.targets.map((target) => {
+        const maximum = target.temporal_constraint?.maximum_slot_words;
+        const wordCount = maximum === undefined
+          ? 2
+          : Math.max(1, maximum + (this.mode === 'repair_still_long' ? 1 : 0));
+        return {
+          target: target.target,
+          replacement: {
+            scene_id: target.target.scene_id,
+            text: Array.from({ length: wordCount }, () => 'mot').join(' '),
+            provenance: 'provider_generated' as const,
+            uncertainty: target.previous_content?.uncertainty ?? 'none' as const,
+            source_required: target.previous_content?.source_required ?? false,
+          },
+        };
+      });
+      if (this.mode === 'repair_changes_valid') {
+        const initial = this.outputs[0] as { content: Array<{
+          slot_id: string;
+          scene_id?: string;
+          text: string;
+          provenance: 'provider_generated';
+          uncertainty: 'none' | 'low' | 'medium' | 'high' | 'unknown';
+          source_required: boolean;
+        }> };
+        const allowed = new Set(repair.targets.map((target) => target.target.slot_id));
+        const stable = initial.content.find((entry) => !allowed.has(entry.slot_id));
+        if (stable) items.push({
+          target: { slot_id: stable.slot_id, scene_id: stable.scene_id ?? null },
+          replacement: {
+            scene_id: stable.scene_id ?? null,
+            text: `${stable.text} modifié`,
+            provenance: stable.provenance,
+            uncertainty: stable.uncertainty,
+            source_required: stable.source_required,
+          },
+        });
+      }
+      const patch = {
+        schema: 'resolution-repair-patch', schema_version: '0.1.0',
+        request_id: repair.request_id, plan_id: repair.plan_id, items,
+      };
+      this.outputs.push(patch);
+      return Promise.resolve({ response_id: 'offline_repair', model: 'gpt-6-luna', usage: USAGE, output: patch });
+    }
     const context = payload['resolution_context'] as OfflineStructuredTransport['resolutionContexts'][number];
     this.resolutionCalls += 1;
     this.resolutionContexts.push(context);
-    const mustBeLong = this.mode === 'too_long'
+    const mustBeLong = this.mode === 'too_long' || this.mode === 'combined_repair'
       || (['repair', 'repair_still_long', 'repair_changes_valid'].includes(this.mode) && this.resolutionCalls === 1);
-    const mustOverflowSubtitle = this.mode === 'subtitle_too_long'
+    const mustOverflowSubtitle = this.mode === 'subtitle_too_long' || this.mode === 'combined_repair'
       || (this.mode === 'subtitle_repair' && this.resolutionCalls === 1);
-    const subtitleTarget = context.content_slots.find((slot) => (
+    const combinedTarget = [...context.content_slots].filter((slot) => (
+      slot.constraints.channels.includes('spoken') && slot.constraints.channels.includes('on_screen')
+    )).sort((left, right) => (
+      (left.generic_time_budget?.maximum_total_words ?? Number.POSITIVE_INFINITY)
+      - (right.generic_time_budget?.maximum_total_words ?? Number.POSITIVE_INFINITY)
+    ))[0]?.slot_id;
+    const subtitleTarget = this.mode === 'combined_repair' ? combinedTarget : context.content_slots.find((slot) => (
       slot.constraints.channels.includes('spoken') && !slot.constraints.channels.includes('on_screen')
     ))?.slot_id;
-    const temporalTarget = context.content_slots.find((slot) => (
+    const temporalTarget = this.mode === 'combined_repair' ? combinedTarget : context.content_slots.find((slot) => (
       slot.allowed_scene_ids.length > 1
       && slot.constraints.channels.includes('on_screen')
       && !slot.constraints.channels.includes('spoken')
@@ -117,42 +184,16 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
     ))?.slot_id ?? context.content_slots.find((slot) => (
       slot.constraints.channels.includes('on_screen') && !slot.constraints.channels.includes('spoken')
     ))?.slot_id ?? context.content_slots.find((slot) => slot.constraints.channels.includes('on_screen'))?.slot_id;
-    const previous = payload['previous_output'] as { content: Array<{
-      slot_id: string;
-      scene_id: string | null;
-      text: string;
-      provenance: string;
-      uncertainty: string;
-      source_required: boolean;
-    }>; asset_descriptions: unknown[] } | null;
-    const repairDiagnostics = typeof payload['repair_diagnostics'] === 'string'
-      && payload['repair_diagnostics'].trimStart().startsWith('[')
-      ? JSON.parse(payload['repair_diagnostics']) as Array<{ context?: Record<string, unknown> }>
-      : [];
-    const repairTargets = new Map<string, number | null>();
-    repairDiagnostics.forEach((entry) => {
-      const slotId = entry.context?.['slot_id'];
-      if (typeof slotId !== 'string' || entry.context?.['repair_target'] !== true) return;
-      const maximum = entry.context['effective_maximum_slot_words'];
-      const current = repairTargets.get(slotId);
-      if (typeof maximum === 'number') repairTargets.set(slotId, current === undefined || current === null ? maximum : Math.min(current, maximum));
-      else if (!repairTargets.has(slotId)) repairTargets.set(slotId, null);
-    });
-    const repairedContent = previous?.content.map((entry) => {
-      if (!repairTargets.has(entry.slot_id)) {
-        return this.mode === 'repair_changes_valid'
-          ? { ...entry, text: `${entry.text} modifié` }
-          : entry;
-      }
-      const maximum = repairTargets.get(entry.slot_id);
-      const wordCount = typeof maximum === 'number'
-        ? Math.max(1, maximum + (this.mode === 'repair_still_long' ? 1 : 0))
-        : 2;
-      return { ...entry, text: Array.from({ length: wordCount }, () => 'mot').join(' ') };
-    });
-    const content = repairedContent ?? context.content_slots.map((slot) => ({
+    const content = context.content_slots.map((slot) => ({
       slot_id: slot.slot_id, scene_id: null,
-      text: (mustOverflowSubtitle && slot.slot_id === subtitleTarget
+      text: (this.mode === 'combined_repair' && slot.slot_id === combinedTarget
+        ? (() => {
+            const wordCount = (slot.generic_time_budget?.maximum_total_words ?? 8) + 1;
+            const tail = Array.from({ length: wordCount - 1 }, () => 'mot');
+            const firstLength = Math.max(20, slot.constraints.max_characters - tail.join(' ').length - 1);
+            return ['W'.repeat(firstLength), ...tail].join(' ');
+          })()
+        : mustOverflowSubtitle && slot.slot_id === subtitleTarget
         ? 'W'.repeat(Math.min(120, slot.constraints.max_characters))
         : mustBeLong && slot.slot_id === temporalTarget
         ? Array.from(
@@ -169,7 +210,7 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
       schema: 'creative-generation-output', schema_version: '0.1.0', stage: 'resolution',
       request_id: request.request_id, plan_id: context.plan_id, provenance: 'provider_generated',
       content,
-      asset_descriptions: previous?.asset_descriptions ?? context.asset_intents.map((asset) => ({
+      asset_descriptions: context.asset_intents.map((asset) => ({
         asset_intent_id: asset.id, asset_slot: asset.slot,
         description: `Illustration conceptuelle : ${asset.purpose}`, provenance: 'provider_generated',
       })),
@@ -323,29 +364,45 @@ describe('P2.5 — adapter réel, transport offline', () => {
     expect(transport.calls).toBe(3);
     expect(transport.requests.at(-1)?.input).toContain('gateway.output.content_reading_budget_exceeded');
     const repairPayload = JSON.parse(transport.requests.at(-1)!.input) as {
-      previous_output: { content: Array<{ slot_id: string; scene_id?: string; text: string }> };
-      repair_diagnostics: string;
+      resolution_repair_request: {
+        targets: Array<{
+          target: { slot_id: string; scene_id: string | null };
+          temporal_constraint: { maximum_slot_words: number } | null;
+        }>;
+      };
     };
-    const repairDiagnostics = JSON.parse(repairPayload.repair_diagnostics) as Array<{ context: Record<string, unknown> }>;
-    const targetIds = new Set(repairDiagnostics.flatMap((entry) => (
-      entry.context['repair_target'] === true ? [String(entry.context['slot_id'])] : []
-    )));
+    const targetIds = new Set(repairPayload.resolution_repair_request.targets.map((entry) => entry.target.slot_id));
     expect(targetIds.size).toBeGreaterThan(0);
     const before = transport.outputs[0] as { content: Array<{ slot_id: string; scene_id?: string; text: string }> };
-    const after = transport.outputs[1] as { content: Array<{ slot_id: string; scene_id?: string; text: string }> };
-    const stable = (entries: typeof before.content) => entries.filter((entry) => !targetIds.has(entry.slot_id)).map((entry) => ({
+    const after = result.snapshot!.resolution_output;
+    const stable = (entries: Array<{ slot_id: string; scene_id?: string | undefined; text: string }>) => entries.filter((entry) => !targetIds.has(entry.slot_id)).map((entry) => ({
       ...entry,
       scene_id: entry.scene_id ?? null,
     }));
     expect(stable(after.content)).toEqual(stable(before.content));
     after.content.filter((entry) => targetIds.has(entry.slot_id)).forEach((entry) => {
-      const maximum = Math.min(...repairDiagnostics
-        .filter((diagnostic) => diagnostic.context['slot_id'] === entry.slot_id)
-        .map((diagnostic) => Number(diagnostic.context['effective_maximum_slot_words'])));
+      const maximum = Math.min(...repairPayload.resolution_repair_request.targets
+        .filter((target) => target.target.slot_id === entry.slot_id)
+        .map((target) => target.temporal_constraint?.maximum_slot_words ?? Number.POSITIVE_INFINITY));
       expect(entry.text.split(/\s+/u)).toHaveLength(maximum);
+    });
+    expect(result.report.resolution_repair?.patched_targets).toHaveLength(targetIds.size);
+    expect(result.snapshot?.provenance.resolution_repair?.occurred).toBe(true);
+    expect(result.report.usage_by_stage).toMatchObject({
+      planning: { request_count: 1 },
+      initial_resolution: { request_count: 1 },
+      resolution_repair: { request_count: 1 },
     });
     const compiled = compileP24GatewayResult(result, 'signal');
     expect(compiled.p1.preflight.summary?.errors ?? 0).toBe(0);
+    const callsBeforeReplay = transport.calls;
+    const replayedGateway = replayCreativeGateway(result.snapshot, { reading_policy: readingPolicy });
+    const replayed = compileP24GatewayResult(replayedGateway, 'signal');
+    expect(transport.calls).toBe(callsBeforeReplay);
+    expect(canonicalJson(replayedGateway.planning?.creative_plan)).toBe(canonicalJson(result.planning?.creative_plan));
+    expect(canonicalJson(replayedGateway.creative_resolution)).toBe(canonicalJson(result.creative_resolution));
+    expect(replayed.creative_compile.report.hashes.motion_spec).toBe(compiled.creative_compile.report.hashes.motion_spec);
+    expect(replayed.p1.hashes.render_plan).toBe(compiled.p1.hashes.render_plan);
   });
 
   it('épuise le repair lorsque le slot ciblé reste au-dessus de son maximum exact', async () => {
@@ -387,7 +444,7 @@ describe('P2.5 — adapter réel, transport offline', () => {
       },
     });
     expect(result.ok).toBe(false);
-    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.repair_modified_valid_content');
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.repair_patch.target_not_allowed');
   });
 
   it('rejette un contenu parlé qui dépasse la géométrie réelle des sous-titres', async () => {
@@ -444,5 +501,37 @@ describe('P2.5 — adapter réel, transport offline', () => {
     const compiled = compileP24GatewayResult(result, 'signal');
     expect(compiled.p1.subtitle_plan.segments.length).toBeGreaterThan(0);
     expect(compiled.p1.preflight.issues.map((entry) => entry.code)).not.toContain('text.overflow');
+  });
+
+  it('répare en un patch une target violant simultanément temps et géométrie', async () => {
+    const transport = new OfflineStructuredTransport('combined_repair');
+    const style = p23Style('signal');
+    const result = await runCreativeGateway(p24Request(), {
+      provider: new OpenAICreativeProvider({ transport }),
+      max_repair_attempts: 1,
+      reading_policy: {
+        profile: SHORT_FORM_DEFAULT_PROFILE,
+        resolved_style: style,
+        pattern: pattern(),
+        platform_presets: platforms(),
+        font_resources: p14FontResources(style),
+        render_scale: 1,
+        minimum_readable_size: 28,
+      },
+      resolve_asset_bindings: ({ asset_intents }) => asset_intents.map((asset) => ({
+        asset_slot: asset.slot, asset_ref: 'neutral_landscape', provenance: 'fixture' as const,
+      })),
+    });
+    expect(result.ok, JSON.stringify(result.report.diagnostics)).toBe(true);
+    const repairPayload = JSON.parse(transport.requests.at(-1)!.input) as {
+      resolution_repair_request: { targets: Array<{ diagnostics: Array<{ code: string }> }> };
+    };
+    expect(repairPayload.resolution_repair_request.targets).toHaveLength(1);
+    expect([...new Set(repairPayload.resolution_repair_request.targets[0]?.diagnostics.map((entry) => entry.code))]).toEqual([
+      'gateway.output.content_reading_budget_exceeded',
+      'gateway.output.subtitle_geometry_overflow',
+    ]);
+    const compiled = compileP24GatewayResult(result, 'signal');
+    expect(compiled.p1.preflight.summary?.errors ?? 0).toBe(0);
   });
 });

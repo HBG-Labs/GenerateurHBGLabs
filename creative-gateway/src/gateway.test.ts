@@ -9,7 +9,7 @@ import {
 } from '@motion-engine/creative-core';
 
 import { runCreativeGateway, replayCreativeGateway } from './gateway.ts';
-import type { ResolutionGenerationOutput } from './contracts.ts';
+import type { ResolutionGenerationOutput, ResolutionRepairPatch } from './contracts.ts';
 import type { ProviderInvocation, ProviderResponse } from './provider.ts';
 import { createCreativeGenerationRequest } from './request.ts';
 import { dinosaurRequest, gatewayOptions } from './test-support.ts';
@@ -60,6 +60,27 @@ class SceneBindingProvider extends ValidProvider {
     this.resolutionCalls += 1;
     this.repairDiagnostics = invocation.repair_diagnostics.map((entry) => entry.code);
     this.resolutionContexts.push(invocation.resolution_context);
+    if (invocation.mode === 'repair') {
+      const patch = structuredClone(response.output) as ResolutionRepairPatch;
+      if (this.mode === 'repair_specific' || this.mode === 'repair_generic') {
+        return {
+          ...response,
+          output: {
+            ...patch,
+            items: patch.items.map((item, index) => ({
+              ...item,
+              replacement: {
+                ...item.replacement,
+                scene_id: this.mode === 'repair_generic'
+                  ? null
+                  : invocation.resolution_repair_request?.targets[index]?.allowed_scene_ids[0] ?? null,
+              },
+            })),
+          },
+        };
+      }
+      return response;
+    }
     const output = structuredClone(response.output) as ResolutionGenerationOutput;
     const targetBySlot = new Map(invocation.resolution_context.content_slots.map((slot) => [slot.slot_id, slot]));
     const specific = (): ResolutionGenerationOutput => ({
@@ -67,10 +88,9 @@ class SceneBindingProvider extends ValidProvider {
       content: output.content.flatMap((entry) =>
         (targetBySlot.get(entry.slot_id)?.allowed_scene_ids ?? []).map((sceneId) => ({ ...entry, scene_id: sceneId }))),
     });
-    if (this.mode === 'specific' || (this.mode === 'repair_specific' && this.resolutionCalls > 1)) {
+    if (this.mode === 'specific') {
       return { ...response, output: specific() };
     }
-    if (this.mode === 'repair_generic' && this.resolutionCalls > 1) return response;
     if (this.mode === 'unknown' || this.mode === 'repair_specific' || this.mode === 'repair_generic') {
       return {
         ...response,
@@ -133,7 +153,7 @@ describe('P2.4 — Creative Gateway', () => {
 
   it('produit PlannerInput, CreativePlan, CreativeResolution et snapshot accepté', async () => {
     const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(new ValidProvider()));
-    expect(result.ok).toBe(true);
+    expect(result.ok, JSON.stringify(result.report.diagnostics)).toBe(true);
     expect(result.state).toBe('READY_FOR_COMPILE');
     expect(result.planning?.creative_plan).not.toBeNull();
     expect(result.creative_resolution?.content_slots.every((slot) => slot.status === 'resolved')).toBe(true);
@@ -155,7 +175,7 @@ describe('P2.4 — Creative Gateway', () => {
 
   it('répare une sortie invalide une fois puis réussit', async () => {
     const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(new RepairableProvider()));
-    expect(result.ok).toBe(true);
+    expect(result.ok, JSON.stringify(result.report.diagnostics)).toBe(true);
     expect(result.report.summary.planning_attempts).toBe(2);
     expect(result.report.summary.resolution_attempts).toBe(1);
   });
@@ -447,7 +467,7 @@ describe('P2.4 — Creative Gateway', () => {
   it('répare un mauvais ID puis accepte toutes les résolutions spécifiques', async () => {
     const provider = new SceneBindingProvider('repair_specific');
     const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
-    expect(result.ok).toBe(true);
+    expect(result.ok, JSON.stringify(result.report.diagnostics)).toBe(true);
     expect(provider.resolutionCalls).toBe(2);
     expect(provider.repairDiagnostics).toContain('gateway.output.scene_not_allowed_for_slot');
   });
@@ -455,7 +475,7 @@ describe('P2.4 — Creative Gateway', () => {
   it('répare un mauvais ID puis accepte une résolution générique', async () => {
     const provider = new SceneBindingProvider('repair_generic');
     const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
-    expect(result.ok).toBe(true);
+    expect(result.ok, JSON.stringify(result.report.diagnostics)).toBe(true);
     expect(provider.resolutionCalls).toBe(2);
     expect(provider.repairDiagnostics).toContain('gateway.output.scene_not_allowed_for_slot');
     expect(result.creative_resolution?.content_slots.filter((entry) => entry.required)

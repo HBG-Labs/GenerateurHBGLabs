@@ -11,6 +11,7 @@ import {
   GatewayProviderError,
   createCreativeGenerationRequest,
   runCreativeGateway,
+  ResolutionRepairRequestSchema,
   type ProviderUsage,
 } from '@motion-engine/creative-gateway';
 
@@ -25,6 +26,7 @@ import {
   OpenAIResolutionOutputSchema,
   createOpenAIPlanningOutputSchema,
   createOpenAIResolutionOutputSchema,
+  createOpenAIResolutionRepairPatchSchema,
 } from './schemas.ts';
 import { mapOpenAIError, type OpenAIStructuredTransport, type OpenAITransportRequest } from './transport.ts';
 
@@ -290,6 +292,45 @@ describe('P2.5 — OpenAI CreativeProvider adapter', () => {
       content: output.content.map((entry) => ({ ...entry, scene_id: 'scene_unknown' })),
     }).success).toBe(false);
     expect(() => zodTextFormat(activeSchema, 'resolution_active_scenes')).not.toThrow();
+  });
+
+  it('expose un schema Structured Outputs dédié au patch ciblé', () => {
+    const repairRequest = ResolutionRepairRequestSchema.parse({
+      schema: 'resolution-repair-request', schema_version: '0.1.0',
+      request_id: 'request_test', plan_id: 'plan_test', attempt: 1,
+      targets: [{
+        target: { slot_id: 'slot_test', scene_id: null },
+        previous_content: {
+          scene_id: null, text: 'Texte trop long', provenance: 'provider_generated',
+          uncertainty: 'none', source_required: false,
+        },
+        semantic_role: 'narration', semantic_context: 'Contexte', language: 'fr', locale: 'fr-FR',
+        required: true, allowed_scene_ids: ['scene_test'], generic_resolution_allowed: true,
+        content_constraints: { max_characters: 120, channels: ['spoken', 'on_screen'], factual_requirement: 'none' },
+        diagnostics: [{
+          code: 'gateway.output.content_reading_budget_exceeded', severity: 'error', path: '$.content',
+          message: 'Trop long.', context: { slot_id: 'slot_test', repair_target: true },
+        }],
+        temporal_constraint: {
+          available_scene_ms: 2_904, already_allocated_ms: 132, remaining_slot_ms: 2_772,
+          current_required_ms: 4_032, current_word_count: 16, maximum_slot_words: 11,
+        },
+        subtitle_constraint: null,
+      }],
+    });
+    const schema = createOpenAIResolutionRepairPatchSchema(repairRequest);
+    expect(() => zodTextFormat(schema, 'resolution_repair_patch')).not.toThrow();
+    expect(schema.safeParse({
+      schema: 'resolution-repair-patch', schema_version: '0.1.0',
+      request_id: 'request_test', plan_id: 'plan_test',
+      items: [{
+        target: { slot_id: 'slot_test', scene_id: null },
+        replacement: {
+          scene_id: null, text: 'Onze mots au maximum', provenance: 'provider_generated',
+          uncertainty: 'none', source_required: false,
+        },
+      }],
+    }).success).toBe(true);
   });
 
   it.each([

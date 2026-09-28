@@ -6,6 +6,7 @@ import type {
   ProviderMetadata,
   ProviderUsage,
   ResolutionGenerationOutput,
+  ResolutionRepairPatch,
 } from '../contracts.ts';
 import type { CreativeProvider, ProviderInvocation, ProviderResponse } from '../provider.ts';
 import { GatewayProviderError } from '../provider.ts';
@@ -107,12 +108,35 @@ function resolutionOutput(invocation: ProviderInvocation, variant = 0): Resoluti
   };
 }
 
+function resolutionRepairPatch(invocation: ProviderInvocation): ResolutionRepairPatch {
+  const request = invocation.resolution_repair_request;
+  if (!request) throw new GatewayProviderError('semantic_invalid', 'ResolutionRepairRequest absent.');
+  return {
+    schema: 'resolution-repair-patch',
+    schema_version: '0.1.0',
+    request_id: request.request_id,
+    plan_id: request.plan_id,
+    items: request.targets.map((target) => ({
+      target: target.target,
+      replacement: {
+        scene_id: target.target.scene_id,
+        text: target.previous_content?.text ?? ROLE_TEXT[target.semantic_role][0]!,
+        provenance: 'fixture',
+        uncertainty: target.previous_content?.uncertainty ?? 'none',
+        source_required: target.previous_content?.source_required ?? false,
+      },
+    })),
+  };
+}
+
 export class ValidProvider implements CreativeProvider {
   readonly metadata: ProviderMetadata = metadata('valid_fixture_provider');
 
   generate(invocation: ProviderInvocation): Promise<ProviderResponse> {
     return Promise.resolve({
-      output: invocation.stage === 'planning' ? planningOutput(invocation) : resolutionOutput(invocation),
+      output: invocation.stage === 'planning'
+        ? planningOutput(invocation)
+        : invocation.mode === 'repair' ? resolutionRepairPatch(invocation) : resolutionOutput(invocation),
       usage: TEST_USAGE,
     });
   }

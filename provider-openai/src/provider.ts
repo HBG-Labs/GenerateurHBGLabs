@@ -22,7 +22,9 @@ import {
   OpenAIResolutionOutputSchema,
   createOpenAIPlanningOutputSchema,
   createOpenAIResolutionOutputSchema,
+  createOpenAIResolutionRepairPatchSchema,
   planningWireToGateway,
+  resolutionRepairWireToGateway,
   resolutionWireToGateway,
 } from './schemas.ts';
 import { OpenAISdkTransport, type OpenAIStructuredTransport } from './transport.ts';
@@ -72,13 +74,21 @@ export class OpenAICreativeProvider implements CreativeProvider {
     const resolutionSchema = invocation.resolution_context
       ? createOpenAIResolutionOutputSchema(invocation.resolution_context.content_slots.flatMap((slot) => slot.allowed_scene_ids))
       : OpenAIResolutionOutputSchema;
+    const repairSchema = invocation.resolution_repair_request
+      ? createOpenAIResolutionRepairPatchSchema(invocation.resolution_repair_request)
+      : null;
+    const selectedSchema = invocation.stage === 'planning'
+      ? planningSchema
+      : repairSchema ?? resolutionSchema;
     try {
       const response = await this.#transport.generate({
         model: this.config.model,
         instructions: prompt.instructions,
         input: prompt.input,
-        schema_name: invocation.stage === 'planning' ? 'creative_planning_output' : 'creative_resolution_output',
-        schema: invocation.stage === 'planning' ? planningSchema : resolutionSchema,
+        schema_name: invocation.stage === 'planning'
+          ? 'creative_planning_output'
+          : repairSchema ? 'creative_resolution_repair_patch' : 'creative_resolution_output',
+        schema: selectedSchema,
         reasoning_effort: this.config.reasoning_effort,
         max_output_tokens: this.config.max_output_tokens,
         safety_identifier: invocation.request.idempotency_key,
@@ -88,6 +98,9 @@ export class OpenAICreativeProvider implements CreativeProvider {
       if (invocation.stage === 'planning') {
         const wire = planningSchema.safeParse(response.output);
         if (wire.success) output = planningWireToGateway(wire.data);
+      } else if (repairSchema) {
+        const wire = repairSchema.safeParse(response.output);
+        if (wire.success) output = resolutionRepairWireToGateway(wire.data);
       } else {
         const wire = resolutionSchema.safeParse(response.output);
         if (wire.success) output = resolutionWireToGateway(wire.data);

@@ -5,8 +5,11 @@ import {
   PlanningGenerationOutputSchema,
   ResolutionContentSchema,
   ResolutionGenerationOutputSchema,
+  ResolutionRepairPatchSchema,
   type PlanningGenerationOutput,
   type ResolutionGenerationOutput,
+  type ResolutionRepairPatch,
+  type ResolutionRepairRequest,
 } from '@motion-engine/creative-gateway';
 
 /** Structured Outputs exige que chaque propriété soit requise. `null` représente ici l'absence explicite. */
@@ -46,6 +49,31 @@ export function createOpenAIResolutionOutputSchema(allowedSceneIds?: readonly st
 export const OpenAIResolutionOutputSchema = createOpenAIResolutionOutputSchema();
 export type OpenAIResolutionOutput = z.infer<typeof OpenAIResolutionOutputSchema>;
 
+export function createOpenAIResolutionRepairPatchSchema(request: ResolutionRepairRequest) {
+  const slotIds = [...new Set(request.targets.map((target) => target.target.slot_id))];
+  const sceneIds = [...new Set(request.targets.flatMap((target) => [
+    ...target.allowed_scene_ids,
+    ...(target.target.scene_id === null ? [] : [target.target.scene_id]),
+  ]))];
+  const slotSchema = z.enum(slotIds as [string, ...string[]]);
+  const sceneSchema = sceneIds.length === 0
+    ? StableIdSchema.nullable()
+    : z.enum(sceneIds as [string, ...string[]]).nullable();
+  const itemSchema = ResolutionRepairPatchSchema.shape.items.element.extend({
+    target: ResolutionRepairPatchSchema.shape.items.element.shape.target.extend({
+      slot_id: slotSchema,
+      scene_id: sceneSchema,
+    }).strict(),
+    replacement: ResolutionRepairPatchSchema.shape.items.element.shape.replacement.extend({
+      scene_id: sceneSchema,
+      provenance: z.literal('provider_generated'),
+    }).strict(),
+  }).strict();
+  return ResolutionRepairPatchSchema.extend({ items: z.array(itemSchema).min(1).max(request.targets.length) }).strict();
+}
+
+export type OpenAIResolutionRepairPatch = z.infer<ReturnType<typeof createOpenAIResolutionRepairPatchSchema>>;
+
 export function planningWireToGateway(output: OpenAIPlanningOutput): PlanningGenerationOutput {
   const { narrative_archetype: archetype, ...rest } = output;
   return PlanningGenerationOutputSchema.parse({
@@ -62,4 +90,8 @@ export function resolutionWireToGateway(output: OpenAIResolutionOutput): Resolut
       ...(sceneId === null ? {} : { scene_id: sceneId }),
     })),
   });
+}
+
+export function resolutionRepairWireToGateway(output: OpenAIResolutionRepairPatch): ResolutionRepairPatch {
+  return ResolutionRepairPatchSchema.parse(output);
 }

@@ -27,6 +27,7 @@ import {
 
 import {
   CREATIVE_GATEWAY_VERSION,
+  RESOLUTION_REPAIR_CONTRACT_VERSION,
   CreativeGatewayReportSchema,
   CreativeGatewaySnapshotSchema,
   GatewayAssetBindingSchema,
@@ -49,6 +50,9 @@ import {
   type ProviderMetadata,
   type ProviderUsage,
   type ResolutionGenerationOutput,
+  type ResolutionRepairPatch,
+  type ResolutionRepairRequest,
+  type ResolutionRepairTargetId,
 } from './contracts.ts';
 import type { GatewayLimits } from './limits.ts';
 import { DEFAULT_GATEWAY_LIMITS } from './limits.ts';
@@ -64,6 +68,10 @@ import type {
 } from './provider.ts';
 import { GatewayProviderError } from './provider.ts';
 import { validateCreativeGenerationRequest } from './request.ts';
+import {
+  buildResolutionRepairRequest,
+  mergeResolutionRepairPatch,
+} from './resolution-repair.ts';
 import { inspectGatewayInput, redactSensitiveText } from './security.ts';
 import { createGatewaySnapshot, verifyGatewaySnapshot } from './snapshot.ts';
 
@@ -123,6 +131,12 @@ interface RunContext {
   validationMs: number;
   planningMs: number;
   resolutionMs: number;
+  usageByStage: {
+    planning: ProviderUsage;
+    initialResolution: ProviderUsage;
+    resolutionRepair: ProviderUsage;
+  };
+  resolutionRepair: NonNullable<CreativeGatewayReport['resolution_repair']> | null;
   started: bigint;
 }
 
@@ -188,13 +202,20 @@ function prompt(
   request: CreativeGenerationRequest,
   stage: 'planning' | 'resolution',
   planningContext?: ProviderInvocation['planning_context'],
+  mode: ProviderInvocation['mode'] = 'generate',
 ): PromptContract {
+  const resolutionRepair = stage === 'resolution' && mode === 'repair';
   return {
     schema: 'creative-prompt-contract',
     schema_version: '0.1.0',
     stage,
     system_intent: stage === 'planning' ? 'structure_creative_request' : 'resolve_creative_slots',
-    output_schema: { name: stage === 'planning' ? 'PlanningGenerationOutput' : 'ResolutionGenerationOutput', version: '0.1.0' },
+    output_schema: {
+      name: stage === 'planning'
+        ? 'PlanningGenerationOutput'
+        : resolutionRepair ? 'ResolutionRepairPatch' : 'ResolutionGenerationOutput',
+      version: '0.1.0',
+    },
     user_content: request.idea,
     constraints: [
       'structured_output_only',
@@ -452,6 +473,8 @@ function resolutionSemantics(
     const key = `${entry.slot_id}:${entry.scene_id ?? '*'}`;
     if (seenContent.has(key)) diagnostics.push(diagnostic(
       'gateway.output.duplicate_slot_resolution', 'error', `$.content[${index}]`, 'Un même slot est résolu plusieurs fois pour la même scène.',
+      'Retourner une seule résolution pour cette cible.',
+      { slot_id: entry.slot_id, scene_id: entry.scene_id ?? 'generic', repair_target: true },
     ));
     seenContent.add(key);
     const slot = slotMap.get(entry.slot_id);
@@ -487,19 +510,30 @@ function resolutionSemantics(
           ? 'Choisir une scène autorisée ou utiliser scene_id=null pour toutes les scènes autorisées.'
           : 'Choisir une scène parmi les scènes autorisées.',
         {
-          slot_id: entry.slot_id,
           received_scene_id: entry.scene_id,
           allowed_scene_ids: target.allowed_scene_ids.join(','),
+          slot_id: entry.slot_id,
+          scene_id: entry.scene_id,
+          repair_target: true,
         },
       ));
     }
     if ([...entry.text].length > slot.constraints.max_characters) diagnostics.push(diagnostic(
       'gateway.output.content_too_long', 'error', `$.content[${index}].text`, 'Le contenu dépasse la limite déclarée par le ContentSlot.',
+      `Réécrire ce contenu avec au maximum ${slot.constraints.max_characters} caractère(s).`,
+      {
+        slot_id: entry.slot_id,
+        scene_id: entry.scene_id ?? 'generic',
+        maximum_characters: slot.constraints.max_characters,
+        repair_target: true,
+      },
     ));
     const expectedSource = slot.factual_requirement === 'source_required';
     if (entry.source_required !== expectedSource) diagnostics.push(diagnostic(
       'gateway.output.factual_requirement_changed', 'error', `$.content[${index}].source_required`,
       'La sortie provider a modifié l’exigence factuelle du ContentSlot.',
+      'Conserver exactement l’exigence source_required du ContentSlot.',
+      { slot_id: entry.slot_id, scene_id: entry.scene_id ?? 'generic', repair_target: true },
     ));
     if (entry.provenance === 'fixture' && !provider.deterministic_test) diagnostics.push(diagnostic(
       'gateway.output.fixture_provenance_forbidden', 'error', `$.content[${index}].provenance`,
@@ -520,23 +554,24 @@ function resolutionSemantics(
       'gateway.output.ambiguous_slot_resolution', 'error', '$.content',
       'Une résolution générique et une résolution spécifique ciblent simultanément le même ContentSlot.',
       'Choisir soit scene_id=null, soit une résolution spécifique pour chaque scène autorisée.',
-      { slot_id: target.slot_id, allowed_scene_ids: target.allowed_scene_ids.join(',') },
+      { slot_id: target.slot_id, allowed_scene_ids: target.allowed_scene_ids.join(','), repair_target: true },
     ));
     if (!target.required || target.status === 'resolved' || genericEntries.length > 0) return;
     const resolvedSceneIds = new Set(specificEntries.map((entry) => entry.scene_id));
     const missingSceneIds = target.allowed_scene_ids.filter((sceneId) => !resolvedSceneIds.has(sceneId));
-    if (missingSceneIds.length > 0) diagnostics.push(diagnostic(
+    const hasInvalidSceneBinding = specificEntries.some((entry) => !target.allowed_scene_ids.includes(entry.scene_id!));
+    missingSceneIds.forEach((sceneId) => diagnostics.push(diagnostic(
       'gateway.output.required_scene_resolution_missing', 'error', '$.content',
-      'Un ContentSlot requis ne couvre pas toutes ses scènes canoniques.',
-      target.generic_resolution_allowed
-        ? 'Résoudre chaque scène manquante ou fournir une résolution générique avec scene_id=null.'
-        : 'Résoudre chaque scène manquante explicitement.',
+      'Un ContentSlot requis ne couvre pas une scène canonique.',
+      'Fournir une résolution pour cette scène manquante.',
       {
         slot_id: target.slot_id,
+        scene_id: sceneId,
         missing_scene_ids: missingSceneIds.join(','),
         allowed_scene_ids: target.allowed_scene_ids.join(','),
+        repair_target: !hasInvalidSceneBinding,
       },
-    ));
+    )));
   });
   const seenAssets = new Set<string>();
   output.asset_descriptions.forEach((entry, index) => {
@@ -758,6 +793,42 @@ function readingSemantics(
   return diagnostics;
 }
 
+interface ResolutionPreflightInput {
+  readonly request: CreativeGenerationRequest;
+  readonly output: ResolutionGenerationOutput;
+  readonly provider: ProviderMetadata;
+  readonly plan: NonNullable<StoryPlanningResult['creative_plan']>;
+  readonly report: PlanningReport;
+  readonly slots: readonly ContentSlot[];
+  readonly assets: readonly AssetIntent[];
+  readonly resolutionContext: ProviderResolutionContext;
+  readonly readingPolicy?: CreativeReadingPolicy;
+}
+
+/** Frontière Stage B unique, réutilisée avant repair, après merge et pendant le replay. */
+function runResolutionPreflight(input: ResolutionPreflightInput): CreativeDiagnostic[] {
+  const diagnostics = resolutionSemantics(
+    input.request,
+    input.output,
+    input.provider,
+    input.plan.plan_id,
+    input.slots,
+    input.assets,
+    input.resolutionContext,
+  );
+  if (!diagnostics.some((entry) => entry.severity === 'error') && input.readingPolicy) {
+    diagnostics.push(...readingSemantics(
+      input.output,
+      input.plan,
+      input.report,
+      input.slots,
+      input.resolutionContext,
+      input.readingPolicy,
+    ));
+  }
+  return sortCreativeDiagnostics(diagnostics);
+}
+
 function resolutionInvariantDiagnostics(
   resolution: CreativeResolution,
   targets: ProviderResolutionContext,
@@ -791,39 +862,6 @@ interface StageResult<T> {
   readonly failure: GatewayFailureKind | null;
 }
 
-function targetedRepairStabilityDiagnostics(
-  previous: PlanningGenerationOutput | ResolutionGenerationOutput | null,
-  current: PlanningGenerationOutput | ResolutionGenerationOutput,
-  repairDiagnostics: readonly CreativeDiagnostic[],
-): CreativeDiagnostic[] {
-  if (!previous || previous.stage !== 'resolution' || current.stage !== 'resolution') return [];
-  const targets = new Set(repairDiagnostics.flatMap((entry) => (
-    entry.context?.['repair_target'] === true && typeof entry.context['slot_id'] === 'string'
-      ? [entry.context['slot_id']]
-      : []
-  )));
-  if (targets.size === 0) return [];
-  const currentByKey = new Map(current.content.map((entry) => [`${entry.slot_id}:${entry.scene_id ?? '*'}`, entry]));
-  return previous.content.flatMap((entry) => {
-    if (targets.has(entry.slot_id)) return [];
-    const key = `${entry.slot_id}:${entry.scene_id ?? '*'}`;
-    const repaired = currentByKey.get(key);
-    if (repaired && hashCreativeDocument(repaired) === hashCreativeDocument(entry)) return [];
-    return [diagnostic(
-      'gateway.output.repair_modified_valid_content',
-      'error',
-      '$.content',
-      'La réparation a modifié ou supprimé un ContentSlot qui n’était pas ciblé par les diagnostics.',
-      'Restaurer exactement le contenu précédent de ce slot et modifier uniquement les slots marqués repair_target=true.',
-      {
-        slot_id: entry.slot_id,
-        scene_id: entry.scene_id ?? 'generic',
-        repair_target: false,
-      },
-    )];
-  });
-}
-
 async function runStage<T extends PlanningGenerationOutput | ResolutionGenerationOutput>(input: {
   readonly stage: 'planning' | 'resolution';
   readonly context: RunContext;
@@ -853,7 +891,7 @@ async function runStage<T extends PlanningGenerationOutput | ResolutionGeneratio
         mode: attempt === 0 ? 'generate' : 'repair',
         attempt,
         request: input.request,
-        prompt: prompt(input.request, input.stage, input.planningContext),
+        prompt: prompt(input.request, input.stage, input.planningContext, attempt === 0 ? 'generate' : 'repair'),
         ...(input.planningContext === undefined ? {} : { planning_context: input.planningContext }),
         ...(input.resolutionContext === undefined ? {} : { resolution_context: input.resolutionContext }),
         repair_diagnostics: repairDiagnostics,
@@ -861,9 +899,15 @@ async function runStage<T extends PlanningGenerationOutput | ResolutionGeneratio
       }, input.timeoutMs, input.externalSignal);
       input.context.providerMs += elapsedMs(providerStarted);
       input.context.usage = mergeUsage(input.context.usage, response.usage);
+      if (input.stage === 'planning') {
+        input.context.usageByStage.planning = mergeUsage(input.context.usageByStage.planning, response.usage);
+      }
     } catch (error) {
       input.context.providerMs += elapsedMs(providerStarted);
       input.context.usage = mergeUsage(input.context.usage);
+      if (input.stage === 'planning') {
+        input.context.usageByStage.planning = mergeUsage(input.context.usageByStage.planning);
+      }
       const failure = error instanceof GatewayProviderError ? error.kind : 'provider_unavailable';
       input.context.diagnostics.push(diagnostic(
         `gateway.${failure}`, 'error', '$.provider',
@@ -884,11 +928,6 @@ async function runStage<T extends PlanningGenerationOutput | ResolutionGeneratio
       if (!parsed.success) current.push(...zodDiagnostics(parsed.error, input.stage));
       else {
         output = parsed.data as T;
-        if (attempt > 0) current.push(...targetedRepairStabilityDiagnostics(
-          repairPreviousOutput,
-          output,
-          repairDiagnostics,
-        ));
         current.push(...input.semantic(output));
       }
     }
@@ -904,6 +943,187 @@ async function runStage<T extends PlanningGenerationOutput | ResolutionGeneratio
       return { ok: false, output: null, failure: 'repair_exhausted' };
     }
   }
+  return { ok: false, output: null, failure: 'repair_exhausted' };
+}
+
+interface ResolutionStageInput {
+  readonly context: RunContext;
+  readonly provider: CreativeProvider;
+  readonly providerMetadata: ProviderMetadata;
+  readonly request: CreativeGenerationRequest;
+  readonly maxRepairs: number;
+  readonly timeoutMs: number;
+  readonly externalSignal?: AbortSignal;
+  readonly resolutionContext: ProviderResolutionContext;
+  readonly plan: NonNullable<StoryPlanningResult['creative_plan']>;
+  readonly planningReport: PlanningReport;
+  readonly contentSlots: readonly ContentSlot[];
+  readonly assets: readonly AssetIntent[];
+  readonly readingPolicy?: CreativeReadingPolicy;
+}
+
+function updateResolutionRepairReport(
+  context: RunContext,
+  request: ResolutionRepairRequest,
+  patch: ResolutionRepairPatch | null,
+  remaining: readonly ResolutionRepairTargetId[],
+): void {
+  const initial = context.resolutionRepair;
+  const codesByTarget = request.targets.map((target) => ({
+    target: target.target,
+    codes: [...new Set(target.diagnostics.map((entry) => entry.code))].sort((left, right) => left.localeCompare(right, 'en')),
+  }));
+  context.resolutionRepair = {
+    attempt_count: request.attempt,
+    initial_invalid_targets: initial?.initial_invalid_targets ?? request.targets.map((target) => target.target),
+    diagnostic_codes_by_target: initial?.diagnostic_codes_by_target ?? codesByTarget,
+    patched_targets: patch?.items.map((item) => item.target) ?? initial?.patched_targets ?? [],
+    remaining_invalid_targets: [...remaining],
+    patch_sha256: patch ? hashCreativeDocument(patch) : initial?.patch_sha256 ?? null,
+  };
+}
+
+async function runResolutionStage(input: ResolutionStageInput): Promise<StageResult<ResolutionGenerationOutput>> {
+  transition(input.context, 'RESOLUTION_PENDING', 'resolution.provider_pending');
+  input.context.resolutionAttempts += 1;
+  const providerStarted = process.hrtime.bigint();
+  let response: ProviderResponse;
+  try {
+    response = await invokeProvider(input.provider, {
+      stage: 'resolution', mode: 'generate', attempt: 0, request: input.request,
+      prompt: prompt(input.request, 'resolution'),
+      resolution_context: input.resolutionContext,
+      repair_diagnostics: [],
+    }, input.timeoutMs, input.externalSignal);
+    input.context.providerMs += elapsedMs(providerStarted);
+    input.context.usage = mergeUsage(input.context.usage, response.usage);
+    input.context.usageByStage.initialResolution = mergeUsage(input.context.usageByStage.initialResolution, response.usage);
+  } catch (error) {
+    input.context.providerMs += elapsedMs(providerStarted);
+    input.context.usage = mergeUsage(input.context.usage);
+    input.context.usageByStage.initialResolution = mergeUsage(input.context.usageByStage.initialResolution);
+    const failure = error instanceof GatewayProviderError ? error.kind : 'provider_unavailable';
+    input.context.diagnostics.push(diagnostic(
+      `gateway.${failure}`, 'error', '$.provider',
+      error instanceof Error ? redactSensitiveText(error.message) : 'Le provider est indisponible.',
+    ));
+    return { ok: false, output: null, failure };
+  }
+
+  transition(input.context, 'RESOLUTION_VALIDATING', 'resolution.response_received');
+  let validationStarted = process.hrtime.bigint();
+  const decoded = decodeOutput(response.output);
+  let currentDiagnostics = [...decoded.diagnostics];
+  if (decoded.value !== null) currentDiagnostics.push(...inspectGatewayInput(decoded.value, 'provider_response'));
+  const parsed = decoded.value === null ? null : ResolutionGenerationOutputSchema.safeParse(decoded.value);
+  let currentOutput: ResolutionGenerationOutput | null = null;
+  if (parsed && !parsed.success) currentDiagnostics.push(...zodDiagnostics(parsed.error, 'resolution'));
+  if (parsed?.success) {
+    currentOutput = parsed.data;
+    currentDiagnostics.push(...runResolutionPreflight({
+      request: input.request,
+      output: currentOutput,
+      provider: input.providerMetadata,
+      plan: input.plan,
+      report: input.planningReport,
+      slots: input.contentSlots,
+      assets: input.assets,
+      resolutionContext: input.resolutionContext,
+      ...(input.readingPolicy === undefined ? {} : { readingPolicy: input.readingPolicy }),
+    }));
+  }
+  input.context.validationMs += elapsedMs(validationStarted);
+  currentDiagnostics = sortCreativeDiagnostics(currentDiagnostics);
+  if (currentOutput && !currentDiagnostics.some((entry) => entry.severity === 'error')) {
+    return { ok: true, output: currentOutput, failure: null };
+  }
+
+  for (let attempt = 1; attempt <= input.maxRepairs; attempt += 1) {
+    if (!currentOutput) break;
+    const repairRequest = buildResolutionRepairRequest({
+      request: input.request,
+      output: currentOutput,
+      diagnostics: currentDiagnostics,
+      resolution_context: input.resolutionContext,
+      content_slots: input.contentSlots,
+      attempt,
+    });
+    if (!repairRequest) break;
+    updateResolutionRepairReport(input.context, repairRequest, null, repairRequest.targets.map((target) => target.target));
+    transition(input.context, 'RESOLUTION_PENDING', 'resolution.targeted_repair_requested');
+    input.context.resolutionAttempts += 1;
+    const repairStarted = process.hrtime.bigint();
+    let repairResponse: ProviderResponse;
+    try {
+      repairResponse = await invokeProvider(input.provider, {
+        stage: 'resolution', mode: 'repair', attempt, request: input.request,
+        prompt: prompt(input.request, 'resolution', undefined, 'repair'),
+        resolution_context: input.resolutionContext,
+        resolution_repair_request: repairRequest,
+        repair_diagnostics: currentDiagnostics,
+      }, input.timeoutMs, input.externalSignal);
+      input.context.providerMs += elapsedMs(repairStarted);
+      input.context.usage = mergeUsage(input.context.usage, repairResponse.usage);
+      input.context.usageByStage.resolutionRepair = mergeUsage(input.context.usageByStage.resolutionRepair, repairResponse.usage);
+    } catch (error) {
+      input.context.providerMs += elapsedMs(repairStarted);
+      input.context.usage = mergeUsage(input.context.usage);
+      input.context.usageByStage.resolutionRepair = mergeUsage(input.context.usageByStage.resolutionRepair);
+      const failure = error instanceof GatewayProviderError ? error.kind : 'provider_unavailable';
+      input.context.diagnostics.push(diagnostic(
+        `gateway.${failure}`, 'error', '$.provider',
+        error instanceof Error ? redactSensitiveText(error.message) : 'Le provider est indisponible.',
+      ));
+      return { ok: false, output: null, failure };
+    }
+    transition(input.context, 'RESOLUTION_VALIDATING', 'resolution.targeted_patch_received');
+    validationStarted = process.hrtime.bigint();
+    const decodedPatch = decodeOutput(repairResponse.output);
+    const patchSecurity = decodedPatch.value === null ? [] : inspectGatewayInput(decodedPatch.value, 'provider_response');
+    const merged = decodedPatch.value === null
+      ? { ok: false as const, output: null, patch: null, diagnostics: decodedPatch.diagnostics }
+      : mergeResolutionRepairPatch(currentOutput, repairRequest, decodedPatch.value);
+    currentDiagnostics = sortCreativeDiagnostics([...decodedPatch.diagnostics, ...patchSecurity, ...merged.diagnostics]);
+    if (merged.ok && merged.output && merged.patch) {
+      currentOutput = merged.output;
+      currentDiagnostics = runResolutionPreflight({
+        request: input.request,
+        output: currentOutput,
+        provider: input.providerMetadata,
+        plan: input.plan,
+        report: input.planningReport,
+        slots: input.contentSlots,
+        assets: input.assets,
+        resolutionContext: input.resolutionContext,
+        ...(input.readingPolicy === undefined ? {} : { readingPolicy: input.readingPolicy }),
+      });
+      const remainingRequest = currentDiagnostics.some((entry) => entry.severity === 'error')
+        ? buildResolutionRepairRequest({
+            request: input.request,
+            output: currentOutput,
+            diagnostics: currentDiagnostics,
+            resolution_context: input.resolutionContext,
+            content_slots: input.contentSlots,
+            attempt: attempt + 1,
+          })
+        : null;
+      updateResolutionRepairReport(
+        input.context,
+        repairRequest,
+        merged.patch,
+        remainingRequest?.targets.map((target) => target.target) ?? [],
+      );
+    }
+    input.context.validationMs += elapsedMs(validationStarted);
+    if (merged.ok && currentOutput && !currentDiagnostics.some((entry) => entry.severity === 'error')) {
+      return { ok: true, output: currentOutput, failure: null };
+    }
+  }
+
+  input.context.diagnostics.push(...currentDiagnostics, diagnostic(
+    'gateway.repair_exhausted', 'error', '$.provider',
+    `La réparation resolution a épuisé ${input.maxRepairs} tentative(s) autorisée(s).`,
+  ));
   return { ok: false, output: null, failure: 'repair_exhausted' };
 }
 
@@ -999,6 +1219,12 @@ function report(
       resolution_attempts: context.resolutionAttempts,
     },
     usage: context.usage,
+    usage_by_stage: {
+      planning: context.usageByStage.planning,
+      initial_resolution: context.usageByStage.initialResolution,
+      resolution_repair: context.usageByStage.resolutionRepair,
+    },
+    ...(context.resolutionRepair === null ? {} : { resolution_repair: context.resolutionRepair }),
     metrics: metrics(context),
     hashes: { request: requestHash, accepted_provider_response: acceptedHash, snapshot: snapshotHash },
     raw_response_policy: 'excluded',
@@ -1009,6 +1235,12 @@ function initialContext(): RunContext {
   return {
     state: 'CREATED', transitions: [], diagnostics: [], failure: null,
     planningAttempts: 0, resolutionAttempts: 0, usage: EMPTY_USAGE,
+    usageByStage: {
+      planning: EMPTY_USAGE,
+      initialResolution: EMPTY_USAGE,
+      resolutionRepair: EMPTY_USAGE,
+    },
+    resolutionRepair: null,
     providerMs: 0, validationMs: 0, planningMs: 0, resolutionMs: 0,
     started: process.hrtime.bigint(),
   };
@@ -1126,25 +1358,15 @@ export async function runCreativeGateway(
     readingBudgetResult?.budgets ?? [],
     readingBudgetResult?.subtitle_budgets ?? [],
   );
-  const resolutionStage = await runStage<ResolutionGenerationOutput>({
-    stage: 'resolution', context, provider: options.provider, request, maxRepairs, timeoutMs,
+  const resolutionStage = await runResolutionStage({
+    context, provider: options.provider, providerMetadata: provider, request, maxRepairs, timeoutMs,
     ...(options.signal === undefined ? {} : { externalSignal: options.signal }),
     resolutionContext,
-    semantic: (output) => {
-      const diagnostics = resolutionSemantics(
-        request, output, provider, creativePlan.plan_id, planned.planning.content_slots, creativePlan.asset_intents,
-        resolutionContext,
-      );
-      if (!diagnostics.some((entry) => entry.severity === 'error') && options.reading_policy) diagnostics.push(...readingSemantics(
-        output,
-        creativePlan,
-        planned.planning.report!,
-        planned.planning.content_slots,
-        resolutionContext,
-        options.reading_policy,
-      ));
-      return diagnostics;
-    },
+    plan: creativePlan,
+    planningReport: planned.planning.report,
+    contentSlots: planned.planning.content_slots,
+    assets: creativePlan.asset_intents,
+    ...(options.reading_policy === undefined ? {} : { readingPolicy: options.reading_policy }),
   });
   if (!resolutionStage.ok || !resolutionStage.output) {
     context.failure = resolutionStage.failure;
@@ -1217,6 +1439,19 @@ export async function runCreativeGateway(
       planning_output: planningStage.output.provenance,
       resolution_output: resolutionStage.output.provenance,
       raw_response_policy: 'excluded',
+      ...(context.resolutionRepair && context.resolutionRepair.attempt_count > 0
+        ? {
+            resolution_repair: {
+              occurred: true as const,
+              attempt_count: context.resolutionRepair.attempt_count,
+              repaired_targets: context.resolutionRepair.patched_targets,
+              diagnostic_codes: [...new Set(context.resolutionRepair.diagnostic_codes_by_target.flatMap((entry) => entry.codes))]
+                .sort((left, right) => left.localeCompare(right, 'en')),
+              request_contract_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
+              patch_contract_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
+            },
+          }
+        : {}),
     },
     hashes: {
       request: requestHash,
@@ -1310,23 +1545,17 @@ export function replayCreativeGateway(
     readingBudgetResult?.budgets ?? [],
     readingBudgetResult?.subtitle_budgets ?? [],
   );
-  context.diagnostics.push(...resolutionSemantics(
-    snapshot.request,
-    snapshot.resolution_output,
-    snapshot.provider,
-    planned.planning.creative_plan.plan_id,
-    planned.planning.content_slots,
-    planned.planning.creative_plan.asset_intents,
+  context.diagnostics.push(...runResolutionPreflight({
+    request: snapshot.request,
+    output: snapshot.resolution_output,
+    provider: snapshot.provider,
+    plan: planned.planning.creative_plan,
+    report: planned.planning.report,
+    slots: planned.planning.content_slots,
+    assets: planned.planning.creative_plan.asset_intents,
     resolutionContext,
-  ));
-  if (!context.diagnostics.some((entry) => entry.severity === 'error') && options.reading_policy) context.diagnostics.push(...readingSemantics(
-    snapshot.resolution_output,
-    planned.planning.creative_plan,
-    planned.planning.report,
-    planned.planning.content_slots,
-    resolutionContext,
-    options.reading_policy,
-  ));
+    ...(options.reading_policy === undefined ? {} : { readingPolicy: options.reading_policy }),
+  }));
   const validatedBindings = validateBindings(
     snapshot.asset_bindings,
     snapshot.source_verifications,

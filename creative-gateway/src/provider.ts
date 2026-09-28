@@ -14,6 +14,7 @@ import type {
   ProviderMetadata,
   ProviderUsage,
   ResolutionGenerationOutput,
+  ResolutionRepairRequest,
 } from './contracts.ts';
 
 export interface ProviderResolutionContext {
@@ -106,6 +107,8 @@ export interface ProviderInvocation {
   readonly repair_diagnostics: readonly CreativeDiagnostic[];
   /** Dernière sortie structurée valide au niveau schéma, mais refusée sémantiquement. */
   readonly repair_previous_output?: PlanningGenerationOutput | ResolutionGenerationOutput;
+  /** Allowlist canonique utilisée uniquement par le repair ciblé Stage B. */
+  readonly resolution_repair_request?: ResolutionRepairRequest;
   readonly signal: AbortSignal;
 }
 

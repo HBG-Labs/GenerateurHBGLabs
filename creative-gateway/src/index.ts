@@ -5,5 +5,6 @@ export * from './mapping.ts';
 export * from './planning-context.ts';
 export * from './provider.ts';
 export * from './request.ts';
+export * from './resolution-repair.ts';
 export * from './security.ts';
 export * from './snapshot.ts';
