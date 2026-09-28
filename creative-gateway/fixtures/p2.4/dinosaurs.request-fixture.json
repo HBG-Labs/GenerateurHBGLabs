@@ -1,0 +1,21 @@
+{
+  "fixture_schema": "creative-generation-request-fixture",
+  "fixture_version": "0.1.0",
+  "request": {
+    "idea": "Et si les dinosaures existaient encore aujourd'hui ?",
+    "creative_goal": "curiosity",
+    "target_duration_ms": 30000,
+    "target_format": "vertical_short",
+    "audience": {
+      "description": "Public francophone curieux de sciences et de scénarios hypothétiques",
+      "knowledge_level": "mixed"
+    },
+    "language": "fr",
+    "locale": "fr-FR",
+    "tone": ["dramatic"],
+    "desired_reaction": "surprise",
+    "factual_mode": "creative",
+    "cta": { "mode": "none" },
+    "constraints": []
+  }
+}

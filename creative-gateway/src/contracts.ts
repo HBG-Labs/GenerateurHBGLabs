@@ -1,0 +1,273 @@
+import { z } from 'zod';
+
+import {
+  ArchetypeIdSchema,
+  CreativeDiagnosticSchema,
+  InformationDensitySchema,
+  LanguageSchema,
+  LocaleSchema,
+  PlannerConstraintSchema,
+  Sha256Schema,
+  StableIdSchema,
+} from '@motion-engine/creative-core';
+
+export const CREATIVE_GATEWAY_VERSION = '0.1.0' as const;
+export const CREATIVE_GENERATION_REQUEST_VERSION = '0.1.0' as const;
+export const CREATIVE_GENERATION_OUTPUT_VERSION = '0.1.0' as const;
+export const CREATIVE_GATEWAY_SNAPSHOT_VERSION = '0.1.0' as const;
+export const CREATIVE_GATEWAY_REPORT_VERSION = '0.1.0' as const;
+
+export const ProviderCapabilitySchema = z.enum([
+  'structured_output',
+  'json_schema',
+  'text_generation',
+  'tool_use',
+  'streaming',
+  'multimodal_input',
+]);
+export type ProviderCapability = z.infer<typeof ProviderCapabilitySchema>;
+
+export const ProviderMetadataSchema = z.strictObject({
+  provider_id: StableIdSchema,
+  adapter_version: z.string().regex(/^\d+\.\d+\.\d+$/),
+  capabilities: z.array(ProviderCapabilitySchema).min(1).max(16),
+  model_family: z.string().regex(/^[a-z][a-z0-9_.-]{0,63}$/).optional(),
+  deterministic_test: z.boolean(),
+});
+export type ProviderMetadata = z.infer<typeof ProviderMetadataSchema>;
+
+export const ProviderUsageSchema = z.strictObject({
+  input_units: z.number().int().nonnegative().nullable(),
+  output_units: z.number().int().nonnegative().nullable(),
+  cached_units: z.number().int().nonnegative().nullable(),
+  request_count: z.number().int().nonnegative(),
+  provider_reported_cost: z
+    .strictObject({ amount: z.number().nonnegative(), currency: z.string().regex(/^[A-Z]{3}$/) })
+    .nullable(),
+});
+export type ProviderUsage = z.infer<typeof ProviderUsageSchema>;
+
+export const CreativeGenerationRequestSchema = z.strictObject({
+  schema: z.literal('creative-generation-request'),
+  schema_version: z.literal(CREATIVE_GENERATION_REQUEST_VERSION),
+  request_id: StableIdSchema,
+  idempotency_key: Sha256Schema,
+  idea: z.string().min(1).max(3_000),
+  creative_goal: z.string().regex(/^[a-z][a-z0-9_.-]{0,63}$/),
+  target_duration_ms: z.number().int().min(3_000).max(180_000),
+  target_format: z.enum(['vertical_short', 'square', 'landscape']),
+  audience: z.strictObject({
+    description: z.string().min(1).max(2_000),
+    knowledge_level: z.enum(['unaware', 'beginner', 'intermediate', 'advanced', 'expert', 'mixed']),
+  }),
+  language: LanguageSchema,
+  locale: LocaleSchema,
+  tone: z.array(z.string().regex(/^[a-z][a-z0-9_.-]{0,63}$/)).min(1).max(8),
+  desired_reaction: z.string().min(1).max(1_000),
+  factual_mode: z.enum(['factual', 'creative', 'mixed']),
+  cta: z.strictObject({ mode: z.enum(['none', 'soft', 'explicit']) }),
+  constraints: z.array(PlannerConstraintSchema).max(64),
+});
+export type CreativeGenerationRequest = z.infer<typeof CreativeGenerationRequestSchema>;
+
+export const OutputProvenanceSchema = z.enum(['fixture', 'provider_generated']);
+export type OutputProvenance = z.infer<typeof OutputProvenanceSchema>;
+
+export const PlanningGenerationOutputSchema = z.strictObject({
+  schema: z.literal('creative-generation-output'),
+  schema_version: z.literal(CREATIVE_GENERATION_OUTPUT_VERSION),
+  stage: z.literal('planning'),
+  request_id: StableIdSchema,
+  provenance: OutputProvenanceSchema,
+  normalized_topic: z.string().min(1).max(3_000),
+  creative_goal: z.string().regex(/^[a-z][a-z0-9_.-]{0,63}$/),
+  audience: z.strictObject({
+    description: z.string().min(1).max(2_000),
+    knowledge_level: z.enum(['unaware', 'beginner', 'intermediate', 'advanced', 'expert', 'mixed']),
+  }),
+  language: LanguageSchema,
+  locale: LocaleSchema,
+  target_duration_ms: z.number().int().min(3_000).max(180_000),
+  target_format: z.enum(['vertical_short', 'square', 'landscape']),
+  tone: z.array(z.string().regex(/^[a-z][a-z0-9_.-]{0,63}$/)).min(1).max(8),
+  pacing: z.enum(['slow', 'measured', 'medium', 'fast', 'aggressive']),
+  information_density: InformationDensitySchema,
+  narrative_archetype: ArchetypeIdSchema.optional(),
+  desired_reaction: z.string().min(1).max(1_000),
+  factual_mode: z.enum(['factual', 'creative', 'mixed']),
+  cta: z.strictObject({ mode: z.enum(['none', 'soft', 'explicit']) }),
+  suggested_constraints: z.array(PlannerConstraintSchema).max(64),
+});
+export type PlanningGenerationOutput = z.infer<typeof PlanningGenerationOutputSchema>;
+
+export const ResolutionContentSchema = z.strictObject({
+  slot_id: StableIdSchema,
+  scene_id: StableIdSchema.optional(),
+  text: z.string().min(1).max(20_000),
+  provenance: OutputProvenanceSchema,
+  uncertainty: z.enum(['none', 'low', 'medium', 'high', 'unknown']),
+  source_required: z.boolean(),
+});
+export type ResolutionContent = z.infer<typeof ResolutionContentSchema>;
+
+export const AssetDescriptionSchema = z.strictObject({
+  asset_intent_id: StableIdSchema,
+  asset_slot: StableIdSchema,
+  description: z.string().min(1).max(4_000),
+  provenance: OutputProvenanceSchema,
+});
+export type AssetDescription = z.infer<typeof AssetDescriptionSchema>;
+
+export const ResolutionGenerationOutputSchema = z.strictObject({
+  schema: z.literal('creative-generation-output'),
+  schema_version: z.literal(CREATIVE_GENERATION_OUTPUT_VERSION),
+  stage: z.literal('resolution'),
+  request_id: StableIdSchema,
+  plan_id: StableIdSchema,
+  provenance: OutputProvenanceSchema,
+  content: z.array(ResolutionContentSchema).max(128),
+  asset_descriptions: z.array(AssetDescriptionSchema).max(64),
+});
+export type ResolutionGenerationOutput = z.infer<typeof ResolutionGenerationOutputSchema>;
+
+export const CreativeGenerationOutputSchema = z.discriminatedUnion('stage', [
+  PlanningGenerationOutputSchema,
+  ResolutionGenerationOutputSchema,
+]);
+export type CreativeGenerationOutput = z.infer<typeof CreativeGenerationOutputSchema>;
+
+export const GatewayAssetBindingSchema = z.strictObject({
+  asset_slot: StableIdSchema,
+  asset_ref: StableIdSchema,
+  provenance: z.enum(['fixture', 'user_supplied', 'externally_verified']),
+  focus: z
+    .union([
+      z.strictObject({ region: z.string().regex(/^[a-z][a-z0-9_.]{0,63}$/) }),
+      z.strictObject({ point: z.strictObject({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }) }),
+    ])
+    .optional(),
+});
+export type GatewayAssetBinding = z.infer<typeof GatewayAssetBindingSchema>;
+
+export const GatewaySourceVerificationSchema = z.strictObject({
+  slot_id: StableIdSchema,
+  source_slot: StableIdSchema,
+  provenance: z.enum(['fixture', 'user_supplied', 'externally_verified']),
+});
+export type GatewaySourceVerification = z.infer<typeof GatewaySourceVerificationSchema>;
+
+export const PromptContractSchema = z.strictObject({
+  schema: z.literal('creative-prompt-contract'),
+  schema_version: z.literal('0.1.0'),
+  stage: z.enum(['planning', 'resolution']),
+  system_intent: z.enum(['structure_creative_request', 'resolve_creative_slots']),
+  output_schema: z.strictObject({ name: z.string(), version: z.string() }),
+  user_content: z.string(),
+  constraints: z.array(z.string()).max(32),
+});
+export type PromptContract = z.infer<typeof PromptContractSchema>;
+
+export const GatewayStateSchema = z.enum([
+  'CREATED',
+  'PLANNING_PENDING',
+  'PLANNING_VALIDATING',
+  'PLANNED',
+  'RESOLUTION_PENDING',
+  'RESOLUTION_VALIDATING',
+  'RESOLVED',
+  'REPLAY_VALIDATING',
+  'READY_FOR_COMPILE',
+  'FAILED',
+  'CANCELLED',
+]);
+export type GatewayState = z.infer<typeof GatewayStateSchema>;
+
+export const GatewayTransitionSchema = z.strictObject({
+  from: GatewayStateSchema,
+  to: GatewayStateSchema,
+  reason: z.string().regex(/^[a-z][a-z0-9_.]*$/),
+});
+export type GatewayTransition = z.infer<typeof GatewayTransitionSchema>;
+
+export const GatewayFailureKindSchema = z.enum([
+  'provider_unavailable',
+  'provider_timeout',
+  'provider_malformed_response',
+  'schema_invalid',
+  'semantic_invalid',
+  'unsupported_capability',
+  'repair_exhausted',
+  'unresolved_required_content',
+  'unresolved_required_asset',
+  'factual_verification_required',
+  'cancelled',
+]);
+export type GatewayFailureKind = z.infer<typeof GatewayFailureKindSchema>;
+
+export const GatewaySnapshotPayloadSchema = z.strictObject({
+  schema: z.literal('creative-gateway-snapshot'),
+  schema_version: z.literal(CREATIVE_GATEWAY_SNAPSHOT_VERSION),
+  gateway_version: z.literal(CREATIVE_GATEWAY_VERSION),
+  request: CreativeGenerationRequestSchema,
+  provider: ProviderMetadataSchema,
+  planning_output: PlanningGenerationOutputSchema,
+  resolution_output: ResolutionGenerationOutputSchema,
+  asset_bindings: z.array(GatewayAssetBindingSchema).max(64),
+  source_verifications: z.array(GatewaySourceVerificationSchema).max(128),
+  provenance: z.strictObject({
+    user_idea: z.literal('user_supplied'),
+    planning_output: OutputProvenanceSchema,
+    resolution_output: OutputProvenanceSchema,
+    raw_response_policy: z.literal('excluded'),
+  }),
+  hashes: z.strictObject({
+    request: Sha256Schema,
+    planning_output: Sha256Schema,
+    resolution_output: Sha256Schema,
+    accepted_provider_response: Sha256Schema,
+  }),
+});
+export type GatewaySnapshotPayload = z.infer<typeof GatewaySnapshotPayloadSchema>;
+
+export const CreativeGatewaySnapshotSchema = GatewaySnapshotPayloadSchema.extend({
+  snapshot_sha256: Sha256Schema,
+}).strict();
+export type CreativeGatewaySnapshot = z.infer<typeof CreativeGatewaySnapshotSchema>;
+
+export const GatewayMetricsSchema = z.strictObject({
+  total_ms: z.number().nonnegative(),
+  provider_ms: z.number().nonnegative(),
+  validation_ms: z.number().nonnegative(),
+  planning_ms: z.number().nonnegative(),
+  resolution_ms: z.number().nonnegative(),
+  measured: z.literal(true),
+});
+export type GatewayMetrics = z.infer<typeof GatewayMetricsSchema>;
+
+export const CreativeGatewayReportSchema = z.strictObject({
+  schema: z.literal('creative-gateway-report'),
+  schema_version: z.literal(CREATIVE_GATEWAY_REPORT_VERSION),
+  gateway_version: z.literal(CREATIVE_GATEWAY_VERSION),
+  state: GatewayStateSchema,
+  eligible_for_compile: z.boolean(),
+  failure_kind: GatewayFailureKindSchema.nullable(),
+  provider: ProviderMetadataSchema.nullable(),
+  transitions: z.array(GatewayTransitionSchema),
+  diagnostics: z.array(CreativeDiagnosticSchema),
+  summary: z.strictObject({
+    errors: z.number().int().nonnegative(),
+    warnings: z.number().int().nonnegative(),
+    infos: z.number().int().nonnegative(),
+    planning_attempts: z.number().int().nonnegative(),
+    resolution_attempts: z.number().int().nonnegative(),
+  }),
+  usage: ProviderUsageSchema,
+  metrics: GatewayMetricsSchema,
+  hashes: z.strictObject({
+    request: Sha256Schema.nullable(),
+    accepted_provider_response: Sha256Schema.nullable(),
+    snapshot: Sha256Schema.nullable(),
+  }),
+  raw_response_policy: z.literal('excluded'),
+});
+export type CreativeGatewayReport = z.infer<typeof CreativeGatewayReportSchema>;
