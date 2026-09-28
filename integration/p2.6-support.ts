@@ -270,7 +270,8 @@ export class P26MatrixProvider implements CreativeProvider {
     | 'missing_glyph'
     | 'missing_glyph_exhausted'
     | 'multiple_missing_glyphs'
-    | 'multiple_missing_targets';
+    | 'multiple_missing_targets'
+    | 'factual_requirement';
   calls = 0;
 
   constructor(
@@ -283,7 +284,8 @@ export class P26MatrixProvider implements CreativeProvider {
       | 'missing_glyph'
       | 'missing_glyph_exhausted'
       | 'multiple_missing_glyphs'
-      | 'multiple_missing_targets' = 'none',
+      | 'multiple_missing_targets'
+      | 'factual_requirement' = 'none',
   ) {
     this.entry = entry;
     this.repairMode = repairMode;
@@ -361,13 +363,16 @@ export class P26MatrixProvider implements CreativeProvider {
             ? 'Premier contenu分钟.'
             : 'Second contenu世界.';
         }
+        const sourceRequired = slot.factual_requirement === 'source_required';
         return {
           slot_id: slot.slot_id,
           ...(sceneId === undefined ? {} : { scene_id: sceneId }),
           text,
           provenance: 'fixture' as const,
           uncertainty: slot.factual_requirement === 'none' ? 'none' as const : 'unknown' as const,
-          source_required: slot.factual_requirement === 'source_required',
+          source_required: this.repairMode === 'factual_requirement' && slotIndex === 0
+            ? !sourceRequired
+            : sourceRequired,
         };
       }),
       asset_descriptions: context.asset_intents.map((asset) => ({
@@ -396,7 +401,7 @@ export class P26MatrixProvider implements CreativeProvider {
             : 'Sens essentiel.',
           provenance: 'fixture',
           uncertainty: target.previous_content?.uncertainty ?? 'none',
-          source_required: target.previous_content?.source_required ?? false,
+          source_required: target.content_constraints.factual_requirement === 'source_required',
         },
       })),
     };

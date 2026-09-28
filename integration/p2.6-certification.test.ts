@@ -136,6 +136,21 @@ describe('P2.6 — certification offline du Creative Director', () => {
     expect(gateway.report.resolution_repair?.remaining_invalid_targets).toEqual([]);
   });
 
+  it('répare source_required depuis le ContentSlot canonique puis repasse le Full Stage B Preflight', async () => {
+    const entry = p26Case('science_explainer');
+    const provider = new P26MatrixProvider(entry, 'factual_requirement');
+    const gateway = await buildP26GatewayRun(entry, provider);
+    expect(gateway.ok, JSON.stringify(gateway.report.diagnostics)).toBe(true);
+    expect(provider.calls).toBe(3);
+    expect(gateway.report.resolution_repair?.diagnostic_codes_by_target).toEqual([
+      expect.objectContaining({ codes: expect.arrayContaining(['gateway.output.factual_requirement_changed']) }),
+    ]);
+    expect(gateway.report.resolution_repair?.remaining_invalid_targets).toEqual([]);
+    const compiled = compileP26GatewayResult(gateway);
+    expect(compiled.creative_compile.ok).toBe(true);
+    expect(compiled.p1.preflight.summary?.errors ?? 0).toBe(0);
+  });
+
   it('bloque proprement une liaison de scène invalide sans snapshot trompeur', async () => {
     const entry = p26Case('comparison');
     const gateway = await buildP26GatewayRun(entry, new P26MatrixProvider(entry, 'scene_binding'));

@@ -124,7 +124,7 @@ function resolutionRepairPatch(invocation: ProviderInvocation): ResolutionRepair
         text: target.previous_content?.text ?? ROLE_TEXT[target.semantic_role][0]!,
         provenance: 'fixture',
         uncertainty: target.previous_content?.uncertainty ?? 'none',
-        source_required: target.previous_content?.source_required ?? false,
+        source_required: target.content_constraints.factual_requirement === 'source_required',
       },
     })),
   };

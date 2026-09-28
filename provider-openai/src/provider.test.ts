@@ -347,6 +347,17 @@ describe('P2.5 — OpenAI CreativeProvider adapter', () => {
         },
       }],
     }).success).toBe(false);
+    expect(schema.safeParse({
+      schema: 'resolution-repair-patch', schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
+      request_id: 'request_test', plan_id: 'plan_test',
+      items: [{
+        target: { slot_id: 'slot_test', scene_id: null },
+        replacement: {
+          scene_id: null, text: 'Valeur factuelle interdite', provenance: 'provider_generated',
+          uncertainty: 'none', source_required: true,
+        },
+      }],
+    }).success).toBe(false);
 
     const specificRequest = ResolutionRepairRequestSchema.parse({
       ...repairRequest,
@@ -378,6 +389,82 @@ describe('P2.5 — OpenAI CreativeProvider adapter', () => {
         replacement: { ...item.replacement, scene_id: null },
       })),
     }).success).toBe(false);
+  });
+
+  it('contraint source_required par target depuis le ContentSlot canonique', () => {
+    const baseTarget = {
+      target: { slot_id: 'slot_optional', scene_id: null },
+      previous_content: {
+        scene_id: null, text: 'Texte initial', provenance: 'provider_generated' as const,
+        uncertainty: 'none' as const, source_required: false,
+      },
+      semantic_role: 'narration' as const,
+      semantic_context: 'Contexte optionnel', language: 'fr', locale: 'fr-FR', required: true,
+      allowed_scene_ids: ['scene_optional'], generic_resolution_allowed: true,
+      content_constraints: {
+        max_characters: 120, channels: ['spoken'] as const, factual_requirement: 'none' as const,
+      },
+      diagnostics: [{
+        code: 'gateway.output.content_reading_budget_exceeded', severity: 'error' as const,
+        path: '$.content', message: 'Trop long.', context: { slot_id: 'slot_optional', repair_target: true },
+      }],
+      temporal_constraint: null,
+      subtitle_constraint: null,
+      effective_concision: null,
+    };
+    const repairRequest = ResolutionRepairRequestSchema.parse({
+      schema: 'resolution-repair-request', schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
+      request_id: 'request_test', plan_id: 'plan_test', attempt: 1,
+      targets: [
+        baseTarget,
+        {
+          ...baseTarget,
+          target: { slot_id: 'slot_sourced', scene_id: 'scene_sourced' },
+          previous_content: {
+            ...baseTarget.previous_content,
+            scene_id: 'scene_sourced',
+            source_required: true,
+          },
+          semantic_context: 'Contexte sourcé',
+          allowed_scene_ids: ['scene_sourced'],
+          generic_resolution_allowed: false,
+          content_constraints: {
+            ...baseTarget.content_constraints,
+            factual_requirement: 'source_required',
+          },
+        },
+      ],
+    });
+    const schema = createOpenAIResolutionRepairPatchSchema(repairRequest);
+    const patch = {
+      schema: 'resolution-repair-patch', schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
+      request_id: 'request_test', plan_id: 'plan_test',
+      items: [
+        {
+          target: { slot_id: 'slot_optional', scene_id: null },
+          replacement: {
+            scene_id: null, text: 'Texte bref', provenance: 'provider_generated',
+            uncertainty: 'none', source_required: false,
+          },
+        },
+        {
+          target: { slot_id: 'slot_sourced', scene_id: 'scene_sourced' },
+          replacement: {
+            scene_id: 'scene_sourced', text: 'Texte sourcé bref', provenance: 'provider_generated',
+            uncertainty: 'unknown', source_required: true,
+          },
+        },
+      ],
+    };
+    expect(schema.safeParse(patch).success).toBe(true);
+    expect(schema.safeParse({
+      ...patch,
+      items: patch.items.map((item) => ({
+        ...item,
+        replacement: { ...item.replacement, source_required: !item.replacement.source_required },
+      })),
+    }).success).toBe(false);
+    expect(() => zodTextFormat(schema, 'resolution_repair_source_required')).not.toThrow();
   });
 
   it('discrimine chaque target de repair avec sa propre limite de caractères', () => {

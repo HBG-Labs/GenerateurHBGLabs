@@ -74,6 +74,7 @@ function createOpenAIResolutionRepairPatchItemSchema(
       scene_id: sceneSchema,
       text: z.string().min(1).max(repairTextMaximum(target)),
       provenance: z.literal('provider_generated'),
+      source_required: z.literal(target.content_constraints.factual_requirement === 'source_required'),
     }).strict(),
   }).strict();
 }

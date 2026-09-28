@@ -28,6 +28,17 @@ function outputTarget(entry: ResolutionContent): ResolutionRepairTargetId {
   return { slot_id: entry.slot_id, scene_id: entry.scene_id ?? null };
 }
 
+function canonicalSourceRequired(target: ResolutionRepairTarget): boolean {
+  return target.content_constraints.factual_requirement === 'source_required';
+}
+
+function canonicalProvenance(
+  base: ResolutionGenerationOutput,
+  target: ResolutionRepairTarget,
+): ResolutionContent['provenance'] {
+  return target.previous_content?.provenance ?? base.provenance;
+}
+
 function repairDiagnostic(
   code: string,
   path: string,
@@ -276,6 +287,31 @@ export function mergeResolutionRepairPatch(
           { slot_id: item.target.slot_id, scene_id: replacementScene, allowed_scene_ids: target.allowed_scene_ids.join(',') },
         ));
       }
+      const expectedSourceRequired = canonicalSourceRequired(target);
+      if (item.replacement.source_required !== expectedSourceRequired) diagnostics.push(repairDiagnostic(
+        'gateway.output.factual_requirement_changed', `$.items[${index}].replacement.source_required`,
+        'Le patch tente de modifier l’exigence factuelle canonique du ContentSlot.',
+        'Recopier exactement source_required depuis la contrainte factuelle canonique de la target.',
+        {
+          slot_id: item.target.slot_id,
+          scene_id: item.target.scene_id,
+          expected_source_required: expectedSourceRequired,
+          received_source_required: item.replacement.source_required,
+          repair_target: true,
+        },
+      ));
+      const expectedProvenance = canonicalProvenance(base, target);
+      if (item.replacement.provenance !== expectedProvenance) diagnostics.push(repairDiagnostic(
+        'gateway.repair_patch.provenance_changed', `$.items[${index}].replacement.provenance`,
+        'Le patch tente de modifier la provenance canonique de la résolution.',
+        'Conserver exactement la provenance de la sortie acceptée pendant le targeted repair.',
+        {
+          slot_id: item.target.slot_id,
+          scene_id: item.target.scene_id,
+          expected_provenance: expectedProvenance,
+          received_provenance: item.replacement.provenance,
+        },
+      ));
     }
   });
   request.targets.forEach((target) => {

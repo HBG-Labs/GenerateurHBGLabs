@@ -7,7 +7,7 @@ import type {
   ResolutionGenerationOutput,
   ResolutionRepairPatch,
 } from './contracts.ts';
-import { RESOLUTION_REPAIR_CONTRACT_VERSION } from './contracts.ts';
+import { RESOLUTION_REPAIR_CONTRACT_VERSION, ResolutionRepairRequestSchema } from './contracts.ts';
 import type { ProviderResolutionContext } from './provider.ts';
 import {
   buildResolutionRepairRequest,
@@ -126,6 +126,17 @@ function validPatch(): ResolutionRepairPatch {
   };
 }
 
+function repairRequestWithFactualRequirement(requirement: ContentSlot['factual_requirement']) {
+  const repair = repairRequest();
+  return ResolutionRepairRequestSchema.parse({
+    ...repair,
+    targets: repair.targets.map((target) => ({
+      ...target,
+      content_constraints: { ...target.content_constraints, factual_requirement: requirement },
+    })),
+  });
+}
+
 function specificRepairRequest() {
   const specificOutput: ResolutionGenerationOutput = {
     ...output,
@@ -231,6 +242,90 @@ describe('Resolution targeted repair', () => {
     };
     const result = mergeResolutionRepairPatch(specific.output, specific.request, patch);
     expect(result.diagnostics.map((entry) => entry.code)).toContain('gateway.repair_scope_mismatch');
+  });
+
+  it.each([
+    ['source_required', true],
+    ['none', false],
+  ] as const)('accepte source_required=%s lorsque le patch conserve la valeur canonique', (requirement, sourceRequired) => {
+    const repair = repairRequestWithFactualRequirement(requirement);
+    const patch = validPatch();
+    patch.items = patch.items.map((item) => ({
+      ...item,
+      replacement: { ...item.replacement, source_required: sourceRequired },
+    }));
+    const result = mergeResolutionRepairPatch(output, repair, patch);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.output?.content
+      .filter((entry) => ['slot_1', 'slot_2'].includes(entry.slot_id))
+      .every((entry) => entry.source_required === sourceRequired)).toBe(true);
+  });
+
+  it.each([
+    ['source_required', false, true],
+    ['none', true, false],
+  ] as const)(
+    'rejette source_required=%s lorsqu’il diverge de la valeur canonique',
+    (requirement, receivedSourceRequired, expectedSourceRequired) => {
+      const repair = repairRequestWithFactualRequirement(requirement);
+      const patch = validPatch();
+      patch.items = patch.items.map((item) => ({
+        ...item,
+        replacement: { ...item.replacement, source_required: receivedSourceRequired },
+      }));
+      const result = mergeResolutionRepairPatch(output, repair, patch);
+      expect(result.ok).toBe(false);
+      expect(result.output).toBeNull();
+      expect(result.diagnostics.every((entry) => entry.code === 'gateway.output.factual_requirement_changed')).toBe(true);
+      expect(result.diagnostics[0]?.context).toMatchObject({ expected_source_required: expectedSourceRequired });
+    },
+  );
+
+  it('rejette localement toute mutation de provenance canonique', () => {
+    const patch = validPatch();
+    patch.items = patch.items.map((item) => ({
+      ...item,
+      replacement: { ...item.replacement, provenance: 'fixture' },
+    }));
+    const result = mergeResolutionRepairPatch(output, repairRequest(), patch);
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.every((entry) => entry.code === 'gateway.repair_patch.provenance_changed')).toBe(true);
+  });
+
+  it.each(['semantic_role', 'required', 'allowed_scene_ids'] as const)(
+    'n’expose pas le champ canonique %s dans un patch',
+    (field) => {
+      const patch = validPatch();
+      const first = patch.items[0]!;
+      const result = mergeResolutionRepairPatch(output, repairRequest(), {
+        ...patch,
+        items: [{ ...first, [field]: field === 'required' ? false : 'mutation' }, ...patch.items.slice(1)],
+      });
+      expect(result.ok).toBe(false);
+      expect(result.diagnostics.map((entry) => entry.code)).toContain('gateway.repair_patch.unknown_field');
+    },
+  );
+
+  it('autorise uniquement text et uncertainty comme valeurs créatives de remplacement', () => {
+    const patch = validPatch();
+    patch.items = patch.items.map((item) => ({
+      ...item,
+      replacement: {
+        ...item.replacement,
+        text: 'Sens reformulé',
+        uncertainty: 'low',
+      },
+    }));
+    const result = mergeResolutionRepairPatch(output, repairRequest(), patch);
+    expect(result.ok, JSON.stringify(result.diagnostics)).toBe(true);
+    expect(result.output?.content
+      .filter((entry) => ['slot_1', 'slot_2'].includes(entry.slot_id))
+      .every((entry) => (
+        entry.text === 'Sens reformulé'
+        && entry.uncertainty === 'low'
+        && entry.provenance === 'provider_generated'
+        && entry.source_required === false
+      ))).toBe(true);
   });
 
   it('refuse une troisième cible non autorisée', () => {
