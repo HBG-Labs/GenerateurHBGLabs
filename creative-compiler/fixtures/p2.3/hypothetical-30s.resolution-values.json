@@ -1,0 +1,44 @@
+{
+  "schema": "creative-resolution-values",
+  "schema_version": "0.1.0",
+  "plan_id": "plan_c8b11cdfffd4c6",
+  "content": [
+    {
+      "slot_id": "slot_b5fc95b87a8fc6",
+      "text": "Et si la Terre s’arrêtait de tourner pendant cinq secondes ?"
+    },
+    {
+      "slot_id": "slot_8eb11b4717bb73",
+      "text": "La planète s’immobilise, mais tout ce qui se trouve à sa surface conserve son mouvement."
+    },
+    {
+      "slot_id": "slot_e98c71a9725120",
+      "text": "Près de l’équateur, cette vitesse atteint environ mille six cents kilomètres par heure."
+    },
+    {
+      "slot_id": "slot_73ee414967a554",
+      "text": "L’air, les océans et les objets continueraient alors leur course vers l’est."
+    },
+    {
+      "slot_id": "slot_67713103b689fe",
+      "scene_id": "scene_e598d9cc07bec9",
+      "text": "Le vrai danger viendrait de l’inertie."
+    },
+    {
+      "slot_id": "slot_67713103b689fe",
+      "scene_id": "scene_eba4bf3c120a6c",
+      "text": "Repartir n’effacerait pas les dégâts."
+    },
+    {
+      "slot_id": "slot_f75e01a43d8f66",
+      "text": "Même cinq secondes suffiraient à bouleverser toute la surface."
+    }
+  ],
+  "assets": [
+    { "asset_slot": "asset_slot_86873c5f3c6208", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } },
+    { "asset_slot": "asset_slot_1fdcde265a639d", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } },
+    { "asset_slot": "asset_slot_e4ebc542b72bb3", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } },
+    { "asset_slot": "asset_slot_ad8dac750d4f06", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } },
+    { "asset_slot": "asset_slot_3501aeda680e07", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } }
+  ]
+}

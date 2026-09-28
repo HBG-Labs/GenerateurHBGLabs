@@ -1,0 +1,11 @@
+{
+  "schema": "creative-resolution-values",
+  "schema_version": "0.1.0",
+  "content": [
+    { "slot_id": "slot_264ebdcb87b7ee", "text": "Une seule seconde." },
+    { "slot_id": "slot_2f0d6a094055b0", "text": "Puis tout repart." }
+  ],
+  "assets": [
+    { "asset_slot": "asset_slot_b6adbed10249c5", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } }
+  ]
+}

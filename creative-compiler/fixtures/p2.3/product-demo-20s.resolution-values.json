@@ -1,0 +1,11 @@
+{
+  "schema": "creative-resolution-values",
+  "schema_version": "0.1.0",
+  "content": [
+    { "slot_id": "slot_4b9b784f402769", "text": "Réglez, lancez, puis laissez le minuteur vous prévenir." }
+  ],
+  "assets": [
+    { "asset_slot": "asset_slot_176ec27e412c23", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } },
+    { "asset_slot": "asset_slot_c92b9caea1a951", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } }
+  ]
+}

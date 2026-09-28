@@ -1,0 +1,13 @@
+{
+  "schema": "creative-resolution-values",
+  "schema_version": "0.1.0",
+  "content": [
+    { "slot_id": "slot_2718e27384651f", "text": "La diffusion de la lumière explique donc les couleurs du coucher de soleil." }
+  ],
+  "assets": [
+    { "asset_slot": "asset_slot_5118d46599a3d1", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } },
+    { "asset_slot": "asset_slot_df213ec88c19f6", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } },
+    { "asset_slot": "asset_slot_f20a235e00a312", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } },
+    { "asset_slot": "asset_slot_ef832ef4ca0e12", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } }
+  ]
+}

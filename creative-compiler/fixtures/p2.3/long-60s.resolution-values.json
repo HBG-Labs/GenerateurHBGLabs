@@ -1,0 +1,19 @@
+{
+  "schema": "creative-resolution-values",
+  "schema_version": "0.1.0",
+  "content": [
+    { "slot_id": "slot_0bf10e2792fc2b", "text": "Imaginons que la rotation s’interrompe pendant cinq secondes." },
+    { "slot_id": "slot_f225052d2fc18a", "text": "À l’équateur, la surface se déplace à environ mille six cents kilomètres par heure.", "source_slot": "fixture_earth_rotation_source" },
+    { "slot_id": "slot_d8c6383a5165b8", "text": "L’atmosphère et les océans conserveraient cette vitesse vers l’est." },
+    { "slot_id": "slot_4577c1167123be", "scene_id": "scene_fa6de493b052fa", "text": "L’inertie provoquerait l’essentiel des dégâts." },
+    { "slot_id": "slot_4577c1167123be", "scene_id": "scene_0a3f2a840362f7", "text": "Reprendre la rotation ne les annulerait pas." },
+    { "slot_id": "slot_484ad0e1cc8a76", "text": "Cinq secondes seraient donc loin d’être anodines." }
+  ],
+  "assets": [
+    { "asset_slot": "asset_slot_9c568c2b486353", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } },
+    { "asset_slot": "asset_slot_4cc1958df49df4", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } },
+    { "asset_slot": "asset_slot_53e3502f2e85a8", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } },
+    { "asset_slot": "asset_slot_03c23ae60662be", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } },
+    { "asset_slot": "asset_slot_4794e339fb8f11", "asset_ref": "neutral_landscape", "focus": { "region": "focus_disc" } }
+  ]
+}
