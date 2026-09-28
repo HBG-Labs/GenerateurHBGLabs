@@ -1,12 +1,14 @@
 import type { z } from 'zod';
 
 import {
+  DEFAULT_ARCHETYPE_REGISTRY,
   hashCreativeDocument,
   sortCreativeDiagnostics,
   summarizeDiagnostics,
   type AssetIntent,
   type ContentSlot,
   type CreativeDiagnostic,
+  type PlannerOptions,
   type PlannerInput,
   type StoryPlanningResult,
 } from '@motion-engine/creative-core';
@@ -62,6 +64,7 @@ export interface AssetBindingContext {
 
 export interface CreativeGatewayOptions {
   readonly provider: CreativeProvider;
+  readonly planner?: PlannerOptions;
   readonly max_repair_attempts?: number;
   readonly timeout_ms?: number;
   readonly signal?: AbortSignal;
@@ -70,6 +73,10 @@ export interface CreativeGatewayOptions {
   readonly resolve_asset_bindings?: (
     context: AssetBindingContext,
   ) => readonly GatewayAssetBinding[] | Promise<readonly GatewayAssetBinding[]>;
+}
+
+export interface CreativeGatewayReplayOptions {
+  readonly planner?: PlannerOptions;
 }
 
 export interface CreativeGatewayResult {
@@ -153,7 +160,11 @@ function mergeUsage(current: ProviderUsage, response?: ProviderUsage): ProviderU
   });
 }
 
-function prompt(request: CreativeGenerationRequest, stage: 'planning' | 'resolution'): PromptContract {
+function prompt(
+  request: CreativeGenerationRequest,
+  stage: 'planning' | 'resolution',
+  planningContext?: ProviderInvocation['planning_context'],
+): PromptContract {
   return {
     schema: 'creative-prompt-contract',
     schema_version: '0.1.0',
@@ -167,6 +178,9 @@ function prompt(request: CreativeGenerationRequest, stage: 'planning' | 'resolut
       'no_code_execution',
       'no_filesystem_path',
       'no_unverified_source_as_evidence',
+      ...(stage === 'planning' && planningContext
+        ? [`allowed_narrative_archetypes:${planningContext.allowed_archetype_ids.join(',')}`]
+        : []),
     ],
   };
 }
@@ -227,6 +241,7 @@ function planningSemantics(
   request: CreativeGenerationRequest,
   output: PlanningGenerationOutput,
   provider: ProviderMetadata,
+  plannerOptions: PlannerOptions,
 ): CreativeDiagnostic[] {
   const diagnostics: CreativeDiagnostic[] = [];
   const exact: Array<[keyof PlanningGenerationOutput, unknown]> = [
@@ -245,6 +260,34 @@ function planningSemantics(
     'gateway.output.fixture_provenance_forbidden', 'error', '$.provenance',
     'Un provider non-test ne peut pas déclarer sa sortie comme fixture.',
   ));
+  const registry = plannerOptions.registry ?? DEFAULT_ARCHETYPE_REGISTRY;
+  const availableArchetypes = registry.definitions().map((definition) => definition.id);
+  if (output.narrative_archetype !== undefined && registry.get(output.narrative_archetype) === undefined) {
+    diagnostics.push(diagnostic(
+      'gateway.output.archetype_unavailable',
+      'error',
+      '$.narrative_archetype',
+      `L’archétype « ${output.narrative_archetype} » n’existe pas dans le registre actif.`,
+      `Choisir un archétype parmi ${availableArchetypes.join(', ')} ou omettre narrative_archetype.`,
+    ));
+  }
+  if (!diagnostics.some((entry) => entry.severity === 'error')) {
+    try {
+      const planned = planAcceptedOutput(request, output, plannerOptions);
+      if (!planned.planning.ok) {
+        diagnostics.push(...planned.planning.input_validation.diagnostics);
+        if (planned.planning.report) diagnostics.push(...planned.planning.report.diagnostics);
+      }
+    } catch (error) {
+      diagnostics.push(diagnostic(
+        'gateway.planner_input_invalid',
+        'error',
+        '$.planning_output',
+        error instanceof Error ? error.message : 'PlannerInput invalide.',
+        'Corriger la sortie planning afin qu’elle respecte intégralement le contrat P2.2.',
+      ));
+    }
+  }
   return diagnostics;
 }
 
@@ -322,6 +365,7 @@ async function runStage<T extends PlanningGenerationOutput | ResolutionGeneratio
   readonly maxRepairs: number;
   readonly timeoutMs: number;
   readonly externalSignal?: AbortSignal;
+  readonly planningContext?: ProviderInvocation['planning_context'];
   readonly resolutionContext?: ProviderInvocation['resolution_context'];
   readonly semantic: (output: T) => CreativeDiagnostic[];
 }): Promise<StageResult<T>> {
@@ -341,7 +385,8 @@ async function runStage<T extends PlanningGenerationOutput | ResolutionGeneratio
         mode: attempt === 0 ? 'generate' : 'repair',
         attempt,
         request: input.request,
-        prompt: prompt(input.request, input.stage),
+        prompt: prompt(input.request, input.stage, input.planningContext),
+        ...(input.planningContext === undefined ? {} : { planning_context: input.planningContext }),
         ...(input.resolutionContext === undefined ? {} : { resolution_context: input.resolutionContext }),
         repair_diagnostics: repairDiagnostics,
       }, input.timeoutMs, input.externalSignal);
@@ -550,10 +595,17 @@ export async function runCreativeGateway(
   }
   const maxRepairs = Math.min(options.max_repair_attempts ?? 1, limits.max_repair_attempts);
   const timeoutMs = Math.min(options.timeout_ms ?? 30_000, limits.max_timeout_ms);
+  const plannerOptions = options.planner ?? {};
+  const activeRegistry = plannerOptions.registry ?? DEFAULT_ARCHETYPE_REGISTRY;
+  const planningContext: NonNullable<ProviderInvocation['planning_context']> = {
+    allowed_archetype_ids: activeRegistry.definitions().map((definition) => definition.id),
+    registry_fingerprint: activeRegistry.fingerprint(),
+  };
   const planningStage = await runStage<PlanningGenerationOutput>({
     stage: 'planning', context, provider: options.provider, request, maxRepairs, timeoutMs,
     ...(options.signal === undefined ? {} : { externalSignal: options.signal }),
-    semantic: (output) => planningSemantics(request, output, provider),
+    planningContext,
+    semantic: (output) => planningSemantics(request, output, provider, plannerOptions),
   });
   if (!planningStage.ok || !planningStage.output) {
     context.failure = planningStage.failure;
@@ -562,7 +614,7 @@ export async function runCreativeGateway(
   const planningStarted = process.hrtime.bigint();
   let planned: ReturnType<typeof planAcceptedOutput>;
   try {
-    planned = planAcceptedOutput(request, planningStage.output);
+    planned = planAcceptedOutput(request, planningStage.output, plannerOptions);
   } catch (error) {
     context.diagnostics.push(diagnostic('gateway.planner_input_invalid', 'error', '$.planning_output', error instanceof Error ? error.message : 'PlannerInput invalide.'));
     context.failure = 'semantic_invalid';
@@ -670,7 +722,10 @@ export async function runCreativeGateway(
   };
 }
 
-export function replayCreativeGateway(snapshotInput: unknown): CreativeGatewayResult {
+export function replayCreativeGateway(
+  snapshotInput: unknown,
+  options: CreativeGatewayReplayOptions = {},
+): CreativeGatewayResult {
   const context = initialContext();
   transition(context, 'REPLAY_VALIDATING', 'replay.started');
   const security = inspectGatewayInput(snapshotInput, 'snapshot');
@@ -693,14 +748,15 @@ export function replayCreativeGateway(snapshotInput: unknown): CreativeGatewayRe
   }
   const requestValidation = validateCreativeGenerationRequest(snapshot.request);
   context.diagnostics.push(...requestValidation.diagnostics);
-  context.diagnostics.push(...planningSemantics(snapshot.request, snapshot.planning_output, snapshot.provider));
+  const plannerOptions = options.planner ?? {};
+  context.diagnostics.push(...planningSemantics(snapshot.request, snapshot.planning_output, snapshot.provider, plannerOptions));
   if (context.diagnostics.some((entry) => entry.severity === 'error') || !requestValidation.value) {
     context.failure = 'schema_invalid';
     return failedResult(context, snapshot.provider, snapshot.hashes.request);
   }
   let planned: ReturnType<typeof planAcceptedOutput>;
   try {
-    planned = planAcceptedOutput(snapshot.request, snapshot.planning_output);
+    planned = planAcceptedOutput(snapshot.request, snapshot.planning_output, plannerOptions);
   } catch (error) {
     context.diagnostics.push(diagnostic('gateway.replay.planner_invalid', 'error', '$.planning_output', error instanceof Error ? error.message : 'Replay PlannerInput invalide.'));
     context.failure = 'semantic_invalid';

@@ -142,6 +142,87 @@ export class RepairableProvider implements CreativeProvider {
   }
 }
 
+export class UnknownArchetypeProvider extends ValidProvider {
+  override readonly metadata: ProviderMetadata = metadata('unknown_archetype_provider');
+  planningCalls = 0;
+
+  override async generate(invocation: ProviderInvocation): Promise<ProviderResponse> {
+    const valid = await super.generate(invocation);
+    if (invocation.stage !== 'planning') return valid;
+    this.planningCalls += 1;
+    return {
+      ...valid,
+      output: {
+        ...(valid.output as PlanningGenerationOutput),
+        narrative_archetype: 'DYSTOPIE_ALTERNATIVE',
+      },
+    };
+  }
+}
+
+export class RepairableArchetypeProvider extends ValidProvider {
+  override readonly metadata: ProviderMetadata = metadata('repairable_archetype_provider');
+  planningCalls = 0;
+  repairDiagnostics: readonly string[] = [];
+
+  override async generate(invocation: ProviderInvocation): Promise<ProviderResponse> {
+    const valid = await super.generate(invocation);
+    if (invocation.stage !== 'planning') return valid;
+    this.planningCalls += 1;
+    this.repairDiagnostics = invocation.repair_diagnostics.map((entry) => entry.code);
+    if (this.planningCalls > 1) return valid;
+    return {
+      ...valid,
+      output: {
+        ...(valid.output as PlanningGenerationOutput),
+        narrative_archetype: 'DYSTOPIE_ALTERNATIVE',
+      },
+    };
+  }
+}
+
+export class RegistryAwareProvider extends ValidProvider {
+  override readonly metadata: ProviderMetadata = metadata('registry_aware_provider');
+  allowedArchetypes: readonly string[] = [];
+
+  override async generate(invocation: ProviderInvocation): Promise<ProviderResponse> {
+    const valid = await super.generate(invocation);
+    if (invocation.stage !== 'planning') return valid;
+    this.allowedArchetypes = invocation.planning_context?.allowed_archetype_ids ?? [];
+    return {
+      ...valid,
+      output: {
+        ...(valid.output as PlanningGenerationOutput),
+        narrative_archetype: this.allowedArchetypes[0],
+      },
+    };
+  }
+}
+
+export class PlannerIncompatibleProvider extends ValidProvider {
+  override readonly metadata: ProviderMetadata = metadata('planner_incompatible_provider');
+  planningCalls = 0;
+  repairDiagnostics: readonly string[] = [];
+
+  override async generate(invocation: ProviderInvocation): Promise<ProviderResponse> {
+    const valid = await super.generate(invocation);
+    if (invocation.stage !== 'planning') return valid;
+    this.planningCalls += 1;
+    this.repairDiagnostics = invocation.repair_diagnostics.map((entry) => entry.code);
+    if (this.planningCalls > 1) return valid;
+    return {
+      ...valid,
+      output: {
+        ...(valid.output as PlanningGenerationOutput),
+        suggested_constraints: [
+          { id: 'require_hook', kind: 'require_role', role: 'hook' },
+          { id: 'forbid_hook', kind: 'forbid_role', role: 'hook' },
+        ],
+      },
+    };
+  }
+}
+
 export class AlwaysInvalidProvider implements CreativeProvider {
   readonly metadata: ProviderMetadata = metadata('always_invalid_provider');
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { ArchetypeIdSchema, StableIdSchema } from '@motion-engine/creative-core';
+import { ARCHETYPE_IDS, ArchetypeIdSchema, StableIdSchema } from '@motion-engine/creative-core';
 import {
   PlanningGenerationOutputSchema,
   ResolutionContentSchema,
@@ -10,10 +10,17 @@ import {
 } from '@motion-engine/creative-gateway';
 
 /** Structured Outputs exige que chaque propriété soit requise. `null` représente ici l'absence explicite. */
-export const OpenAIPlanningOutputSchema = PlanningGenerationOutputSchema.extend({
-  provenance: z.literal('provider_generated'),
-  narrative_archetype: ArchetypeIdSchema.nullable(),
-}).strict();
+export function createOpenAIPlanningOutputSchema(allowedArchetypeIds: readonly string[]) {
+  const parsedIds = [...new Set(allowedArchetypeIds.map((id) => ArchetypeIdSchema.parse(id)))];
+  if (parsedIds.length === 0) throw new Error('Le registre actif doit exposer au moins un archétype.');
+  const allowedArchetypeSchema = z.enum(parsedIds as [string, ...string[]]);
+  return PlanningGenerationOutputSchema.extend({
+    provenance: z.literal('provider_generated'),
+    narrative_archetype: allowedArchetypeSchema.nullable(),
+  }).strict();
+}
+
+export const OpenAIPlanningOutputSchema = createOpenAIPlanningOutputSchema(ARCHETYPE_IDS);
 export type OpenAIPlanningOutput = z.infer<typeof OpenAIPlanningOutputSchema>;
 
 const OpenAIResolutionContentSchema = ResolutionContentSchema.extend({

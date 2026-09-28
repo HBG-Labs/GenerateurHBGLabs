@@ -39,6 +39,7 @@ export function createOpenAIPrompt(invocation: ProviderInvocation): OpenAIPrompt
         task: 'planning',
         request: invocation.request,
         gateway_prompt_contract: invocation.prompt,
+        active_archetype_registry: invocation.planning_context ?? null,
         mode: invocation.mode,
         repair_diagnostics: repairContext(invocation),
       }),

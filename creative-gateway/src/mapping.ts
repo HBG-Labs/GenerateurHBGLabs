@@ -6,6 +6,7 @@ import {
   type CreativePlan,
   type PlannerInput,
   type PlanningReport,
+  type PlannerOptions,
   type StoryPlanningResult,
 } from '@motion-engine/creative-core';
 import {
@@ -52,9 +53,10 @@ export function planningOutputToPlannerInput(
 export function planAcceptedOutput(
   request: CreativeGenerationRequest,
   output: PlanningGenerationOutput,
+  options: PlannerOptions = {},
 ): { readonly planner_input: PlannerInput; readonly planning: StoryPlanningResult } {
   const plannerInput = planningOutputToPlannerInput(request, output);
-  return { planner_input: plannerInput, planning: planCreativeStory(plannerInput) };
+  return { planner_input: plannerInput, planning: planCreativeStory(plannerInput, options) };
 }
 
 export interface ResolutionBuildInput {

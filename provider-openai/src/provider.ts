@@ -20,6 +20,7 @@ import { createOpenAIPrompt } from './prompts.ts';
 import {
   OpenAIPlanningOutputSchema,
   OpenAIResolutionOutputSchema,
+  createOpenAIPlanningOutputSchema,
   planningWireToGateway,
   resolutionWireToGateway,
 } from './schemas.ts';
@@ -64,13 +65,16 @@ export class OpenAICreativeProvider implements CreativeProvider {
     this.#calls += 1;
     const started = performance.now();
     const prompt = createOpenAIPrompt(invocation);
+    const planningSchema = invocation.planning_context
+      ? createOpenAIPlanningOutputSchema(invocation.planning_context.allowed_archetype_ids)
+      : OpenAIPlanningOutputSchema;
     try {
       const response = await this.#transport.generate({
         model: this.config.model,
         instructions: prompt.instructions,
         input: prompt.input,
         schema_name: invocation.stage === 'planning' ? 'creative_planning_output' : 'creative_resolution_output',
-        schema: invocation.stage === 'planning' ? OpenAIPlanningOutputSchema : OpenAIResolutionOutputSchema,
+        schema: invocation.stage === 'planning' ? planningSchema : OpenAIResolutionOutputSchema,
         reasoning_effort: this.config.reasoning_effort,
         max_output_tokens: this.config.max_output_tokens,
         safety_identifier: invocation.request.idempotency_key,
@@ -78,7 +82,7 @@ export class OpenAICreativeProvider implements CreativeProvider {
       });
       let output: unknown = response.output;
       if (invocation.stage === 'planning') {
-        const wire = OpenAIPlanningOutputSchema.safeParse(response.output);
+        const wire = planningSchema.safeParse(response.output);
         if (wire.success) output = planningWireToGateway(wire.data);
       } else {
         const wire = OpenAIResolutionOutputSchema.safeParse(response.output);

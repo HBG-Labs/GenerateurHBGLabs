@@ -1,4 +1,5 @@
 import type {
+  ArchetypeId,
   AssetIntent,
   ContentSlot,
   CreativeDiagnostic,
@@ -18,12 +19,18 @@ export interface ProviderResolutionContext {
   readonly asset_intents: readonly AssetIntent[];
 }
 
+export interface ProviderPlanningContext {
+  readonly allowed_archetype_ids: readonly ArchetypeId[];
+  readonly registry_fingerprint: string;
+}
+
 export interface ProviderInvocation {
   readonly stage: 'planning' | 'resolution';
   readonly mode: 'generate' | 'repair';
   readonly attempt: number;
   readonly request: CreativeGenerationRequest;
   readonly prompt: PromptContract;
+  readonly planning_context?: ProviderPlanningContext;
   readonly resolution_context?: ProviderResolutionContext;
   readonly repair_diagnostics: readonly CreativeDiagnostic[];
   readonly signal: AbortSignal;

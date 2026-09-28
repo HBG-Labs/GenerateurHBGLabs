@@ -20,7 +20,11 @@ import {
   resolveOpenAIProviderConfig,
 } from './contracts.ts';
 import { OpenAICreativeProvider, createOpenAIProviderFromEnvironment } from './provider.ts';
-import { OpenAIPlanningOutputSchema, OpenAIResolutionOutputSchema } from './schemas.ts';
+import {
+  OpenAIPlanningOutputSchema,
+  OpenAIResolutionOutputSchema,
+  createOpenAIPlanningOutputSchema,
+} from './schemas.ts';
 import { mapOpenAIError, type OpenAIStructuredTransport, type OpenAITransportRequest } from './transport.ts';
 
 const USAGE: ProviderUsage = {
@@ -206,6 +210,17 @@ describe('P2.5 — OpenAI CreativeProvider adapter', () => {
   it('expose des schémas compatibles avec Structured Outputs stricts', () => {
     expect(() => zodTextFormat(OpenAIPlanningOutputSchema, 'planning')).not.toThrow();
     expect(() => zodTextFormat(OpenAIResolutionOutputSchema, 'resolution')).not.toThrow();
+  });
+
+  it('borne le JSON Schema planning aux archétypes du registre actif', () => {
+    const activeSchema = createOpenAIPlanningOutputSchema(['EXPLAINER']);
+    const providerRequest = {
+      input: JSON.stringify({ request: request() }),
+    } as OpenAITransportRequest;
+    const output = planningOutput(providerRequest);
+    expect(activeSchema.safeParse({ ...output, narrative_archetype: 'EXPLAINER' }).success).toBe(true);
+    expect(activeSchema.safeParse({ ...output, narrative_archetype: 'DYSTOPIE_ALTERNATIVE' }).success).toBe(false);
+    expect(() => zodTextFormat(activeSchema, 'planning_active_registry')).not.toThrow();
   });
 
   it.each([

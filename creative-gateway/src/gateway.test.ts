@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { hashCreativeDocument } from '@motion-engine/creative-core';
+import {
+  ArchetypeRegistry,
+  DEFAULT_ARCHETYPES,
+  DEFAULT_ARCHETYPE_REGISTRY,
+  hashCreativeDocument,
+} from '@motion-engine/creative-core';
 
 import { runCreativeGateway, replayCreativeGateway } from './gateway.ts';
 import { createCreativeGenerationRequest } from './request.ts';
@@ -11,9 +16,13 @@ import {
   CapabilityLimitedProvider,
   HallucinatedSourceProvider,
   MalformedProvider,
+  PlannerIncompatibleProvider,
+  RegistryAwareProvider,
+  RepairableArchetypeProvider,
   RepairableProvider,
   SlowCancellableProvider,
   ThrowingSecretProvider,
+  UnknownArchetypeProvider,
   UnknownFieldProvider,
   UnavailableProvider,
   ValidProvider,
@@ -67,6 +76,61 @@ describe('P2.4 — Creative Gateway', () => {
     expect(result.ok).toBe(true);
     expect(result.report.summary.planning_attempts).toBe(2);
     expect(result.report.summary.resolution_attempts).toBe(1);
+  });
+
+  it('accepte un archétype présent dans le registre actif', async () => {
+    const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(new ValidProvider()));
+    const archetypeId = result.planner_input?.narrative_archetype;
+    expect(result.ok).toBe(true);
+    expect(archetypeId).toBe('HYPOTHETICAL');
+    expect(DEFAULT_ARCHETYPE_REGISTRY.get(archetypeId!)).toBeDefined();
+  });
+
+  it('rejette un archétype absent avant tout appel au Planner', async () => {
+    const provider = new UnknownArchetypeProvider();
+    const result = await runCreativeGateway(dinosaurRequest(), {
+      ...gatewayOptions(provider),
+      max_repair_attempts: 0,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.planner_input).toBeNull();
+    expect(provider.planningCalls).toBe(1);
+    expect(result.report.diagnostics.map((item) => item.code)).toContain('gateway.output.archetype_unavailable');
+    expect(result.report.diagnostics.map((item) => item.code)).not.toContain('planner.archetype_unknown');
+  });
+
+  it('répare un archétype indisponible puis accepte un archétype enregistré', async () => {
+    const provider = new RepairableArchetypeProvider();
+    const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
+    expect(result.ok).toBe(true);
+    expect(provider.planningCalls).toBe(2);
+    expect(provider.repairDiagnostics).toContain('gateway.output.archetype_unavailable');
+    expect(result.report.summary.planning_attempts).toBe(2);
+  });
+
+  it('valide contre le registre sélectionné et le transmet au provider', async () => {
+    const registry = new ArchetypeRegistry(
+      DEFAULT_ARCHETYPES.filter((definition) => definition.id === 'EXPLAINER'),
+    );
+    const provider = new RegistryAwareProvider();
+    const result = await runCreativeGateway(dinosaurRequest(), {
+      ...gatewayOptions(provider),
+      planner: { registry },
+    });
+    expect(result.ok).toBe(true);
+    expect(provider.allowedArchetypes).toEqual(['EXPLAINER']);
+    expect(result.planner_input?.narrative_archetype).toBe('EXPLAINER');
+    expect(result.planning?.report?.registry_fingerprint).toBe(registry.fingerprint());
+    expect(replayCreativeGateway(result.snapshot, { planner: { registry } }).ok).toBe(true);
+  });
+
+  it('répare une incompatibilité sémantique PlannerInput avant le Planner final', async () => {
+    const provider = new PlannerIncompatibleProvider();
+    const result = await runCreativeGateway(dinosaurRequest(), gatewayOptions(provider));
+    expect(result.ok).toBe(true);
+    expect(provider.planningCalls).toBe(2);
+    expect(provider.repairDiagnostics).toContain('planner.constraint.role_conflict');
+    expect(result.planning?.input_validation.eligible_for_planning).toBe(true);
   });
 
   it('borne la réparation et refuse un provider toujours invalide', async () => {
