@@ -174,6 +174,66 @@ describe('Creative Compiler P2.3', () => {
     expect([...new Set(overflow.issues.map((issue) => issue.scene_id))].sort()).toEqual(targetScenes);
   });
 
+  it('dérive un budget de concision déterministe par fitting HarfBuzz du contenu courant', () => {
+    const fixture = hypotheticalFixture();
+    const plan = fixture.planning.creative_plan!;
+    const report = fixture.planning.report!;
+    const slot = fixture.planning.content_slots.find((entry) => entry.constraints.channels.includes('spoken'))!;
+    const inspect = (style: ReturnType<typeof signalStyle>, text: string) => inspectCreativeSubtitleFeasibility({
+      plan,
+      planning_report: report,
+      content_slots: fixture.planning.content_slots,
+      content: [{ slot_id: slot.id, text }],
+      policy: {
+        profile: SHORT_FORM_DEFAULT_PROFILE,
+        resolved_style: style,
+        pattern: genericPattern(),
+        platform_presets: platformPresets(),
+        font_resources: fontResources(style),
+        render_scale: 1,
+        minimum_readable_size: 28,
+      },
+    });
+    const wideText = Array.from({ length: 60 }, () => 'WWW').join(' ');
+    const narrowText = Array.from({ length: 60 }, () => 'iii').join(' ');
+    expect([...wideText]).toHaveLength([...narrowText].length);
+
+    const wide = inspect(signalStyle(), wideText);
+    const wideAgain = inspect(signalStyle(), wideText);
+    const narrow = inspect(signalStyle(), narrowText);
+    expect(wide.ok).toBe(false);
+    expect(narrow.ok).toBe(false);
+    expect(wide.issues[0]?.analysis.line_count).toBeGreaterThan(wide.issues[0]?.analysis.max_lines ?? 0);
+    expect(wide.issues[0]?.concision).toEqual(wideAgain.issues[0]?.concision);
+    expect(wide.issues[0]?.concision.basis).toBe('current_content_prefix_exact_fit');
+    expect(wide.issues[0]?.concision.current_word_count).toBe(60);
+    expect(wide.issues[0]?.concision.content_relative_maximum_words).toBeGreaterThan(0);
+    expect(wide.issues[0]?.concision.content_relative_maximum_words).toBeLessThan(60);
+    expect(wide.issues[0]?.concision.maximum_recommended_characters).toBeLessThan([...wideText].length);
+    expect(narrow.issues[0]?.concision.current_character_count)
+      .toBe(wide.issues[0]?.concision.current_character_count);
+
+    const nocturne = inspect(nocturneStyle(), wideText);
+    const nocturneNarrow = inspect(nocturneStyle(), narrowText);
+    expect(nocturne.ok).toBe(false);
+    expect(nocturneNarrow.ok).toBe(false);
+    expect(nocturne.issues[0]?.concision.current_character_count)
+      .toBe(nocturneNarrow.issues[0]?.concision.current_character_count);
+    expect(nocturne.issues[0]?.concision.content_relative_maximum_words)
+      .not.toBe(nocturneNarrow.issues[0]?.concision.content_relative_maximum_words);
+    expect({
+      fitting: nocturne.issues[0]?.concision,
+      preferred: nocturne.issues[0]?.analysis.preferred_size,
+      minimum: nocturne.issues[0]?.analysis.minimum_size,
+      width: nocturne.issues[0]?.analysis.available_width,
+    }).not.toEqual({
+      fitting: wide.issues[0]?.concision,
+      preferred: wide.issues[0]?.analysis.preferred_size,
+      minimum: wide.issues[0]?.analysis.minimum_size,
+      width: wide.issues[0]?.analysis.available_width,
+    });
+  });
+
   it('garde le même CreativePlan mais lie explicitement Signal ou Nocturne', () => {
     const fixture = hypotheticalFixture();
     const plan = fixture.planning.creative_plan!;

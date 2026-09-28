@@ -4,7 +4,7 @@ import { hashCreativeDocument } from '@motion-engine/creative-core';
 
 export const OPENAI_PROVIDER_ADAPTER_VERSION = '0.1.0' as const;
 export const OPENAI_PLANNING_PROMPT_VERSION = 'creative_planning_prompt@0.1.1' as const;
-export const OPENAI_RESOLUTION_PROMPT_VERSION = 'creative_resolution_prompt@0.1.5' as const;
+export const OPENAI_RESOLUTION_PROMPT_VERSION = 'creative_resolution_prompt@0.1.6' as const;
 export const DEFAULT_OPENAI_MODEL = 'gpt-6-luna' as const;
 
 export const OpenAIProviderConfigSchema = z.strictObject({

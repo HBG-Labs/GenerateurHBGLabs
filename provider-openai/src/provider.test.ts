@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   GatewayProviderError,
+  RESOLUTION_REPAIR_CONTRACT_VERSION,
   createCreativeGenerationRequest,
   runCreativeGateway,
   ResolutionRepairRequestSchema,
@@ -296,7 +297,7 @@ describe('P2.5 — OpenAI CreativeProvider adapter', () => {
 
   it('expose un schema Structured Outputs dédié au patch ciblé', () => {
     const repairRequest = ResolutionRepairRequestSchema.parse({
-      schema: 'resolution-repair-request', schema_version: '0.1.0',
+      schema: 'resolution-repair-request', schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
       request_id: 'request_test', plan_id: 'plan_test', attempt: 1,
       targets: [{
         target: { slot_id: 'slot_test', scene_id: null },
@@ -316,12 +317,16 @@ describe('P2.5 — OpenAI CreativeProvider adapter', () => {
           current_required_ms: 4_032, current_word_count: 16, maximum_slot_words: 11,
         },
         subtitle_constraint: null,
+        effective_concision: {
+          maximum_words: 11, temporal_maximum_words: 11,
+          subtitle_maximum_words: null, limiting_constraints: ['temporal'],
+        },
       }],
     });
     const schema = createOpenAIResolutionRepairPatchSchema(repairRequest);
     expect(() => zodTextFormat(schema, 'resolution_repair_patch')).not.toThrow();
     expect(schema.safeParse({
-      schema: 'resolution-repair-patch', schema_version: '0.1.0',
+      schema: 'resolution-repair-patch', schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
       request_id: 'request_test', plan_id: 'plan_test',
       items: [{
         target: { slot_id: 'slot_test', scene_id: null },

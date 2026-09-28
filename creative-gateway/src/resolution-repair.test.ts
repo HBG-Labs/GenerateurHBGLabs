@@ -7,6 +7,7 @@ import type {
   ResolutionGenerationOutput,
   ResolutionRepairPatch,
 } from './contracts.ts';
+import { RESOLUTION_REPAIR_CONTRACT_VERSION } from './contracts.ts';
 import type { ProviderResolutionContext } from './provider.ts';
 import {
   buildResolutionRepairRequest,
@@ -81,6 +82,9 @@ function violation(slotId: string, code: string, geometry = false): CreativeDiag
           slot_id: slotId, scene_id: `scene_${slotId.slice(5)}`, repair_target: true,
           preferred_size: 40, minimum_size: 30, line_count: 3, maximum_lines: 2,
           available_width: 896, available_height: 321.6,
+          current_word_count: 14, current_character_count: 92,
+          content_relative_maximum_words: 8, maximum_recommended_characters: 54,
+          concision_budget_basis: 'current_content_prefix_exact_fit',
         }
       : {
           slot_id: slotId, scene_id: `scene_${slotId.slice(5)}`, repair_target: true,
@@ -110,7 +114,7 @@ function repairRequest() {
 function validPatch(): ResolutionRepairPatch {
   const repair = repairRequest();
   return {
-    schema: 'resolution-repair-patch', schema_version: '0.1.0',
+    schema: 'resolution-repair-patch', schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
     request_id: repair.request_id, plan_id: repair.plan_id,
     items: repair.targets.map((target) => ({
       target: target.target,
@@ -132,6 +136,13 @@ describe('Resolution targeted repair', () => {
     ]);
     expect(repair.targets[0]?.temporal_constraint?.maximum_slot_words).toBe(11);
     expect(repair.targets[0]?.subtitle_constraint?.maximum_lines).toBe(2);
+    expect(repair.targets[0]?.subtitle_constraint?.content_relative_maximum_words).toBe(8);
+    expect(repair.targets[0]?.effective_concision).toEqual({
+      maximum_words: 8,
+      temporal_maximum_words: 11,
+      subtitle_maximum_words: 8,
+      limiting_constraints: ['subtitle_geometry'],
+    });
   });
 
   it('fusionne les deux patches sans modifier les cinq non-targets', () => {

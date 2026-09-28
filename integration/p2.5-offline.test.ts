@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { canonicalJson } from '@motion-engine/core';
 import {
+  RESOLUTION_REPAIR_CONTRACT_VERSION,
   replayCreativeGateway,
   runCreativeGateway,
   type ProviderUsage,
@@ -31,7 +32,7 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
   resolutionCalls = 0;
   readonly requests: OpenAITransportRequest[] = [];
   readonly outputs: unknown[] = [];
-  readonly mode: 'valid' | 'too_long' | 'repair' | 'repair_still_long' | 'repair_changes_valid' | 'subtitle_too_long' | 'subtitle_repair' | 'combined_repair' = 'valid';
+  readonly mode: 'valid' | 'too_long' | 'repair' | 'repair_still_long' | 'repair_changes_valid' | 'subtitle_too_long' | 'subtitle_repair' | 'subtitle_repair_still_long' | 'subtitle_same_words_wide' | 'subtitle_triple_repair' | 'combined_repair' = 'valid';
   resolutionContexts: Array<{
     plan_id: string;
     content_slots: Array<{
@@ -75,7 +76,7 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
     asset_intents: Array<{ id: string; slot: string; purpose: string }>;
   }> = [];
 
-  constructor(mode: 'valid' | 'too_long' | 'repair' | 'repair_still_long' | 'repair_changes_valid' | 'subtitle_too_long' | 'subtitle_repair' | 'combined_repair' = 'valid') {
+  constructor(mode: 'valid' | 'too_long' | 'repair' | 'repair_still_long' | 'repair_changes_valid' | 'subtitle_too_long' | 'subtitle_repair' | 'subtitle_repair_still_long' | 'subtitle_same_words_wide' | 'subtitle_triple_repair' | 'combined_repair' = 'valid') {
     this.mode = mode;
   }
 
@@ -112,18 +113,29 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
             source_required: boolean;
           } | null;
           temporal_constraint: { maximum_slot_words: number } | null;
+          subtitle_constraint: {
+            content_relative_maximum_words: number;
+            maximum_recommended_characters: number;
+          } | null;
+          effective_concision: { maximum_words: number } | null;
         }>;
       };
       const items = repair.targets.map((target) => {
-        const maximum = target.temporal_constraint?.maximum_slot_words;
+        const maximum = target.effective_concision?.maximum_words
+          ?? target.temporal_constraint?.maximum_slot_words
+          ?? target.subtitle_constraint?.content_relative_maximum_words;
         const wordCount = maximum === undefined
           ? 2
-          : Math.max(1, maximum + (this.mode === 'repair_still_long' ? 1 : 0));
+          : Math.max(1, maximum + (['repair_still_long', 'subtitle_repair_still_long'].includes(this.mode) ? 1 : 0));
+        const replacementWord = this.mode === 'subtitle_same_words_wide'
+          ? 'WWWWWWWWWWWWWWWWWWWW'
+          : this.mode === 'subtitle_repair_still_long' ? 'ÉLECTRICITÉ'
+          : 'mot';
         return {
           target: target.target,
           replacement: {
             scene_id: target.target.scene_id,
-            text: Array.from({ length: wordCount }, () => 'mot').join(' '),
+            text: Array.from({ length: wordCount }, () => replacementWord).join(' '),
             provenance: 'provider_generated' as const,
             uncertainty: target.previous_content?.uncertainty ?? 'none' as const,
             source_required: target.previous_content?.source_required ?? false,
@@ -153,7 +165,7 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
         });
       }
       const patch = {
-        schema: 'resolution-repair-patch', schema_version: '0.1.0',
+        schema: 'resolution-repair-patch', schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
         request_id: repair.request_id, plan_id: repair.plan_id, items,
       };
       this.outputs.push(patch);
@@ -165,7 +177,8 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
     const mustBeLong = this.mode === 'too_long' || this.mode === 'combined_repair'
       || (['repair', 'repair_still_long', 'repair_changes_valid'].includes(this.mode) && this.resolutionCalls === 1);
     const mustOverflowSubtitle = this.mode === 'subtitle_too_long' || this.mode === 'combined_repair'
-      || (this.mode === 'subtitle_repair' && this.resolutionCalls === 1);
+      || (['subtitle_repair', 'subtitle_repair_still_long', 'subtitle_same_words_wide', 'subtitle_triple_repair'].includes(this.mode)
+        && this.resolutionCalls === 1);
     const combinedTarget = [...context.content_slots].filter((slot) => (
       slot.constraints.channels.includes('spoken') && slot.constraints.channels.includes('on_screen')
     )).sort((left, right) => (
@@ -175,6 +188,9 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
     const subtitleTarget = this.mode === 'combined_repair' ? combinedTarget : context.content_slots.find((slot) => (
       slot.constraints.channels.includes('spoken') && !slot.constraints.channels.includes('on_screen')
     ))?.slot_id;
+    const subtitleTargets = new Set(this.mode === 'subtitle_triple_repair'
+      ? context.content_slots.filter((slot) => slot.constraints.channels.includes('spoken')).slice(0, 3).map((slot) => slot.slot_id)
+      : subtitleTarget === undefined ? [] : [subtitleTarget]);
     const temporalTarget = this.mode === 'combined_repair' ? combinedTarget : context.content_slots.find((slot) => (
       slot.allowed_scene_ids.length > 1
       && slot.constraints.channels.includes('on_screen')
@@ -193,8 +209,8 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
             const firstLength = Math.max(20, slot.constraints.max_characters - tail.join(' ').length - 1);
             return ['W'.repeat(firstLength), ...tail].join(' ');
           })()
-        : mustOverflowSubtitle && slot.slot_id === subtitleTarget
-        ? 'W'.repeat(Math.min(120, slot.constraints.max_characters))
+        : mustOverflowSubtitle && subtitleTargets.has(slot.slot_id)
+        ? Array.from({ length: 18 }, () => 'ÉLECTRICITÉ').join(' ').slice(0, slot.constraints.max_characters)
         : mustBeLong && slot.slot_id === temporalTarget
         ? Array.from(
             { length: Math.max(8, Math.min(24, Math.floor((slot.constraints.max_characters + 1) / 4))) },
@@ -498,9 +514,140 @@ describe('P2.5 — adapter réel, transport offline', () => {
     expect(result.ok).toBe(true);
     expect(transport.resolutionCalls).toBe(2);
     expect(transport.requests.at(-1)?.input).toContain('gateway.output.subtitle_geometry_overflow');
+    const repairPayload = JSON.parse(transport.requests.at(-1)!.input) as {
+      resolution_repair_request: {
+        targets: Array<{
+          subtitle_constraint: {
+            current_word_count: number;
+            current_character_count: number;
+            current_line_count: number;
+            maximum_lines: number;
+            content_relative_maximum_words: number;
+            maximum_recommended_characters: number;
+            budget_basis: string;
+          } | null;
+          effective_concision: { maximum_words: number; limiting_constraints: string[] } | null;
+        }>;
+      };
+    };
+    const subtitleConstraint = repairPayload.resolution_repair_request.targets[0]?.subtitle_constraint;
+    expect(subtitleConstraint).toMatchObject({
+      maximum_lines: 2,
+      budget_basis: 'current_content_prefix_exact_fit',
+    });
+    expect(subtitleConstraint?.current_line_count).toBeGreaterThan(2);
+    expect(subtitleConstraint?.content_relative_maximum_words).toBeGreaterThan(0);
+    expect(subtitleConstraint?.content_relative_maximum_words).toBeLessThan(subtitleConstraint?.current_word_count ?? 0);
+    expect(subtitleConstraint?.maximum_recommended_characters).toBeLessThan(subtitleConstraint?.current_character_count ?? 0);
+    expect(repairPayload.resolution_repair_request.targets[0]?.effective_concision).toMatchObject({
+      maximum_words: subtitleConstraint?.content_relative_maximum_words,
+      limiting_constraints: ['subtitle_geometry'],
+    });
     const compiled = compileP24GatewayResult(result, 'signal');
     expect(compiled.p1.subtitle_plan.segments.length).toBeGreaterThan(0);
     expect(compiled.p1.preflight.issues.map((entry) => entry.code)).not.toContain('text.overflow');
+  });
+
+  it('rejette après patch un texte au bon nombre de mots mais toujours trop large', async () => {
+    const transport = new OfflineStructuredTransport('subtitle_same_words_wide');
+    const style = p23Style('signal');
+    const result = await runCreativeGateway(p24Request(), {
+      provider: new OpenAICreativeProvider({ transport }),
+      max_repair_attempts: 1,
+      reading_policy: {
+        profile: SHORT_FORM_DEFAULT_PROFILE,
+        resolved_style: style,
+        pattern: pattern(),
+        platform_presets: platforms(),
+        font_resources: p14FontResources(style),
+        render_scale: 1,
+        minimum_readable_size: 28,
+      },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.report.failure_kind).toBe('repair_exhausted');
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.subtitle_geometry_overflow');
+  });
+
+  it('rejette un patch géométrique qui dépasse le budget de concision annoncé', async () => {
+    const transport = new OfflineStructuredTransport('subtitle_repair_still_long');
+    const style = p23Style('signal');
+    const result = await runCreativeGateway(p24Request(), {
+      provider: new OpenAICreativeProvider({ transport }),
+      max_repair_attempts: 1,
+      reading_policy: {
+        profile: SHORT_FORM_DEFAULT_PROFILE,
+        resolved_style: style,
+        pattern: pattern(),
+        platform_presets: platforms(),
+        font_resources: p14FontResources(style),
+        render_scale: 1,
+        minimum_readable_size: 28,
+      },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.report.failure_kind).toBe('repair_exhausted');
+    expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.subtitle_geometry_overflow');
+  });
+
+  it('répare trois overflows géométriques ciblés puis atteint RenderPlan sans mutation hors cible', async () => {
+    const transport = new OfflineStructuredTransport('subtitle_triple_repair');
+    const style = p23Style('signal');
+    const readingPolicy = {
+      profile: SHORT_FORM_DEFAULT_PROFILE,
+      resolved_style: style,
+      pattern: pattern(),
+      platform_presets: platforms(),
+      font_resources: p14FontResources(style),
+      render_scale: 1,
+      minimum_readable_size: 28,
+    };
+    const result = await runCreativeGateway(p24Request(), {
+      provider: new OpenAICreativeProvider({ transport }),
+      max_repair_attempts: 1,
+      reading_policy: readingPolicy,
+      resolve_asset_bindings: ({ asset_intents }) => asset_intents.map((asset) => ({
+        asset_slot: asset.slot, asset_ref: 'neutral_landscape', provenance: 'fixture' as const,
+      })),
+    });
+    expect(result.ok, JSON.stringify(result.report.diagnostics)).toBe(true);
+    const repairPayload = JSON.parse(transport.requests.at(-1)!.input) as {
+      resolution_repair_request: {
+        targets: Array<{
+          target: { slot_id: string };
+          subtitle_constraint: { content_relative_maximum_words: number } | null;
+          effective_concision: { maximum_words: number } | null;
+        }>;
+      };
+    };
+    const targets = repairPayload.resolution_repair_request.targets;
+    expect(targets).toHaveLength(3);
+    expect(targets.every((entry) => (
+      entry.subtitle_constraint !== null
+      && entry.subtitle_constraint.content_relative_maximum_words > 0
+      && entry.effective_concision?.maximum_words === entry.subtitle_constraint.content_relative_maximum_words
+    ))).toBe(true);
+    expect(result.report.resolution_repair?.initial_invalid_targets).toHaveLength(3);
+    expect(result.report.resolution_repair?.patched_targets).toHaveLength(3);
+    const targetIds = new Set(targets.map((entry) => entry.target.slot_id));
+    const initial = transport.outputs[0] as { content: Array<{ slot_id: string; scene_id?: string | null; text: string }> };
+    const stableBefore = initial.content.filter((entry) => !targetIds.has(entry.slot_id)).map((entry) => ({
+      ...entry, scene_id: entry.scene_id ?? undefined,
+    }));
+    const stableAfter = result.snapshot!.resolution_output.content.filter((entry) => !targetIds.has(entry.slot_id)).map((entry) => ({
+      ...entry, scene_id: entry.scene_id ?? undefined,
+    }));
+    expect(stableAfter).toEqual(stableBefore);
+    const compiled = compileP24GatewayResult(result, 'signal');
+    expect(compiled.p1.preflight.summary?.errors ?? 0).toBe(0);
+    expect(compiled.p1.preflight.issues.map((entry) => entry.code)).not.toContain('text.overflow');
+    const callsBeforeReplay = transport.calls;
+    const replayedGateway = replayCreativeGateway(result.snapshot, { reading_policy: readingPolicy });
+    const replayed = compileP24GatewayResult(replayedGateway, 'signal');
+    expect(transport.calls).toBe(callsBeforeReplay);
+    expect(canonicalJson(replayedGateway.creative_resolution)).toBe(canonicalJson(result.creative_resolution));
+    expect(replayed.creative_compile.report.hashes.motion_spec).toBe(compiled.creative_compile.report.hashes.motion_spec);
+    expect(replayed.p1.hashes.render_plan).toBe(compiled.p1.hashes.render_plan);
   });
 
   it('répare en un patch une target violant simultanément temps et géométrie', async () => {

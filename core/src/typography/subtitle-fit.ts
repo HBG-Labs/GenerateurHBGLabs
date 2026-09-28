@@ -42,6 +42,19 @@ export interface SubtitleTextFitAnalysis extends TextFitAnalysis {
   readonly font_id: string;
 }
 
+export interface SubtitleConcisionBudget {
+  /**
+   * Budget relatif au texte courant, obtenu en remesurant exactement ses
+   * préfixes de mots avec le fitter P1. Ce n'est pas une capacité universelle
+   * de la boîte : toute reformulation doit être remesurée.
+   */
+  readonly basis: 'current_content_prefix_exact_fit';
+  readonly current_word_count: number;
+  readonly current_character_count: number;
+  readonly content_relative_maximum_words: number;
+  readonly maximum_recommended_characters: number;
+}
+
 function tokenKey(token: string, prefix: string): string {
   return token.slice(`${prefix}.`.length);
 }
@@ -139,6 +152,56 @@ export function analyzeSubtitleTextFit(input: {
     formatted_text: prepared.formatted_text,
     box: input.context.box,
     font_id: input.context.font.id,
+  };
+}
+
+function wordPrefixCandidates(text: string): readonly {
+  readonly word_count: number;
+  readonly text: string;
+}[] {
+  const matches = [...text.matchAll(/[\p{L}\p{N}]+(?:[’'][\p{L}\p{N}]+)*/gu)];
+  return matches.map((_, index) => {
+    const next = matches[index + 1];
+    const end = next?.index ?? text.length;
+    return {
+      word_count: index + 1,
+      text: text.slice(0, end).trim(),
+    };
+  });
+}
+
+/**
+ * Dérive une aide de concision à partir du contenu invalide lui-même.
+ * Chaque candidat est validé par `analyzeSubtitleTextFit` (HarfBuzz + mêmes
+ * tailles, boîte et règles P1). Le budget reste indicatif pour une nouvelle
+ * formulation, dont le fitting exact demeure obligatoire.
+ */
+export function deriveSubtitleConcisionBudget(input: {
+  readonly context: SubtitleFittingContext;
+  readonly source_id: string;
+  readonly text: string;
+  readonly locale: string;
+}): SubtitleConcisionBudget {
+  const candidates = wordPrefixCandidates(input.text);
+  let fitting: { readonly word_count: number; readonly text: string } | null = null;
+  let low = 0;
+  let high = candidates.length - 1;
+  while (low <= high) {
+    const index = Math.floor((low + high) / 2);
+    const candidate = candidates[index]!;
+    if (analyzeSubtitleTextFit({ ...input, text: candidate.text }).fits) {
+      fitting = candidate;
+      low = index + 1;
+    } else {
+      high = index - 1;
+    }
+  }
+  return {
+    basis: 'current_content_prefix_exact_fit',
+    current_word_count: candidates.length,
+    current_character_count: [...input.text].length,
+    content_relative_maximum_words: fitting?.word_count ?? 0,
+    maximum_recommended_characters: fitting === null ? 0 : [...fitting.text].length,
   };
 }
 

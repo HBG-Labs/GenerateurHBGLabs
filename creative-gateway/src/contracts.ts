@@ -18,7 +18,7 @@ export const CREATIVE_GENERATION_REQUEST_VERSION = '0.1.0' as const;
 export const CREATIVE_GENERATION_OUTPUT_VERSION = '0.1.0' as const;
 export const CREATIVE_GATEWAY_SNAPSHOT_VERSION = '0.1.0' as const;
 export const CREATIVE_GATEWAY_REPORT_VERSION = '0.1.0' as const;
-export const RESOLUTION_REPAIR_CONTRACT_VERSION = '0.1.0' as const;
+export const RESOLUTION_REPAIR_CONTRACT_VERSION = '0.2.0' as const;
 
 export const ProviderCapabilitySchema = z.enum([
   'structured_output',
@@ -172,11 +172,23 @@ export const ResolutionRepairTargetSchema = z.strictObject({
     maximum_slot_words: z.number().int().nonnegative(),
   }).nullable(),
   subtitle_constraint: z.strictObject({
+    current_word_count: z.number().int().nonnegative(),
+    current_character_count: z.number().int().nonnegative(),
+    current_line_count: z.number().int().nonnegative(),
     maximum_lines: z.number().int().positive(),
     preferred_size: z.number().positive(),
     minimum_size: z.number().positive(),
     available_width: z.number().positive(),
     available_height: z.number().positive(),
+    content_relative_maximum_words: z.number().int().nonnegative(),
+    maximum_recommended_characters: z.number().int().nonnegative(),
+    budget_basis: z.literal('current_content_prefix_exact_fit'),
+  }).nullable(),
+  effective_concision: z.strictObject({
+    maximum_words: z.number().int().nonnegative(),
+    temporal_maximum_words: z.number().int().nonnegative().nullable(),
+    subtitle_maximum_words: z.number().int().nonnegative().nullable(),
+    limiting_constraints: z.array(z.enum(['temporal', 'subtitle_geometry'])).min(1).max(2),
   }).nullable(),
 });
 export type ResolutionRepairTarget = z.infer<typeof ResolutionRepairTargetSchema>;

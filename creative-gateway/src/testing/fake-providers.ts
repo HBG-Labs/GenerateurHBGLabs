@@ -1,12 +1,13 @@
 import type { ContentSlot } from '@motion-engine/creative-core';
 
-import type {
-  PlanningGenerationOutput,
-  ProviderCapability,
-  ProviderMetadata,
-  ProviderUsage,
-  ResolutionGenerationOutput,
-  ResolutionRepairPatch,
+import {
+  RESOLUTION_REPAIR_CONTRACT_VERSION,
+  type PlanningGenerationOutput,
+  type ProviderCapability,
+  type ProviderMetadata,
+  type ProviderUsage,
+  type ResolutionGenerationOutput,
+  type ResolutionRepairPatch,
 } from '../contracts.ts';
 import type { CreativeProvider, ProviderInvocation, ProviderResponse } from '../provider.ts';
 import { GatewayProviderError } from '../provider.ts';
@@ -113,7 +114,7 @@ function resolutionRepairPatch(invocation: ProviderInvocation): ResolutionRepair
   if (!request) throw new GatewayProviderError('semantic_invalid', 'ResolutionRepairRequest absent.');
   return {
     schema: 'resolution-repair-patch',
-    schema_version: '0.1.0',
+    schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
     request_id: request.request_id,
     plan_id: request.plan_id,
     items: request.targets.map((target) => ({

@@ -1,5 +1,6 @@
 import {
   analyzeSubtitleTextFit,
+  deriveSubtitleConcisionBudget,
   analyzeTemporalPlan,
   maximumReadableWords,
   minimumReadabilityMs,
@@ -15,6 +16,7 @@ import {
   type ResolvedStyle,
   type Scene,
   type SubtitleFittingContext,
+  type SubtitleConcisionBudget,
   type SubtitleTextFitAnalysis,
   type TemporalDiagnostic,
   type TemporalResolution,
@@ -108,6 +110,7 @@ export interface CreativeSubtitleFitIssue {
   readonly scene_id: string;
   readonly segment_index: number;
   readonly analysis: SubtitleTextFitAnalysis;
+  readonly concision: SubtitleConcisionBudget;
 }
 
 export interface CreativeSubtitleInspectionResult {
@@ -444,17 +447,19 @@ export function inspectCreativeSubtitleFeasibility(input: ReadingCandidateInput)
       : [entry.scene_id];
     targetScenes.filter((sceneId) => sceneRequiresSubtitles(input.plan, sceneId)).forEach((sceneId) => {
       splitCreativeVoiceText(entry.text).forEach((segment, segmentIndex) => {
-        const analysis = analyzeSubtitleTextFit({
+        const fittingInput = {
           context,
           source_id: `${entry.slot_id}_${sceneId}_${segmentIndex}`.slice(0, 64),
           text: segment,
           locale: input.plan.audience.locale,
-        });
+        } as const;
+        const analysis = analyzeSubtitleTextFit(fittingInput);
         if (!analysis.fits) issues.push({
           slot_id: entry.slot_id,
           scene_id: sceneId,
           segment_index: segmentIndex,
           analysis,
+          concision: deriveSubtitleConcisionBudget(fittingInput),
         });
       });
     });

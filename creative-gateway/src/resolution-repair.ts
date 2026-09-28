@@ -73,11 +73,37 @@ function aggregateSubtitle(diagnostics: readonly CreativeDiagnostic[]): Resoluti
   const minimum = (key: string) => Math.min(...values(key));
   const maximum = (key: string) => Math.max(...values(key));
   return {
+    current_word_count: maximum('current_word_count'),
+    current_character_count: maximum('current_character_count'),
+    current_line_count: maximum('line_count'),
     maximum_lines: minimum('maximum_lines'),
     preferred_size: maximum('preferred_size'),
     minimum_size: maximum('minimum_size'),
     available_width: minimum('available_width'),
     available_height: minimum('available_height'),
+    content_relative_maximum_words: minimum('content_relative_maximum_words'),
+    maximum_recommended_characters: minimum('maximum_recommended_characters'),
+    budget_basis: 'current_content_prefix_exact_fit',
+  };
+}
+
+function effectiveConcision(
+  temporal: ResolutionRepairTarget['temporal_constraint'],
+  subtitle: ResolutionRepairTarget['subtitle_constraint'],
+): ResolutionRepairTarget['effective_concision'] {
+  const candidates = [
+    ...(temporal === null ? [] : [{ source: 'temporal' as const, value: temporal.maximum_slot_words }]),
+    ...(subtitle === null ? [] : [{ source: 'subtitle_geometry' as const, value: subtitle.content_relative_maximum_words }]),
+  ];
+  if (candidates.length === 0) return null;
+  const maximumWords = Math.min(...candidates.map((entry) => entry.value));
+  return {
+    maximum_words: maximumWords,
+    temporal_maximum_words: temporal?.maximum_slot_words ?? null,
+    subtitle_maximum_words: subtitle?.content_relative_maximum_words ?? null,
+    limiting_constraints: candidates
+      .filter((entry) => entry.value === maximumWords)
+      .map((entry) => entry.source),
   };
 }
 
@@ -132,6 +158,8 @@ export function buildResolutionRepairRequest(
       const context = contextMap.get(target.slot_id);
       if (!slot || !context) throw new Error(`Cible de repair absente du contexte canonique: ${target.slot_id}`);
       const previous = input.output.content.find((entry) => resolutionRepairTargetKey(outputTarget(entry)) === resolutionRepairTargetKey(target));
+      const temporalConstraint = aggregateTemporal(diagnostics);
+      const subtitleConstraint = aggregateSubtitle(diagnostics);
       return {
         target,
         previous_content: previous
@@ -156,8 +184,9 @@ export function buildResolutionRepairRequest(
         allowed_scene_ids: [...context.allowed_scene_ids],
         generic_resolution_allowed: context.generic_resolution_allowed,
         diagnostics: sortCreativeDiagnostics(diagnostics),
-        temporal_constraint: aggregateTemporal(diagnostics),
-        subtitle_constraint: aggregateSubtitle(diagnostics),
+        temporal_constraint: temporalConstraint,
+        subtitle_constraint: subtitleConstraint,
+        effective_concision: effectiveConcision(temporalConstraint, subtitleConstraint),
       };
     });
 
