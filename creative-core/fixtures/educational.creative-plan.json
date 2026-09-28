@@ -1,0 +1,134 @@
+{
+  "schema": "creative-plan",
+  "schema_version": "0.1.0",
+  "plan_id": "sunset_color_plan",
+  "revision": 1,
+  "creative_intent": {
+    "primary": "educate",
+    "secondary": ["explain", "curiosity"],
+    "objective": "Expliquer simplement pourquoi le ciel rougit au coucher du soleil.",
+    "core_message": "La lumière traverse plus d'atmosphère et les couleurs courtes sont davantage dispersées.",
+    "desired_outcome": "Comprendre un phénomène quotidien.",
+    "constraints": ["vocabulaire_accessible"]
+  },
+  "audience": {
+    "audience": "Public général",
+    "knowledge_level": "beginner",
+    "desired_reaction": "Compréhension et curiosité",
+    "tone": ["clear", "warm"],
+    "language": "fr",
+    "locale": "fr-FR"
+  },
+  "target": {
+    "format": "square",
+    "duration": { "min_seconds": 18, "preferred_seconds": 22, "max_seconds": 28 }
+  },
+  "narrative": {
+    "hook": {
+      "id": "sunset_hook",
+      "concept": "Pourquoi le ciel devient-il rouge ?",
+      "role": "question",
+      "priority": 90,
+      "desired_duration": { "min_seconds": 2, "preferred_seconds": 3, "max_seconds": 4 },
+      "intensity": 0.55,
+      "first_scene_id": "sunset_question_scene"
+    },
+    "sections": [
+      {
+        "id": "sunset_question_section",
+        "role": "hook",
+        "purpose": "Poser la question.",
+        "scene_ids": ["sunset_question_scene"]
+      },
+      {
+        "id": "sunset_explanation_section",
+        "role": "development",
+        "purpose": "Expliquer la dispersion de la lumière.",
+        "scene_ids": ["sunset_explanation_scene"]
+      }
+    ]
+  },
+  "global_intents": {
+    "audio": {
+      "narration": "required",
+      "music": "optional",
+      "sfx": "none",
+      "ambience": "optional",
+      "events": []
+    },
+    "subtitles": {
+      "required": true,
+      "emphasis_intent": "terms",
+      "density": "standard",
+      "presentation_style": "educational"
+    },
+    "pacing": { "character": "measured", "information_density": 0.58 }
+  },
+  "asset_intents": [
+    {
+      "id": "sunset_diagram_asset",
+      "slot": "sunset_diagram",
+      "kind": "illustration",
+      "required": true,
+      "purpose": "Montrer le trajet plus long de la lumière.",
+      "content_description": "Diagramme simple, sans texte incorporé.",
+      "constraints": ["diagrammatic", "no_embedded_text"]
+    }
+  ],
+  "scenes": [
+    {
+      "id": "sunset_question_scene",
+      "narrative_role": "hook",
+      "semantic_purpose": "Relier l'explication à une observation quotidienne.",
+      "content": {
+        "semantic_meaning": "Question pédagogique.",
+        "spoken": [{ "id": "sunset_question_spoken", "text": "Pourquoi le ciel devient-il rouge au coucher du soleil ?" }],
+        "on_screen": [{ "id": "sunset_question_screen", "text": "POURQUOI LE CIEL ROUGIT ?", "semantic_role": "headline" }],
+        "claims": []
+      },
+      "visual": {
+        "mode": "text_dominant",
+        "focal_element": "sunset_question_element",
+        "elements": [{ "id": "sunset_question_element", "kind": "question", "hierarchy": "primary", "purpose": "Porter la question." }],
+        "hierarchy_relationships": []
+      },
+      "typography": {
+        "character": "editorial",
+        "treatments": [{ "id": "sunset_question_type", "content_id": "sunset_question_screen", "role": "headline", "character": "bold", "emphasis": 0.9 }]
+      },
+      "pacing": {
+        "character": "measured",
+        "information_density": 0.35,
+        "desired_duration": { "min_seconds": 3, "preferred_seconds": 4, "max_seconds": 5 }
+      },
+      "asset_slots": []
+    },
+    {
+      "id": "sunset_explanation_scene",
+      "narrative_role": "development",
+      "semantic_purpose": "Expliquer le mécanisme physique en une idée.",
+      "content": {
+        "semantic_meaning": "La distance parcourue dans l'atmosphère change la lumière visible.",
+        "spoken": [{ "id": "sunset_explanation_spoken", "text": "Quand le Soleil est bas, sa lumière traverse davantage d'atmosphère : les bleus se dispersent, les rouges nous atteignent." }],
+        "on_screen": [{ "id": "sunset_explanation_screen", "text": "PLUS D’ATMOSPHÈRE → PLUS DE ROUGE", "semantic_role": "explanation" }],
+        "claims": [{ "id": "sunset_scattering_claim", "statement": "Les courtes longueurs d'onde sont davantage diffusées dans l'atmosphère.", "classification": "factual_claim", "uncertainty": "low", "source_requirement": "recommended", "source_slot": "scattering_source" }]
+      },
+      "visual": {
+        "mode": "diagram",
+        "focal_element": "sunset_diagram_element",
+        "elements": [{ "id": "sunset_diagram_element", "kind": "light_path", "hierarchy": "primary", "purpose": "Clarifier le trajet lumineux.", "asset_slot": "sunset_diagram" }],
+        "hierarchy_relationships": []
+      },
+      "motion": { "character": "precise", "intensity": 0.45, "enter_emphasis": "progressive", "settle_behavior": "calm" },
+      "typography": {
+        "character": "technical",
+        "treatments": [{ "id": "sunset_explanation_type", "content_id": "sunset_explanation_screen", "role": "body", "character": "technical", "emphasis": 0.7 }]
+      },
+      "audio": { "narration": "required", "music": "optional", "sfx": "none", "ambience": "optional", "events": [] },
+      "subtitles": { "required": true, "emphasis_intent": "terms", "density": "standard", "presentation_style": "educational" },
+      "transition_out": { "kind": "smooth", "intensity": 0.25 },
+      "pacing": { "character": "measured", "information_density": 0.68, "desired_duration": { "min_seconds": 12, "preferred_seconds": 16, "max_seconds": 20 } },
+      "asset_slots": ["sunset_diagram"]
+    }
+  ]
+}

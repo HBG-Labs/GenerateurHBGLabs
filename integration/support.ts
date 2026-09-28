@@ -6,6 +6,7 @@ import type { ResolvedStyle, ResolveStyleInput } from '@motion-engine/core';
 
 export const WORKSPACE = path.resolve(import.meta.dirname, '..');
 export const CORE = path.join(WORKSPACE, 'core');
+export const CREATIVE_CORE = path.join(WORKSPACE, 'creative-core');
 export const EXAMPLES = path.join(WORKSPACE, 'examples');
 export const FONT_LIBRARY = { libraryRoot: path.join(WORKSPACE, 'packs', 'fonts') };
 

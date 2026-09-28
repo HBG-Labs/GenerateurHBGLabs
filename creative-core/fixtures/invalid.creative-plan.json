@@ -1,0 +1,13 @@
+{
+  "schema": "creative-plan",
+  "schema_version": "0.1.0",
+  "plan_id": "invalid_plan",
+  "revision": 1,
+  "creative_intent": { "primary": "explain", "secondary": [], "objective": "Fixture invalide.", "core_message": "Elle cumule des erreurs.", "desired_outcome": "Tester les diagnostics.", "constraints": [] },
+  "audience": { "audience": "Test", "knowledge_level": "mixed", "desired_reaction": "Aucune", "tone": ["neutral"], "language": "fr", "locale": "fr-FR" },
+  "target": { "format": "square", "duration": { "min_seconds": 2, "preferred_seconds": 3, "max_seconds": 4 } },
+  "narrative": { "sections": [{ "id": "duplicate_id", "role": "setup", "purpose": "Référence absente.", "scene_ids": ["missing_scene"] }] },
+  "global_intents": {},
+  "asset_intents": [{ "id": "invalid_asset", "slot": "declared_slot", "kind": "none", "required": true, "purpose": "Contradiction volontaire.", "constraints": [] }],
+  "scenes": [{ "id": "duplicate_id", "narrative_role": "setup", "semantic_purpose": "Scène vide volontaire.", "content": { "spoken": [], "on_screen": [], "claims": [] }, "asset_slots": ["missing_asset"] }]
+}

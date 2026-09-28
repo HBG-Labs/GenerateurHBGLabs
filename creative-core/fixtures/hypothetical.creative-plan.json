@@ -1,0 +1,379 @@
+{
+  "schema": "creative-plan",
+  "schema_version": "0.1.0",
+  "plan_id": "earth_pause_plan",
+  "revision": 1,
+  "creative_intent": {
+    "primary": "hypothetical",
+    "secondary": ["curiosity", "explain", "reveal"],
+    "objective": "Explorer une hypothèse scientifique sans la présenter comme un fait observé.",
+    "core_message": "Une interruption très brève de la rotation terrestre aurait des conséquences extrêmes.",
+    "desired_outcome": "Donner envie de comprendre la chaîne de conséquences.",
+    "constraints": ["distinguer_hypothese_et_fait", "rester_concis"]
+  },
+  "audience": {
+    "audience": "Public francophone curieux de sciences",
+    "knowledge_level": "beginner",
+    "desired_reaction": "Surprise suivie d'une compréhension simple",
+    "tone": ["curious", "dramatic", "clear"],
+    "language": "fr",
+    "locale": "fr-FR"
+  },
+  "target": {
+    "format": "vertical_short_form",
+    "duration": { "min_seconds": 10, "preferred_seconds": 12, "max_seconds": 15 }
+  },
+  "narrative": {
+    "hook": {
+      "id": "earth_hook",
+      "concept": "Et si la Terre arrêtait de tourner pendant 5 secondes ?",
+      "role": "question",
+      "priority": 100,
+      "desired_duration": { "min_seconds": 2, "preferred_seconds": 3, "max_seconds": 4 },
+      "intensity": 0.85,
+      "first_scene_id": "earth_question_scene"
+    },
+    "sections": [
+      {
+        "id": "earth_setup_section",
+        "role": "setup",
+        "purpose": "Installer l'hypothèse.",
+        "scene_ids": ["earth_question_scene"]
+      },
+      {
+        "id": "earth_escalation_section",
+        "role": "escalation",
+        "purpose": "Montrer que cinq secondes suffisent à créer un danger majeur.",
+        "scene_ids": ["earth_motion_scene"]
+      },
+      {
+        "id": "earth_reveal_section",
+        "role": "reveal",
+        "purpose": "Révéler que l'atmosphère conserverait son mouvement.",
+        "scene_ids": ["earth_reveal_scene"]
+      }
+    ]
+  },
+  "global_intents": {
+    "motion": { "character": "cinematic", "intensity": 0.72, "settle_behavior": "restrained" },
+    "audio": {
+      "narration": "required",
+      "music": "optional",
+      "sfx": "optional",
+      "ambience": "optional",
+      "direction": "Créer une pause dramatique avant la révélation.",
+      "events": []
+    },
+    "subtitles": {
+      "required": true,
+      "emphasis_intent": "key_terms",
+      "density": "standard",
+      "presentation_style": "clear"
+    },
+    "pacing": { "character": "fast", "information_density": 0.62 }
+  },
+  "asset_intents": [
+    {
+      "id": "earth_asset_intent",
+      "slot": "earth_visual",
+      "kind": "illustration",
+      "required": true,
+      "purpose": "Représenter la Terre et son mouvement sans imposer une source.",
+      "content_description": "Terre lisible sur fond sombre, espace négatif pour le texte.",
+      "constraints": ["no_embedded_text", "clear_silhouette"]
+    },
+    {
+      "id": "wind_asset_intent",
+      "slot": "motion_lines",
+      "kind": "illustration",
+      "required": false,
+      "purpose": "Suggérer la poursuite du mouvement atmosphérique.",
+      "constraints": ["abstract"]
+    }
+  ],
+  "scenes": [
+    {
+      "id": "earth_question_scene",
+      "narrative_role": "hook",
+      "semantic_purpose": "Poser l'hypothèse immédiatement.",
+      "content": {
+        "semantic_meaning": "Question hypothétique, pas affirmation factuelle.",
+        "spoken": [
+          {
+            "id": "earth_question_spoken",
+            "text": "Et si la Terre arrêtait de tourner pendant cinq secondes ?",
+            "delivery": "curious"
+          }
+        ],
+        "on_screen": [
+          {
+            "id": "earth_question_screen",
+            "text": "ET SI LA TERRE S’ARRÊTAIT ?",
+            "semantic_role": "headline"
+          }
+        ],
+        "claims": []
+      },
+      "visual": {
+        "mode": "image_dominant",
+        "focal_element": "earth_primary_element",
+        "elements": [
+          {
+            "id": "earth_primary_element",
+            "kind": "earth",
+            "hierarchy": "primary",
+            "purpose": "Porter l'hypothèse visuelle.",
+            "asset_slot": "earth_visual"
+          },
+          {
+            "id": "earth_question_element",
+            "kind": "question_text",
+            "hierarchy": "secondary",
+            "purpose": "Formuler le hook à l'écran."
+          }
+        ],
+        "hierarchy_relationships": [
+          {
+            "id": "earth_question_relation",
+            "from": "earth_question_element",
+            "to": "earth_primary_element",
+            "relation": "frames"
+          }
+        ]
+      },
+      "motion": {
+        "character": "dramatic",
+        "intensity": 0.8,
+        "enter_emphasis": "immediate",
+        "settle_behavior": "suspended"
+      },
+      "typography": {
+        "character": "bold",
+        "treatments": [
+          {
+            "id": "earth_question_type",
+            "content_id": "earth_question_screen",
+            "role": "display",
+            "character": "bold",
+            "emphasis": 1
+          }
+        ]
+      },
+      "audio": {
+        "narration": "required",
+        "music": "optional",
+        "sfx": "optional",
+        "ambience": "none",
+        "events": [
+          {
+            "id": "earth_question_pause",
+            "kind": "silence",
+            "description": "Courte suspension après la question.",
+            "relation": { "relation": "after", "target_id": "earth_question_spoken" }
+          }
+        ]
+      },
+      "subtitles": {
+        "required": true,
+        "emphasis_intent": "question",
+        "density": "sparse",
+        "presentation_style": "clear"
+      },
+      "transition_out": { "kind": "energetic", "intensity": 0.7 },
+      "pacing": {
+        "character": "fast",
+        "information_density": 0.35,
+        "desired_duration": { "min_seconds": 2, "preferred_seconds": 3, "max_seconds": 4 }
+      },
+      "asset_slots": ["earth_visual"]
+    },
+    {
+      "id": "earth_motion_scene",
+      "narrative_role": "escalation",
+      "semantic_purpose": "Faire sentir que l'environnement conserve son élan.",
+      "content": {
+        "semantic_meaning": "La rotation implique un mouvement considérable à la surface.",
+        "spoken": [
+          {
+            "id": "earth_motion_spoken",
+            "text": "À l'équateur, la surface se déplace à environ mille six cents kilomètres par heure.",
+            "delivery": "precise"
+          }
+        ],
+        "on_screen": [
+          {
+            "id": "earth_speed_screen",
+            "text": "≈ 1 600 km/h",
+            "semantic_role": "statistic"
+          }
+        ],
+        "claims": [
+          {
+            "id": "earth_speed_claim",
+            "statement": "La vitesse de rotation à l'équateur est d'environ 1 600 km/h.",
+            "classification": "factual_claim",
+            "uncertainty": "low",
+            "source_requirement": "recommended",
+            "source_slot": "earth_speed_source"
+          }
+        ]
+      },
+      "visual": {
+        "mode": "statistic",
+        "focal_element": "earth_speed_element",
+        "elements": [
+          {
+            "id": "earth_speed_element",
+            "kind": "statistic",
+            "hierarchy": "primary",
+            "purpose": "Donner l'échelle du mouvement."
+          },
+          {
+            "id": "earth_motion_element",
+            "kind": "motion_lines",
+            "hierarchy": "supporting",
+            "purpose": "Soutenir visuellement la vitesse.",
+            "asset_slot": "motion_lines"
+          }
+        ],
+        "hierarchy_relationships": [
+          {
+            "id": "earth_speed_relation",
+            "from": "earth_motion_element",
+            "to": "earth_speed_element",
+            "relation": "supports"
+          }
+        ]
+      },
+      "motion": {
+        "character": "energetic",
+        "intensity": 0.82,
+        "accent_emphasis": "statistic",
+        "settle_behavior": "precise"
+      },
+      "typography": {
+        "character": "technical",
+        "treatments": [
+          {
+            "id": "earth_speed_type",
+            "content_id": "earth_speed_screen",
+            "role": "statistic",
+            "character": "technical",
+            "emphasis": 1
+          }
+        ]
+      },
+      "audio": {
+        "narration": "required",
+        "music": "optional",
+        "sfx": "optional",
+        "ambience": "none",
+        "events": []
+      },
+      "subtitles": {
+        "required": true,
+        "emphasis_intent": "numbers",
+        "density": "standard",
+        "presentation_style": "technical"
+      },
+      "transition_out": { "kind": "reveal", "intensity": 0.9 },
+      "pacing": {
+        "character": "aggressive",
+        "information_density": 0.75,
+        "desired_duration": { "min_seconds": 3, "preferred_seconds": 4, "max_seconds": 5 }
+      },
+      "asset_slots": ["motion_lines"]
+    },
+    {
+      "id": "earth_reveal_scene",
+      "narrative_role": "reveal",
+      "semantic_purpose": "Livrer la conséquence principale sans fausse certitude.",
+      "content": {
+        "semantic_meaning": "L'atmosphère ne s'arrêterait pas instantanément avec la surface.",
+        "spoken": [
+          {
+            "id": "earth_reveal_spoken",
+            "text": "Le sol s'arrêterait, mais l'atmosphère conserverait son mouvement.",
+            "delivery": "dramatic"
+          }
+        ],
+        "on_screen": [
+          {
+            "id": "earth_reveal_screen",
+            "text": "L’AIR CONTINUERAIT",
+            "semantic_role": "reveal"
+          }
+        ],
+        "claims": [
+          {
+            "id": "earth_inertia_claim",
+            "statement": "L'atmosphère conserverait temporairement son inertie.",
+            "classification": "factual_claim",
+            "uncertainty": "medium",
+            "source_requirement": "required",
+            "source_slot": "earth_inertia_source"
+          }
+        ]
+      },
+      "visual": {
+        "mode": "reveal",
+        "focal_element": "earth_reveal_element",
+        "elements": [
+          {
+            "id": "earth_reveal_element",
+            "kind": "reveal_text",
+            "hierarchy": "primary",
+            "purpose": "Porter la révélation."
+          }
+        ],
+        "hierarchy_relationships": []
+      },
+      "motion": {
+        "character": "cinematic",
+        "intensity": 0.7,
+        "enter_emphasis": "reveal",
+        "settle_behavior": "restrained",
+        "exit_character": "quiet"
+      },
+      "typography": {
+        "character": "expressive",
+        "treatments": [
+          {
+            "id": "earth_reveal_type",
+            "content_id": "earth_reveal_screen",
+            "role": "headline",
+            "character": "expressive",
+            "emphasis": 0.9
+          }
+        ]
+      },
+      "audio": {
+        "narration": "required",
+        "music": "optional",
+        "sfx": "optional",
+        "ambience": "optional",
+        "events": [
+          {
+            "id": "earth_reveal_emphasis",
+            "kind": "emphasis",
+            "description": "Accent sobre sur la révélation.",
+            "relation": { "relation": "with", "target_id": "earth_reveal_screen" }
+          }
+        ]
+      },
+      "subtitles": {
+        "required": true,
+        "emphasis_intent": "reveal",
+        "density": "standard",
+        "presentation_style": "clear"
+      },
+      "transition_out": { "kind": "smooth", "intensity": 0.25 },
+      "pacing": {
+        "character": "measured",
+        "information_density": 0.55,
+        "desired_duration": { "min_seconds": 3, "preferred_seconds": 4, "max_seconds": 5 }
+      },
+      "asset_slots": ["earth_visual"]
+    }
+  ]
+}

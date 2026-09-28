@@ -1,0 +1,66 @@
+{
+  "schema": "creative-plan",
+  "schema_version": "0.1.0",
+  "plan_id": "generic_timer_demo",
+  "revision": 1,
+  "creative_intent": {
+    "primary": "demonstrate",
+    "secondary": ["problem_solution"],
+    "objective": "Démontrer le réglage simple d'un minuteur générique.",
+    "core_message": "Trois gestes suffisent pour lancer un compte à rebours.",
+    "desired_outcome": "Comprendre l'usage sans promesse commerciale.",
+    "constraints": ["generic_product", "no_brand"]
+  },
+  "audience": {
+    "audience": "Utilisateur découvrant le produit",
+    "knowledge_level": "unaware",
+    "desired_reaction": "Confiance dans la simplicité d'usage",
+    "tone": ["precise", "reassuring"],
+    "language": "fr",
+    "locale": "fr-FR"
+  },
+  "target": { "format": "landscape", "duration": { "min_seconds": 12, "preferred_seconds": 16, "max_seconds": 20 } },
+  "narrative": {
+    "hook": { "id": "timer_hook", "concept": "Prêt en trois gestes", "role": "demonstration", "priority": 80, "desired_duration": { "min_seconds": 2, "preferred_seconds": 3, "max_seconds": 4 }, "intensity": 0.5, "first_scene_id": "timer_setup_scene" },
+    "sections": [
+      { "id": "timer_setup_section", "role": "setup", "purpose": "Présenter le minuteur.", "scene_ids": ["timer_setup_scene"] },
+      { "id": "timer_steps_section", "role": "development", "purpose": "Montrer les gestes dans l'ordre.", "scene_ids": ["timer_steps_scene"] }
+    ],
+    "cta": { "id": "timer_cta", "purpose": "Inviter à essayer le réglage.", "text": "À vous de jouer.", "required": false }
+  },
+  "global_intents": {
+    "motion": { "character": "precise", "intensity": 0.42, "settle_behavior": "restrained" },
+    "audio": { "narration": "optional", "music": "optional", "sfx": "optional", "ambience": "none", "events": [] },
+    "subtitles": { "required": false, "emphasis_intent": "steps", "density": "sparse", "presentation_style": "technical" }
+  },
+  "asset_intents": [
+    { "id": "timer_product_asset", "slot": "timer_product", "kind": "image", "required": true, "purpose": "Montrer un minuteur générique sans marque.", "content_description": "Minuteur compact vu de face.", "constraints": ["no_brand", "readable_controls"] },
+    { "id": "timer_icon_asset", "slot": "timer_step_icons", "kind": "icon", "required": false, "purpose": "Soutenir les trois étapes.", "constraints": ["simple"] }
+  ],
+  "scenes": [
+    {
+      "id": "timer_setup_scene",
+      "narrative_role": "hook",
+      "semantic_purpose": "Présenter le résultat et le produit.",
+      "content": { "semantic_meaning": "Réglage rapide.", "spoken": [{ "id": "timer_setup_spoken", "text": "Réglez votre minuteur en trois gestes." }], "on_screen": [{ "id": "timer_setup_screen", "text": "3 GESTES", "semantic_role": "headline" }], "claims": [] },
+      "visual": { "mode": "image_dominant", "focal_element": "timer_product_element", "elements": [{ "id": "timer_product_element", "kind": "product", "hierarchy": "primary", "purpose": "Montrer le produit.", "asset_slot": "timer_product" }], "hierarchy_relationships": [] },
+      "typography": { "character": "technical", "treatments": [{ "id": "timer_setup_type", "content_id": "timer_setup_screen", "role": "display", "character": "bold", "emphasis": 0.9 }] },
+      "pacing": { "character": "medium", "information_density": 0.3, "desired_duration": { "min_seconds": 3, "preferred_seconds": 4, "max_seconds": 5 } },
+      "asset_slots": ["timer_product"]
+    },
+    {
+      "id": "timer_steps_scene",
+      "narrative_role": "development",
+      "semantic_purpose": "Énumérer les actions sans coordonnées d'interface.",
+      "content": { "semantic_meaning": "Sélectionner, régler, démarrer.", "spoken": [{ "id": "timer_steps_spoken", "text": "Sélectionnez la durée, ajustez-la, puis démarrez." }], "on_screen": [{ "id": "timer_steps_screen", "text": "1. SÉLECTIONNER  2. RÉGLER  3. DÉMARRER", "semantic_role": "steps" }], "claims": [] },
+      "visual": { "mode": "mixed", "focal_element": "timer_steps_element", "elements": [{ "id": "timer_steps_element", "kind": "step_list", "hierarchy": "primary", "purpose": "Rendre les trois gestes mémorisables." }, { "id": "timer_icons_element", "kind": "icons", "hierarchy": "supporting", "purpose": "Soutenir les étapes.", "asset_slot": "timer_step_icons" }], "hierarchy_relationships": [{ "id": "timer_steps_relation", "from": "timer_icons_element", "to": "timer_steps_element", "relation": "supports" }] },
+      "motion": { "character": "precise", "intensity": 0.45, "accent_emphasis": "sequential", "settle_behavior": "clean" },
+      "typography": { "character": "technical", "treatments": [{ "id": "timer_steps_type", "content_id": "timer_steps_screen", "role": "body", "character": "technical", "emphasis": 0.75 }] },
+      "audio": { "narration": "optional", "music": "optional", "sfx": "optional", "ambience": "none", "events": [{ "id": "timer_step_emphasis", "kind": "emphasis", "description": "Accent discret à chaque étape.", "relation": { "relation": "with", "target_id": "timer_steps_screen" } }] },
+      "subtitles": { "required": false, "emphasis_intent": "steps", "density": "sparse", "presentation_style": "technical" },
+      "transition_out": { "kind": "continuation", "intensity": 0.2 },
+      "pacing": { "character": "medium", "information_density": 0.65, "desired_duration": { "min_seconds": 8, "preferred_seconds": 11, "max_seconds": 14 } },
+      "asset_slots": ["timer_product", "timer_step_icons"]
+    }
+  ]
+}

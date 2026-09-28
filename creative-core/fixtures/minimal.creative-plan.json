@@ -1,0 +1,13 @@
+{
+  "schema": "creative-plan",
+  "schema_version": "0.1.0",
+  "plan_id": "minimal_question_plan",
+  "revision": 1,
+  "creative_intent": { "primary": "question", "secondary": [], "objective": "Poser une question unique.", "core_message": "Une question peut suffire.", "desired_outcome": "Créer une brève pause de réflexion.", "constraints": [] },
+  "audience": { "audience": "Public général", "knowledge_level": "mixed", "desired_reaction": "Réflexion", "tone": ["quiet"], "language": "fr", "locale": "fr-FR" },
+  "target": { "format": "vertical_short_form", "duration": { "min_seconds": 2, "preferred_seconds": 3, "max_seconds": 4 } },
+  "narrative": { "hook": { "id": "minimal_hook", "concept": "Et maintenant ?", "role": "question", "priority": 100, "desired_duration": { "min_seconds": 2, "preferred_seconds": 3, "max_seconds": 4 }, "intensity": 0.3, "first_scene_id": "minimal_scene" }, "sections": [{ "id": "minimal_section", "role": "hook", "purpose": "Poser la question.", "scene_ids": ["minimal_scene"] }] },
+  "global_intents": {},
+  "asset_intents": [],
+  "scenes": [{ "id": "minimal_scene", "narrative_role": "hook", "semantic_purpose": "Créer une interrogation.", "content": { "semantic_meaning": "Question ouverte.", "spoken": [], "on_screen": [{ "id": "minimal_screen", "text": "ET MAINTENANT ?", "semantic_role": "headline" }], "claims": [] }, "asset_slots": [] }]
+}
