@@ -1,9 +1,17 @@
 import {
+  analyzeSubtitleTextFit,
   analyzeTemporalPlan,
   maximumReadableWords,
+  resolveRenderGeometry,
+  resolveSubtitleFittingContext,
+  type FontResource,
   type PatternDefinition,
+  type Platform,
+  type PlatformPresets,
   type ResolvedStyle,
   type Scene,
+  type SubtitleFittingContext,
+  type SubtitleTextFitAnalysis,
   type TemporalDiagnostic,
   type TemporalResolution,
 } from '@motion-engine/core';
@@ -19,15 +27,31 @@ import {
   CREATIVE_TEXT_RUN_MAX_CHARACTERS,
   type CompilationProfile,
 } from './contracts.ts';
+import { creativeMotionFormat } from './profile.ts';
 import {
   buildCreativeResolution,
   type ContentSlotValue,
 } from './resolution.ts';
+import { splitCreativeVoiceText } from './voice-text.ts';
 
 export interface CreativeReadingPolicy {
   readonly profile: CompilationProfile;
   readonly resolved_style: ResolvedStyle;
   readonly pattern: PatternDefinition;
+  readonly platform_presets: PlatformPresets;
+  readonly font_resources: Readonly<Record<string, FontResource>>;
+  readonly platform?: Platform;
+  readonly render_scale?: number;
+  readonly minimum_readable_size: number;
+}
+
+export interface CreativeSubtitleFitBudget {
+  readonly scene_id: string;
+  readonly preferred_size: number;
+  readonly minimum_size: number;
+  readonly max_lines: number;
+  readonly available_width: number;
+  readonly available_height: number;
 }
 
 export interface CreativeReadingBudget {
@@ -48,12 +72,26 @@ export interface CreativeReadingIssue {
 export interface CreativeReadingBudgetResult {
   readonly ok: boolean;
   readonly budgets: readonly CreativeReadingBudget[];
+  readonly subtitle_budgets: readonly CreativeSubtitleFitBudget[];
   readonly diagnostics: readonly CreativeDiagnostic[];
 }
 
 export interface CreativeReadingInspectionResult {
   readonly ok: boolean;
   readonly issues: readonly CreativeReadingIssue[];
+  readonly diagnostics: readonly CreativeDiagnostic[];
+}
+
+export interface CreativeSubtitleFitIssue {
+  readonly slot_id: string;
+  readonly scene_id: string;
+  readonly segment_index: number;
+  readonly analysis: SubtitleTextFitAnalysis;
+}
+
+export interface CreativeSubtitleInspectionResult {
+  readonly ok: boolean;
+  readonly issues: readonly CreativeSubtitleFitIssue[];
   readonly diagnostics: readonly CreativeDiagnostic[];
 }
 
@@ -69,6 +107,39 @@ interface CandidateAnalysis {
   readonly temporal: TemporalResolution | null;
   readonly temporal_diagnostics: readonly TemporalDiagnostic[];
   readonly diagnostics: readonly CreativeDiagnostic[];
+}
+
+function subtitleContext(policy: CreativeReadingPolicy): SubtitleFittingContext {
+  const geometry = resolveRenderGeometry({
+    format: creativeMotionFormat(policy.profile, policy.platform),
+    platform_presets: policy.platform_presets,
+    resolved_style: policy.resolved_style,
+    render_scale: policy.render_scale ?? 1,
+  });
+  return resolveSubtitleFittingContext({
+    resolved_style: policy.resolved_style,
+    canvas: geometry.canvas,
+    safe_zone: geometry.safe_zone,
+    font_resources: policy.font_resources,
+    minimum_readable_size: policy.minimum_readable_size,
+  });
+}
+
+function sceneRequiresSubtitles(plan: CreativePlan, sceneId: string): boolean {
+  const scene = plan.scenes.find((entry) => entry.id === sceneId);
+  return scene?.subtitles?.required ?? plan.global_intents.subtitles?.required ?? false;
+}
+
+function subtitleBudgets(plan: CreativePlan, policy: CreativeReadingPolicy): CreativeSubtitleFitBudget[] {
+  const context = subtitleContext(policy);
+  return plan.scenes.filter((scene) => sceneRequiresSubtitles(plan, scene.id)).map((scene) => ({
+    scene_id: scene.id,
+    preferred_size: context.preferred_size,
+    minimum_size: context.minimum_size,
+    max_lines: context.max_lines,
+    available_width: context.box.w,
+    available_height: context.box.h,
+  }));
 }
 
 function placeholderAssets(plan: CreativePlan) {
@@ -157,7 +228,7 @@ export function deriveCreativeReadingBudgets(input: Omit<ReadingCandidateInput, 
     .filter((slot) => slot.status === 'unresolved')
     .map((slot) => contentValue(slot, 'mot'));
   const candidate = analyzeCandidate({ ...input, content: placeholderContent });
-  if (!candidate.temporal) return { ok: false, budgets: [], diagnostics: candidate.diagnostics };
+  if (!candidate.temporal) return { ok: false, budgets: [], subtitle_budgets: [], diagnostics: candidate.diagnostics };
   const readingDiagnostics = candidate.temporal_diagnostics.filter((entry) => (
     entry.code === 'temporal.impossible_reading'
   ));
@@ -165,6 +236,7 @@ export function deriveCreativeReadingBudgets(input: Omit<ReadingCandidateInput, 
     return {
       ok: false,
       budgets: [],
+      subtitle_budgets: [],
       diagnostics: readingDiagnostics.map((entry) => temporalDiagnostic(entry, input.plan)),
     };
   }
@@ -172,7 +244,27 @@ export function deriveCreativeReadingBudgets(input: Omit<ReadingCandidateInput, 
     const budget = budgetFor(scene.id, candidate.temporal!, input.plan, input.policy);
     return budget ? [budget] : [];
   });
-  return { ok: budgets.length === input.plan.scenes.length, budgets, diagnostics: candidate.diagnostics };
+  try {
+    return {
+      ok: budgets.length === input.plan.scenes.length,
+      budgets,
+      subtitle_budgets: subtitleBudgets(input.plan, input.policy),
+      diagnostics: candidate.diagnostics,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      budgets,
+      subtitle_budgets: [],
+      diagnostics: [{
+        code: 'creative_reading.subtitle_context_invalid',
+        severity: 'error',
+        path: '$.reading_policy',
+        message: error instanceof Error ? error.message : 'Le contexte typographique des sous-titres est invalide.',
+        suggested_action: 'Corriger le style, le preset plateforme ou les ressources de police avant Stage B.',
+      }],
+    };
+  }
 }
 
 export function inspectCreativeReadingFeasibility(input: ReadingCandidateInput): CreativeReadingInspectionResult {
@@ -195,4 +287,56 @@ export function inspectCreativeReadingFeasibility(input: ReadingCandidateInput):
     }];
   });
   return { ok: issues.length === 0, issues, diagnostics: candidate.diagnostics };
+}
+
+/** Vérifie chaque voice_segment P2.3 affiché simultanément avec le fitter P1 exact. */
+export function inspectCreativeSubtitleFeasibility(input: ReadingCandidateInput): CreativeSubtitleInspectionResult {
+  let context: SubtitleFittingContext;
+  try {
+    context = subtitleContext(input.policy);
+  } catch (error) {
+    return {
+      ok: false,
+      issues: [],
+      diagnostics: [{
+        code: 'creative_reading.subtitle_context_invalid',
+        severity: 'error',
+        path: '$.reading_policy',
+        message: error instanceof Error ? error.message : 'Le contexte typographique des sous-titres est invalide.',
+        suggested_action: 'Corriger le style, le preset plateforme ou les ressources de police avant Stage B.',
+      }],
+    };
+  }
+  const slotMap = new Map(input.content_slots.map((slot) => [slot.id, slot]));
+  const scenesByBeat = new Map<string, string[]>();
+  input.planning_report.scenes.forEach((scene) => scene.beat_ids.forEach((beatId) => {
+    const values = scenesByBeat.get(beatId) ?? [];
+    if (!values.includes(scene.scene_id)) values.push(scene.scene_id);
+    scenesByBeat.set(beatId, values);
+  }));
+  const issues: CreativeSubtitleFitIssue[] = [];
+  input.content.forEach((entry) => {
+    const slot = slotMap.get(entry.slot_id);
+    if (!slot?.constraints.channels.includes('spoken')) return;
+    const targetScenes = entry.scene_id === undefined
+      ? (scenesByBeat.get(slot.beat_id) ?? [])
+      : [entry.scene_id];
+    targetScenes.filter((sceneId) => sceneRequiresSubtitles(input.plan, sceneId)).forEach((sceneId) => {
+      splitCreativeVoiceText(entry.text).forEach((segment, segmentIndex) => {
+        const analysis = analyzeSubtitleTextFit({
+          context,
+          source_id: `${entry.slot_id}_${sceneId}_${segmentIndex}`.slice(0, 64),
+          text: segment,
+          locale: input.plan.audience.locale,
+        });
+        if (!analysis.fits) issues.push({
+          slot_id: entry.slot_id,
+          scene_id: sceneId,
+          segment_index: segmentIndex,
+          analysis,
+        });
+      });
+    });
+  });
+  return { ok: issues.length === 0, issues, diagnostics: [] };
 }

@@ -94,8 +94,10 @@ export {
   TypographyEngineError,
 } from './typography/harfbuzz-text-engine.ts';
 export type { FontBinary, GlyphPlacement, SupportedAxis, TextMetrics, TypographyDiagnostic } from './typography/harfbuzz-text-engine.ts';
-export { fitText, TextOverflowError } from './typography/fit-text.ts';
-export type { FitFragmentInput, FittedFragment, FittedLine, FitTextInput, FitTextResult } from './typography/fit-text.ts';
+export { analyzeTextFit, fitText, TextOverflowError } from './typography/fit-text.ts';
+export type { FitFragmentInput, FittedFragment, FittedLine, FitTextInput, FitTextResult, TextFitAnalysis, TextFitOverflowReason } from './typography/fit-text.ts';
+export { analyzeSubtitleTextFit, fitSubtitleText, resolveSubtitleFittingContext } from './typography/subtitle-fit.ts';
+export type { SubtitleFittingContext, SubtitleFittingContextInput, SubtitleFontResource, SubtitleTextFitAnalysis } from './typography/subtitle-fit.ts';
 
 export { AssetValidationError, inspectImage, placeImage, resolveContainedAssetPath, validateImageResource } from './visual/assets.ts';
 export type { ImageResource } from './visual/assets.ts';
@@ -112,4 +114,6 @@ export { compileMotionScene, compilePipeline, compileForRender, profileCompileFo
 export type { CompilationManifestContext, CompileInput, CompilerMeasuredPhase, CompilerPhaseMetrics, CompilerPipelineResult, FontResource, ProfiledRenderCompilationResult, RenderCompilationResult } from './compiler/compile.ts';
 export { buildDependencyGraph, affectedNodes } from './compiler/dependency-graph.ts';
 export { compileAudioPlan, compileSubtitlePlan } from './compiler/plans.ts';
+export { resolveRenderGeometry } from './compiler/render-geometry.ts';
+export type { RenderGeometry, ResolveRenderGeometryInput } from './compiler/render-geometry.ts';
 export { assertAuxiliaryPlanLimits, assertInputLimits, assertPlanLimits, EngineLimitError } from './compiler/limits.ts';

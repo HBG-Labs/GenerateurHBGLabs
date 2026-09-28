@@ -8,7 +8,7 @@ import type { MotionSceneSpec } from './contracts/motion-spec.ts';
 import { sha256Hex } from './integrity/canonical.ts';
 import { P14_BEHAVIOR_DEFINITIONS } from './motion/behavior-registry.ts';
 import { resolveTemporalPlan } from './temporal/resolve.ts';
-import { fitText, TextOverflowError } from './typography/fit-text.ts';
+import { analyzeTextFit, fitText, TextOverflowError } from './typography/fit-text.ts';
 import { formatTypography } from './typography/formatter.ts';
 import { HarfBuzzTextEngine, TypographyEngineError } from './typography/harfbuzz-text-engine.ts';
 import { AssetValidationError, inspectImage, placeImage, resolveContainedAssetPath, validateImageResource } from './visual/assets.ts';
@@ -113,6 +113,44 @@ describe('HarfBuzz, variable fonts et fitting', () => {
       preferred_line_height: 1.1, max_lines: 1, tracking_em: 0,
       shape: (text, size, tracking) => engine.shape(text, size, tracking, binary, 'fr-FR'),
     })).toThrow(TextOverflowError);
+  });
+
+  it('analyse sans lancer avec exactement la même décision que fitText', () => {
+    const binary = { sha256: variableHash, data: variableBytes, axes: { wght: 500, wdth: 82 } };
+    const makeInput = (text: string) => ({
+      paragraphs: [[{ id: 'run', source_text: text, formatted_text: text, color: '#111111' }]],
+      break_policy: 'balance' as const,
+      max_width: 420,
+      max_height: 180,
+      preferred_size: 64,
+      minimum_size: 32,
+      preferred_line_height: 1.15,
+      max_lines: 3,
+      tracking_em: 0,
+      shape: (value: string, size: number, tracking: number) => engine.shape(value, size, tracking, binary, 'fr-FR'),
+    });
+    const fitted = analyzeTextFit(makeInput('Texte français assez long pour demander un ajustement contrôlé'));
+    expect(fitted.fits).toBe(true);
+    expect(fitted.result).toEqual(fitText(makeInput('Texte français assez long pour demander un ajustement contrôlé')));
+    expect(fitted.resolved_size).toBeGreaterThanOrEqual(fitted.minimum_size);
+    expect(fitted.resolved_size).toBeLessThan(fitted.preferred_size);
+
+    const overflow = analyzeTextFit(makeInput('W'.repeat(300)));
+    expect(overflow).toMatchObject({ fits: false, resolved_size: null, overflow_reason: expect.any(String) });
+    expect(() => fitText(makeInput('W'.repeat(300)))).toThrow(TextOverflowError);
+  });
+
+  it('distingue un dépassement max_lines à la taille minimale', () => {
+    const binary = { sha256: variableHash, data: variableBytes, axes: { wght: 500, wdth: 82 } };
+    const text = Array.from({ length: 20 }, () => 'mot').join(' ');
+    const analysis = analyzeTextFit({
+      paragraphs: [[{ id: 'run', source_text: text, formatted_text: text, color: '#111111' }]],
+      break_policy: 'balance', max_width: 180, max_height: 1_000, preferred_size: 48, minimum_size: 32,
+      preferred_line_height: 1.1, max_lines: 1, tracking_em: 0,
+      shape: (value, size, tracking) => engine.shape(value, size, tracking, binary, 'fr-FR'),
+    });
+    expect(analysis).toMatchObject({ fits: false, overflow_reason: 'max_lines' });
+    expect(analysis.line_count).toBeGreaterThan(analysis.max_lines);
   });
 
   it.each([

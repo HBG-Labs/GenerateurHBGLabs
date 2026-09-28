@@ -28,6 +28,15 @@ export interface ProviderSceneTimeBudget {
   readonly maximum_recommended_characters_per_entry: number;
 }
 
+export interface ProviderSubtitleFitBudget {
+  readonly scene_id: string;
+  readonly preferred_size: number;
+  readonly minimum_size: number;
+  readonly maximum_lines: number;
+  readonly available_width: number;
+  readonly available_height: number;
+}
+
 export interface ProviderContentSlotContext {
   readonly slot_id: ContentSlot['id'];
   readonly beat_id: ContentSlot['beat_id'];
@@ -44,6 +53,11 @@ export interface ProviderContentSlotContext {
   readonly scene_time_budgets: readonly ProviderSceneTimeBudget[];
   /** Pour `scene_id = null`, budget de la scène admissible la plus restrictive. */
   readonly generic_time_budget: ProviderSceneTimeBudget | null;
+  /** Vrai uniquement si le contenu parlé devient un sous-titre automatique P1. */
+  readonly subtitle_fit_applies: boolean;
+  readonly scene_subtitle_budgets: readonly ProviderSubtitleFitBudget[];
+  /** Pour `scene_id = null`, contrainte géométrique la plus restrictive. */
+  readonly generic_subtitle_budget: ProviderSubtitleFitBudget | null;
   /** `scene_id = null` signifie appliquer la même résolution à toutes les scènes autorisées. */
   readonly generic_resolution_allowed: boolean;
 }

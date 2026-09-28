@@ -1,4 +1,3 @@
-import type { Platform } from '../contracts/common.ts';
 import type { GroupLayer, ImageLayer, Layer, MaskLayer, PathLayer, ShapeLayer, TextLayer } from '../contracts/motion-spec.ts';
 import type { PatternDefinition, PatternSlot } from '../contracts/pattern.ts';
 import type { PlatformPresets } from '../contracts/platform.ts';
@@ -30,6 +29,7 @@ import type { RendererDescriptor } from '../rendering/capabilities.ts';
 import { buildDependencyGraph } from './dependency-graph.ts';
 import { assertAuxiliaryPlanLimits, assertInputLimits, assertPlanLimits } from './limits.ts';
 import { compileAudioPlan, compileSubtitlePlan } from './plans.ts';
+import { resolveRenderGeometry } from './render-geometry.ts';
 import { assertStyleVersionPolicy } from '../style/version-policy.ts';
 import type { StyleVersionBaseline } from '../style/version-policy.ts';
 import { buildReproducibilityManifest } from '../integrity/manifest.ts';
@@ -160,34 +160,6 @@ function resolveType(style: ResolvedStyle, token: string): TypeStyle {
   const value = style.style.typography.scale[tokenKey(token, 'type')];
   if (!value) throw new CompileError(`Style typographique « ${token} » introuvable.`);
   return value;
-}
-
-function platformSafeBox(presets: PlatformPresets, platform: Platform, format: string, outputWidth: number, outputHeight: number): Box {
-  const canvas = presets.formats[format];
-  const preset = presets.platforms[platform];
-  if (!canvas || !preset) throw new CompileError(`Preset ${platform}/${format} introuvable.`);
-  const reference = presets.formats[preset.safe_zone.format];
-  if (!reference) throw new CompileError(`Format de zone sûre « ${preset.safe_zone.format} » introuvable.`);
-  const sx = outputWidth / reference.width;
-  const sy = outputHeight / reference.height;
-  const i = preset.safe_zone.insets;
-  return { x: i.left * sx, y: i.top * sy, w: outputWidth - (i.left + i.right) * sx, h: outputHeight - (i.top + i.bottom) * sy };
-}
-
-function resolvedSafeBox(presets: PlatformPresets, platform: Platform, format: string, outputWidth: number, outputHeight: number, style: ResolvedStyle): Box {
-  const platformBox = platformSafeBox(presets, platform, format, outputWidth, outputHeight);
-  const sx = outputWidth / style.style.reference_canvas.width;
-  const sy = outputHeight / style.style.reference_canvas.height;
-  const margin = style.style.grid.margin;
-  const styleBox = {
-    x: margin.left * sx,
-    y: margin.top * sy,
-    w: outputWidth - (margin.left + margin.right) * sx,
-    h: outputHeight - (margin.top + margin.bottom) * sy,
-  };
-  const result = intersectBoxes(platformBox, styleBox);
-  if (result.w <= 0 || result.h <= 0) throw new CompileError('safe_zone.empty: les contraintes plateforme et style ne se recouvrent pas');
-  return result;
 }
 
 function alignOffset(container: number, item: number, align: 'start' | 'center' | 'end'): number {
@@ -568,14 +540,15 @@ function compileRenderPlan(input: CompileInput, profiler?: CompileProfiler): Ren
   profiler?.finish('validate_inputs', validationStarted);
 
   const layoutStarted = profiler?.start() ?? 0;
-  const presetCanvas = input.platformPresets.formats[input.spec.format.preset];
-  if (!presetCanvas) throw new CompileError(`Format « ${input.spec.format.preset} » introuvable.`);
   const renderScale = input.config.render_scale ?? 1;
-  if (!Number.isFinite(renderScale) || renderScale <= 0 || renderScale > 1) throw new CompileError('render_scale doit être dans ]0, 1].');
-  const canvas = { width: Math.round(presetCanvas.width * renderScale), height: Math.round(presetCanvas.height * renderScale) };
-  const platform = input.spec.format.platform_safe_zones[0];
-  if (!platform) throw new CompileError('Une plateforme de zone sûre est requise.');
-  const safe = resolvedSafeBox(input.platformPresets, platform, input.spec.format.preset, canvas.width, canvas.height, input.resolvedStyle);
+  const geometry = resolveRenderGeometry({
+    format: input.spec.format,
+    platform_presets: input.platformPresets,
+    resolved_style: input.resolvedStyle,
+    render_scale: renderScale,
+  }, (message) => new CompileError(message));
+  const canvas = geometry.canvas;
+  const safe = geometry.safe_zone;
   profiler?.finish('resolve_layout', layoutStarted);
   const fonts = new Map<string, RenderPlan['fonts'][number]>();
   const assets = new Map<string, RenderPlan['assets'][number]>();

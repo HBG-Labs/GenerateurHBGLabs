@@ -17,9 +17,11 @@ import {
 import {
   deriveCreativeReadingBudgets,
   inspectCreativeReadingFeasibility,
+  inspectCreativeSubtitleFeasibility,
   type CreativeReadingBudget,
   type CreativeReadingPolicy,
   type CreativeResolution,
+  type CreativeSubtitleFitBudget,
 } from '@motion-engine/creative-compiler';
 
 import {
@@ -555,6 +557,7 @@ function buildProviderResolutionContext(
   report: PlanningReport,
   assets: readonly AssetIntent[],
   readingBudgets: readonly CreativeReadingBudget[],
+  subtitleBudgets: readonly CreativeSubtitleFitBudget[],
 ): ProviderResolutionContext {
   const scenesByBeat = new Map<string, string[]>();
   report.scenes.forEach((scene) => scene.beat_ids.forEach((beatId) => {
@@ -581,6 +584,23 @@ function buildProviderResolutionContext(
           left.maximum_total_words - right.maximum_total_words
           || left.available_ms - right.available_ms
           || left.scene_id.localeCompare(right.scene_id))[0]!;
+    const sceneSubtitleBudgets = slot.constraints.channels.includes('spoken')
+      ? subtitleBudgets.filter((budget) => allowedSceneIds.includes(budget.scene_id)).map((budget) => ({
+          scene_id: budget.scene_id,
+          preferred_size: budget.preferred_size,
+          minimum_size: budget.minimum_size,
+          maximum_lines: budget.max_lines,
+          available_width: budget.available_width,
+          available_height: budget.available_height,
+        }))
+      : [];
+    const genericSubtitleBudget = sceneSubtitleBudgets.length === 0
+      ? null
+      : [...sceneSubtitleBudgets].sort((left, right) =>
+          left.maximum_lines - right.maximum_lines
+          || left.available_width * left.available_height - right.available_width * right.available_height
+          || right.minimum_size - left.minimum_size
+          || left.scene_id.localeCompare(right.scene_id))[0]!;
     return {
       slot_id: slot.id,
       beat_id: slot.beat_id,
@@ -595,6 +615,9 @@ function buildProviderResolutionContext(
       reading_budget_applies: slot.constraints.channels.includes('on_screen'),
       scene_time_budgets: sceneTimeBudgets,
       generic_time_budget: genericTimeBudget,
+      subtitle_fit_applies: sceneSubtitleBudgets.length > 0,
+      scene_subtitle_budgets: sceneSubtitleBudgets,
+      generic_subtitle_budget: genericSubtitleBudget,
       generic_resolution_allowed: true,
     };
   });
@@ -655,6 +678,47 @@ function readingSemantics(
         maximum_total_words: issue.maximum_total_words,
       },
     )));
+  });
+  const subtitleInspection = inspectCreativeSubtitleFeasibility({
+    plan,
+    planning_report: report,
+    content_slots: slots,
+    content: output.content.map((entry) => ({
+      slot_id: entry.slot_id,
+      ...(entry.scene_id === undefined ? {} : { scene_id: entry.scene_id }),
+      text: entry.text,
+      ...(slotMap.get(entry.slot_id)?.factual_requirement === 'source_required'
+        ? { source_slot: 'reading_budget_source' }
+        : {}),
+    })),
+    policy,
+  });
+  if (subtitleInspection.diagnostics.length > 0) diagnostics.push(...subtitleInspection.diagnostics.map((entry) => ({
+    ...entry,
+    code: `gateway.subtitle_preflight.${entry.code}`,
+  })));
+  subtitleInspection.issues.forEach((issue) => {
+    const outputIndex = output.content.findIndex((entry) => entry.slot_id === issue.slot_id
+      && (entry.scene_id === issue.scene_id || entry.scene_id === undefined));
+    diagnostics.push(diagnostic(
+      'gateway.output.subtitle_geometry_overflow',
+      'error',
+      outputIndex < 0 ? '$.content' : `$.content[${outputIndex}].text`,
+      'Le segment parlé ne tient pas dans la zone de sous-titre P1 à la taille lisible autorisée.',
+      'Raccourcir uniquement ce contenu tout en préservant son rôle sémantique ; ne modifier ni le design, ni la scène, ni la durée.',
+      {
+        slot_id: issue.slot_id,
+        scene_id: issue.scene_id,
+        segment_index: issue.segment_index,
+        preferred_size: issue.analysis.preferred_size,
+        minimum_size: issue.analysis.minimum_size,
+        line_count: issue.analysis.line_count,
+        maximum_lines: issue.analysis.max_lines,
+        available_width: issue.analysis.available_width,
+        available_height: issue.analysis.available_height,
+        overflow_reason: issue.analysis.overflow_reason ?? 'unknown',
+      },
+    ));
   });
   return diagnostics;
 }
@@ -984,6 +1048,7 @@ export async function runCreativeGateway(
     planned.planning.report,
     creativePlan.asset_intents,
     readingBudgetResult?.budgets ?? [],
+    readingBudgetResult?.subtitle_budgets ?? [],
   );
   const resolutionStage = await runStage<ResolutionGenerationOutput>({
     stage: 'resolution', context, provider: options.provider, request, maxRepairs, timeoutMs,
@@ -1167,6 +1232,7 @@ export function replayCreativeGateway(
     planned.planning.report,
     planned.planning.creative_plan.asset_intents,
     readingBudgetResult?.budgets ?? [],
+    readingBudgetResult?.subtitle_budgets ?? [],
   );
   context.diagnostics.push(...resolutionSemantics(
     snapshot.request,

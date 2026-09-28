@@ -14,7 +14,8 @@ import {
   type VisualLayoutStrategy,
 } from './contracts.ts';
 import { CompilationProfileSchema, CREATIVE_COMPILER_VERSION } from './contracts.ts';
-import { compilationProfileFingerprint } from './profile.ts';
+import { compilationProfileFingerprint, creativeMotionFormat } from './profile.ts';
+import { splitCreativeVoiceText } from './voice-text.ts';
 
 import {
   deriveCreativeId,
@@ -73,8 +74,6 @@ interface CompileState {
   readonly provenanceScenes: Array<CreativeCompileProvenance['scenes'][number]>;
   readonly provenanceLayers: Array<CreativeCompileProvenance['layers'][number]>;
 }
-
-const MAX_VOICE_SEGMENT = 400;
 
 function diagnostic(input: CreativeDiagnostic): CreativeDiagnostic {
   return input;
@@ -199,7 +198,7 @@ function addVoiceSegments(state: CompileState, scene: SceneIntent, slots: readon
   }
   const result: string[] = [];
   for (const entry of entries) {
-    splitAtWords(entry.text, MAX_VOICE_SEGMENT).forEach((text, index) => {
+    splitCreativeVoiceText(entry.text).forEach((text, index) => {
       const id = deriveCreativeId('voice_segment', { scene_id: scene.id, content_id: entry.id, index });
       state.voiceSegments.push({ id, text, gap_after: null, emphasis: [] });
       result.push(id);
@@ -631,7 +630,7 @@ export function compileCreativePlan(planInput: unknown, options: CreativeCompile
     },
     locale: plan.audience.locale,
     style_binding: styleBinding(options.resolved_style),
-    format: { preset: 'vertical_9x16' as const, platform_safe_zones: [options.platform ?? profile.platform] },
+    format: creativeMotionFormat(profile, options.platform),
     system: { id: profile.system.id, version: profile.system.version },
     rhythm: { curve: `creative.${profile.id.replaceAll('_', '.')}`, sections },
     voice: {

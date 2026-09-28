@@ -1,6 +1,13 @@
-import { hashDocument } from '@motion-engine/core';
+import { hashDocument, type MotionSceneSpec, type Platform } from '@motion-engine/core';
 
 import { CompilationProfileSchema, type CompilationProfile } from './contracts.ts';
+
+export function creativeMotionFormat(
+  profile: CompilationProfile,
+  platform?: Platform,
+): MotionSceneSpec['format'] {
+  return { preset: 'vertical_9x16', platform_safe_zones: [platform ?? profile.platform] };
+}
 
 export const SHORT_FORM_DEFAULT_PROFILE: CompilationProfile = CompilationProfileSchema.parse({
   schema: 'creative-compilation-profile',

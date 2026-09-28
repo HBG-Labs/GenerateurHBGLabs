@@ -90,6 +90,43 @@ describe('P1.5 — fermeture du pipeline', () => {
     expect(result.preflight.issues.map((issue) => issue.code)).not.toContain('subtitle.unsafe');
   });
 
+  it('affiche plusieurs voice_segments successifs comme unités de sous-titre distinctes', () => {
+    const legacy = buildP12Pipeline();
+    const spec = structuredClone(legacy.spec);
+    spec.voice.segments = [
+      { id: 'voice_first', text: 'Dans la ville, le premier signal apparaît.', gap_after: null, emphasis: [] },
+      { id: 'voice_second', text: 'Puis le récit avance avec une seconde idée claire.', gap_after: null, emphasis: [] },
+      { id: 'voice_third', text: 'Enfin, la conclusion tient dans sa propre unité.', gap_after: null, emphasis: [] },
+    ];
+    const scene = spec.scenes[0]!;
+    scene.subtitles = { mode: 'auto' };
+    scene.timing.anchor = { voice_segments: ['voice_first', 'voice_second', 'voice_third'] };
+    const result = compilePipeline({
+      spec, resolvedStyle: legacy.signalStyle, platformPresets: platforms(), pattern: legacy.pattern,
+      fontResources: fontResources(legacy.signalStyle, path.join(CORE, 'test-fixtures', 'fonts')),
+      config: { fps: 30, scene_duration_frames: 180 },
+    });
+    expect(result.subtitle_plan.segments).toHaveLength(3);
+    expect(result.subtitle_plan.segments.map((segment) => segment.source_segment_id)).toEqual(['voice_first', 'voice_second', 'voice_third']);
+    expect(result.subtitle_plan.segments[0]!.end_frame).toBeLessThanOrEqual(result.subtitle_plan.segments[1]!.start_frame);
+    expect(result.subtitle_plan.segments[1]!.end_frame).toBeLessThanOrEqual(result.subtitle_plan.segments[2]!.start_frame);
+    expect(result.subtitle_plan.segments.every((segment) => segment.lines.length <= 2)).toBe(true);
+  });
+
+  it('conserve text.overflow comme dernier filet P1 pour les sous-titres impossibles', () => {
+    const legacy = buildP12Pipeline();
+    const spec = structuredClone(legacy.spec);
+    spec.voice.segments = [{ id: 'voice_overflow', text: 'W'.repeat(300), gap_after: null, emphasis: [] }];
+    const scene = spec.scenes[0]!;
+    scene.subtitles = { mode: 'auto' };
+    scene.timing.anchor = { voice_segments: ['voice_overflow'] };
+    expect(() => compilePipeline({
+      spec, resolvedStyle: legacy.signalStyle, platformPresets: platforms(), pattern: legacy.pattern,
+      fontResources: fontResources(legacy.signalStyle, path.join(CORE, 'test-fixtures', 'fonts')),
+      config: { fps: 30, scene_duration_frames: 120 },
+    })).toThrow(/text\.overflow/u);
+  });
+
   it('déclare les capacités requises et refuse un renderer incomplet', () => {
     const plan = buildP14Pipeline().signalPlan;
     expect(plan.requirements.capabilities).toEqual(expect.arrayContaining(['IMAGE', 'MASK', 'PATH', 'TEXT']));

@@ -188,6 +188,10 @@ async function main(): Promise<void> {
     profile: SHORT_FORM_DEFAULT_PROFILE,
     resolved_style: p23Style('signal'),
     pattern: pattern(),
+    platform_presets: platforms(),
+    font_resources: p14FontResources(p23Style('signal')),
+    render_scale: 1,
+    minimum_readable_size: 28,
   };
   const gateway = await runCreativeGateway(request, {
     provider,

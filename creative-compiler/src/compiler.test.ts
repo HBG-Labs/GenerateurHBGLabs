@@ -4,9 +4,9 @@ import { hashDocument, validateSpec } from '@motion-engine/core';
 
 import { compileCreativePlan } from './compiler.ts';
 import { SHORT_FORM_DEFAULT_PROFILE } from './profile.ts';
-import { deriveCreativeReadingBudgets, inspectCreativeReadingFeasibility } from './reading-budget.ts';
+import { deriveCreativeReadingBudgets, inspectCreativeReadingFeasibility, inspectCreativeSubtitleFeasibility } from './reading-budget.ts';
 import { buildCreativeResolution } from './resolution.ts';
-import { genericPattern, hypotheticalFixture, nocturneStyle, plannerFixture, signalStyle } from './test-support.ts';
+import { fontResources, genericPattern, hypotheticalFixture, nocturneStyle, plannerFixture, platformPresets, signalStyle } from './test-support.ts';
 
 describe('Creative Compiler P2.3', () => {
   it('compile la fixture hypothétique résolue vers un MotionSpec P1 valide', () => {
@@ -44,6 +44,10 @@ describe('Creative Compiler P2.3', () => {
       profile: SHORT_FORM_DEFAULT_PROFILE,
       resolved_style: signalStyle(),
       pattern: genericPattern(),
+      platform_presets: platformPresets(),
+      font_resources: fontResources(signalStyle()),
+      render_scale: 1,
+      minimum_readable_size: 28,
     };
     const derived = deriveCreativeReadingBudgets({
       plan,
@@ -87,6 +91,10 @@ describe('Creative Compiler P2.3', () => {
         profile: SHORT_FORM_DEFAULT_PROFILE,
         resolved_style: style,
         pattern: genericPattern(),
+        platform_presets: platformPresets(),
+        font_resources: fontResources(style),
+        render_scale: 1,
+        minimum_readable_size: 28,
       },
     });
 
@@ -95,6 +103,66 @@ describe('Creative Compiler P2.3', () => {
     expect(derived.diagnostics.some((entry) => (
       entry.code === 'creative_reading.temporal.impossible_reading'
     ))).toBe(true);
+  });
+
+  it('dérive les contraintes de sous-titres depuis Signal et Nocturne sans valeur magique', () => {
+    const fixture = hypotheticalFixture();
+    const derive = (style: ReturnType<typeof signalStyle>) => deriveCreativeReadingBudgets({
+      plan: fixture.planning.creative_plan!,
+      planning_report: fixture.planning.report!,
+      content_slots: fixture.planning.content_slots,
+      policy: {
+        profile: SHORT_FORM_DEFAULT_PROFILE,
+        resolved_style: style,
+        pattern: genericPattern(),
+        platform_presets: platformPresets(),
+        font_resources: fontResources(style),
+        render_scale: 1,
+        minimum_readable_size: 28,
+      },
+    });
+    const signal = derive(signalStyle());
+    const nocturne = derive(nocturneStyle());
+    expect(signal.ok, JSON.stringify(signal.diagnostics)).toBe(true);
+    expect(nocturne.ok, JSON.stringify(nocturne.diagnostics)).toBe(true);
+    expect(signal.subtitle_budgets.length).toBeGreaterThan(0);
+    expect(nocturne.subtitle_budgets.length).toBeGreaterThan(0);
+    expect(signal.subtitle_budgets.every((budget) => budget.max_lines === signalStyle().style.subtitle_style.max_lines)).toBe(true);
+    expect(nocturne.subtitle_budgets.every((budget) => budget.max_lines === nocturneStyle().style.subtitle_style.max_lines)).toBe(true);
+    expect(signal.subtitle_budgets[0]).not.toEqual(nocturne.subtitle_budgets[0]);
+  });
+
+  it('vérifie une résolution générique contre toutes les scènes d’un beat splitté', () => {
+    const fixture = plannerFixture('long-60s');
+    const plan = fixture.planning.creative_plan!;
+    const report = fixture.planning.report!;
+    const splitBeat = report.scenes.find((scene, index, scenes) => (
+      scenes.some((candidate, other) => other !== index && candidate.beat_ids.some((id) => scene.beat_ids.includes(id)))
+    ))!.beat_ids[0]!;
+    const slot = fixture.planning.content_slots.find((entry) => (
+      entry.beat_id === splitBeat && entry.constraints.channels.includes('spoken')
+    ))!;
+    const style = signalStyle();
+    const policy = {
+      profile: SHORT_FORM_DEFAULT_PROFILE,
+      resolved_style: style,
+      pattern: genericPattern(),
+      platform_presets: platformPresets(),
+      font_resources: fontResources(style),
+      render_scale: 1,
+      minimum_readable_size: 28,
+    };
+    const short = inspectCreativeSubtitleFeasibility({
+      plan, planning_report: report, content_slots: fixture.planning.content_slots,
+      content: [{ slot_id: slot.id, text: 'Une révélation concise.' }], policy,
+    });
+    expect(short.ok).toBe(true);
+    const overflow = inspectCreativeSubtitleFeasibility({
+      plan, planning_report: report, content_slots: fixture.planning.content_slots,
+      content: [{ slot_id: slot.id, text: 'W'.repeat(120) }], policy,
+    });
+    const targetScenes = report.scenes.filter((scene) => scene.beat_ids.includes(splitBeat)).map((scene) => scene.scene_id).sort();
+    expect([...new Set(overflow.issues.map((issue) => issue.scene_id))].sort()).toEqual(targetScenes);
   });
 
   it('garde le même CreativePlan mais lie explicitement Signal ou Nocturne', () => {

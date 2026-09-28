@@ -42,6 +42,26 @@ export interface FitTextResult {
   attempts: number;
 }
 
+export type TextFitOverflowReason =
+  | 'minimum_exceeds_preferred'
+  | 'max_lines'
+  | 'width'
+  | 'height'
+  | 'multiple';
+
+export interface TextFitAnalysis {
+  readonly fits: boolean;
+  readonly preferred_size: number;
+  readonly resolved_size: number | null;
+  readonly minimum_size: number;
+  readonly line_count: number;
+  readonly max_lines: number;
+  readonly available_width: number;
+  readonly available_height: number;
+  readonly overflow_reason: TextFitOverflowReason | null;
+  readonly result: FitTextResult | null;
+}
+
 export class TextOverflowError extends Error {
   readonly diagnostic: {
     code: 'text.overflow';
@@ -140,22 +160,75 @@ function layoutAt(input: FitTextInput, size: number, lineHeightRatio: number): F
   return lines;
 }
 
-export function fitText(input: FitTextInput): FitTextResult {
-  if (input.minimum_size > input.preferred_size) throw new TextOverflowError(input);
+function analyze(input: FitTextInput): TextFitAnalysis {
+  if (input.minimum_size > input.preferred_size) return {
+    fits: false,
+    preferred_size: input.preferred_size,
+    resolved_size: null,
+    minimum_size: input.minimum_size,
+    line_count: 0,
+    max_lines: input.max_lines,
+    available_width: input.max_width,
+    available_height: input.max_height,
+    overflow_reason: 'minimum_exceeds_preferred',
+    result: null,
+  };
   const step = Math.max(1, Math.round(input.preferred_size / 30));
   const ratios = [...new Set([input.preferred_line_height, Math.max(1, input.preferred_line_height - 0.08)])];
   let attempts = 0;
+  let lastLines: FittedLine[] = [];
   for (let size = input.preferred_size; size >= input.minimum_size; size = Math.max(input.minimum_size, size - step)) {
     for (const ratio of ratios) {
       attempts += 1;
       const lines = layoutAt(input, size, ratio);
+      lastLines = lines;
       const fits =
         lines.length <= input.max_lines &&
         lines.every((line) => line.width <= input.max_width + 0.001) &&
         lines.reduce((sum, line) => sum + line.height, 0) <= input.max_height + 0.001;
-      if (fits) return { size, line_height_ratio: ratio, lines, attempts };
+      if (fits) {
+        const result = { size, line_height_ratio: ratio, lines, attempts };
+        return {
+          fits: true,
+          preferred_size: input.preferred_size,
+          resolved_size: size,
+          minimum_size: input.minimum_size,
+          line_count: lines.length,
+          max_lines: input.max_lines,
+          available_width: input.max_width,
+          available_height: input.max_height,
+          overflow_reason: null,
+          result,
+        };
+      }
     }
     if (size === input.minimum_size) break;
   }
+  const reasons: TextFitOverflowReason[] = [];
+  if (lastLines.length > input.max_lines) reasons.push('max_lines');
+  if (lastLines.some((line) => line.width > input.max_width + 0.001)) reasons.push('width');
+  if (lastLines.reduce((sum, line) => sum + line.height, 0) > input.max_height + 0.001) reasons.push('height');
+  return {
+    fits: false,
+    preferred_size: input.preferred_size,
+    resolved_size: null,
+    minimum_size: input.minimum_size,
+    line_count: lastLines.length,
+    max_lines: input.max_lines,
+    available_width: input.max_width,
+    available_height: input.max_height,
+    overflow_reason: reasons.length === 1 ? reasons[0]! : 'multiple',
+    result: null,
+  };
+}
+
+/** Analyse pure et non lançante utilisant strictement le même fitting que `fitText`. */
+export function analyzeTextFit(input: FitTextInput): TextFitAnalysis {
+  return analyze(input);
+}
+
+export function fitText(input: FitTextInput): FitTextResult {
+  const analysis = analyze(input);
+  if (analysis.result) return analysis.result;
   throw new TextOverflowError(input);
 }

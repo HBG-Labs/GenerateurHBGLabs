@@ -5,10 +5,8 @@ import {
 } from '../contracts/render-plan.ts';
 import type { AudioPlan, PlanLine, RenderPlan, SubtitlePlan } from '../contracts/render-plan.ts';
 import type { ResolvedStyle } from '../contracts/resolved-style.ts';
-import { hashDocument, sha256Hex } from '../integrity/canonical.ts';
-import { fitText } from '../typography/fit-text.ts';
-import { formatTypography } from '../typography/formatter.ts';
-import { HarfBuzzTextEngine } from '../typography/harfbuzz-text-engine.ts';
+import { hashDocument } from '../integrity/canonical.ts';
+import { fitSubtitleText, resolveSubtitleFittingContext } from '../typography/subtitle-fit.ts';
 import type { FontResource } from './compile.ts';
 
 const frameAt = (ms: number, fps: number): number => Math.round(ms * fps / 1_000);
@@ -158,12 +156,6 @@ export function compileAudioPlan(spec: MotionSceneSpec, style: ResolvedStyle, pl
   });
 }
 
-function tokenKey(token: string, prefix: string): string { return token.slice(`${prefix}.`.length); }
-function fontId(family: string, weight: number, style: string, axes: Readonly<Record<string, number>>): string {
-  const axis = Object.entries(axes).sort(([a], [b]) => a.localeCompare(b)).map(([tag, value]) => `${tag}_${value}`).join('_');
-  return `${family}_${weight}_${style}${axis ? `_${axis}` : ''}`.replace(/[^a-z0-9_]/g, '_').slice(0, 64);
-}
-
 export function compileSubtitlePlan(
   spec: MotionSceneSpec,
   style: ResolvedStyle,
@@ -172,30 +164,13 @@ export function compileSubtitlePlan(
   fontResources: Readonly<Record<string, FontResource>>,
   minimumReadableSize: number,
 ): { plan: SubtitlePlan; font: RenderPlan['fonts'][number] | null } {
-  const role = style.style.subtitle_style.type;
-  const type = style.style.typography.scale[tokenKey(role, 'type')];
-  if (!type) throw new Error(`subtitle.typography_role_invalid: ${role}`);
-  const family = style.style.typography.families[type.family];
-  if (!family) throw new Error(`subtitle.font_missing: ${type.family}`);
-  const file = family.files.find((candidate) => candidate.weight === type.weight && candidate.style === 'normal');
-  if (!file) throw new Error(`subtitle.font_missing: ${type.family}/${type.weight}`);
-  const resource = fontResources[file.src];
-  if (!resource || resource.sha256 !== file.sha256 || sha256Hex(resource.data) !== file.sha256) throw new Error(`subtitle.font_missing: ${file.src}`);
-  const engine = new HarfBuzzTextEngine();
-  const axes = file.axes ?? {};
-  const id = fontId(type.family, type.weight, file.style, axes);
-  const font = {
-    id, css_name: family.css_name, weight: type.weight, style: file.style, file: resource.file, sha256: resource.sha256,
-    axes, supported_axes: engine.supportedAxes({ data: resource.data, sha256: resource.sha256, axes }), substituted_for: file.fallback_for ?? null,
-  };
-  const scale = plan.canvas.width / style.style.reference_canvas.width;
-  const box = {
-    x: plan.safe_zone.x,
-    y: plan.safe_zone.y + plan.safe_zone.h * 0.76,
-    w: plan.safe_zone.w,
-    h: plan.safe_zone.h * 0.24,
-  };
-  const color = style.style.palette[tokenKey(style.style.subtitle_style.color, 'color')]!;
+  const context = resolveSubtitleFittingContext({
+    resolved_style: style,
+    canvas: plan.canvas,
+    safe_zone: plan.safe_zone,
+    font_resources: fontResources,
+    minimum_readable_size: minimumReadableSize,
+  });
   const enabledScenes = new Set(spec.scenes.filter((scene) => scene.subtitles.mode === 'auto').map((scene) => scene.id));
   const audioBySource = new Map(audio.voice_segments.map((segment) => [segment.source_segment_id, segment]));
   const ranges = segmentRanges(spec, style, plan);
@@ -204,21 +179,14 @@ export function compileSubtitlePlan(
     const range = ranges.get(source.id)!;
     if (!enabledScenes.has(range.scene)) continue;
     const audioSegment = audioBySource.get(source.id)!;
-    const formatted = formatTypography(source.text, spec.locale);
-    const fitted = fitText({
-      paragraphs: [[{ id: source.id, source_text: source.text, formatted_text: formatted.formatted_text, color }]],
-      break_policy: 'balance', max_width: box.w, max_height: box.h,
-      preferred_size: type.size * scale, minimum_size: Math.max(minimumReadableSize, (type.min_size ?? type.size * 0.7) * scale),
-      preferred_line_height: type.line_height, max_lines: style.style.subtitle_style.max_lines, tracking_em: type.tracking_em,
-      shape: (text, size, tracking) => engine.shape(text, size, tracking, { data: resource.data, sha256: resource.sha256, axes }, spec.locale),
-    });
+    const { fitted } = fitSubtitleText({ context, source_id: source.id, text: source.text, locale: spec.locale });
     let top = 0;
     const lines: PlanLine[] = fitted.lines.map((line) => {
       const result: PlanLine = {
         runs: line.fragments.map((fragment) => ({
           id: fragment.fragment_id, source_run: source.id, source_text: source.text, formatted_text: fragment.formatted_text,
-          text: fragment.formatted_text, font: id, weight: type.weight, size: fitted.size,
-          tracking_px: type.tracking_em * fitted.size, color, role: 'base', measured_width: fragment.metrics.width,
+          text: fragment.formatted_text, font: context.font.id, weight: context.weight, size: fitted.size,
+          tracking_px: context.tracking_em * fitted.size, color: context.color, role: 'base', measured_width: fragment.metrics.width,
           glyphs: fragment.metrics.glyphs,
         })),
         top, height: line.height, measured_width: line.width, ascent: line.ascent, descent: line.descent,
@@ -229,13 +197,13 @@ export function compileSubtitlePlan(
     });
     segments.push({
       id: stableId('subtitle', { source: source.id, scene: range.scene }), scene_id: range.scene, source_segment_id: source.id,
-      start_frame: audioSegment.start_frame, end_frame: audioSegment.end_frame, box, font: id, font_size: fitted.size,
-      line_height: fitted.line_height_ratio, minimum_size: Math.max(minimumReadableSize, (type.min_size ?? type.size * 0.7) * scale), lines,
+      start_frame: audioSegment.start_frame, end_frame: audioSegment.end_frame, box: context.box, font: context.font.id, font_size: fitted.size,
+      line_height: fitted.line_height_ratio, minimum_size: context.minimum_size, lines,
     });
   }
   const subtitlePlan = SubtitlePlanSchema.parse({
     schema: 'subtitle-plan', schema_version: SUBTITLE_PLAN_VERSION, timing_source: 'estimated', fps: plan.canvas.fps,
-    duration_frames: plan.canvas.duration_frames, safe_region: box, style_role: tokenKey(role, 'type').replaceAll('.', '_').slice(0, 64), segments,
+    duration_frames: plan.canvas.duration_frames, safe_region: context.box, style_role: context.style_role, segments,
   });
-  return { plan: subtitlePlan, font: segments.length > 0 ? font : null };
+  return { plan: subtitlePlan, font: segments.length > 0 ? context.font : null };
 }

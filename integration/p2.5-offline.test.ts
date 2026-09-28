@@ -14,7 +14,8 @@ import {
 import { SHORT_FORM_DEFAULT_PROFILE } from '@motion-engine/creative-compiler';
 
 import { p24Request, compileP24GatewayResult } from './p2.4-support.ts';
-import { pattern } from './p1.2-support.ts';
+import { pattern, platforms } from './p1.2-support.ts';
+import { p14FontResources } from './p1.4-support.ts';
 import { p23Style } from './p2.3-support.ts';
 
 const USAGE: ProviderUsage = {
@@ -29,7 +30,7 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
   calls = 0;
   resolutionCalls = 0;
   readonly requests: OpenAITransportRequest[] = [];
-  readonly mode: 'valid' | 'too_long' | 'repair' = 'valid';
+  readonly mode: 'valid' | 'too_long' | 'repair' | 'subtitle_too_long' | 'subtitle_repair' = 'valid';
   resolutionContexts: Array<{
     plan_id: string;
     content_slots: Array<{
@@ -52,11 +53,28 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
         maximum_total_words: number;
         maximum_recommended_characters_per_entry: number;
       } | null;
+      subtitle_fit_applies: boolean;
+      scene_subtitle_budgets: Array<{
+        scene_id: string;
+        preferred_size: number;
+        minimum_size: number;
+        maximum_lines: number;
+        available_width: number;
+        available_height: number;
+      }>;
+      generic_subtitle_budget: {
+        scene_id: string;
+        preferred_size: number;
+        minimum_size: number;
+        maximum_lines: number;
+        available_width: number;
+        available_height: number;
+      } | null;
     }>;
     asset_intents: Array<{ id: string; slot: string; purpose: string }>;
   }> = [];
 
-  constructor(mode: 'valid' | 'too_long' | 'repair' = 'valid') {
+  constructor(mode: 'valid' | 'too_long' | 'repair' | 'subtitle_too_long' | 'subtitle_repair' = 'valid') {
     this.mode = mode;
   }
 
@@ -83,6 +101,11 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
     this.resolutionCalls += 1;
     this.resolutionContexts.push(context);
     const mustBeLong = this.mode === 'too_long' || (this.mode === 'repair' && this.resolutionCalls === 1);
+    const mustOverflowSubtitle = this.mode === 'subtitle_too_long'
+      || (this.mode === 'subtitle_repair' && this.resolutionCalls === 1);
+    const subtitleTarget = context.content_slots.find((slot) => (
+      slot.constraints.channels.includes('spoken') && !slot.constraints.channels.includes('on_screen')
+    ))?.slot_id;
     return Promise.resolve({
       response_id: 'offline_resolution', model: 'gpt-6-luna', usage: USAGE,
       output: {
@@ -90,7 +113,9 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
         request_id: request.request_id, plan_id: context.plan_id, provenance: 'provider_generated',
         content: context.content_slots.map((slot) => ({
           slot_id: slot.slot_id, scene_id: null,
-          text: (mustBeLong
+          text: (mustOverflowSubtitle && slot.slot_id === subtitleTarget
+            ? 'W'.repeat(Math.min(120, slot.constraints.max_characters))
+            : mustBeLong
             ? Array.from(
                 { length: Math.max(8, Math.min(24, Math.floor((slot.constraints.max_characters + 1) / 4))) },
                 () => 'mot',
@@ -118,6 +143,10 @@ describe('P2.5 — adapter réel, transport offline', () => {
       profile: SHORT_FORM_DEFAULT_PROFILE,
       resolved_style: p23Style('signal'),
       pattern: pattern(),
+      platform_presets: platforms(),
+      font_resources: p14FontResources(p23Style('signal')),
+      render_scale: 1,
+      minimum_readable_size: 28,
     };
     const gateway = await runCreativeGateway(p24Request(), {
       provider,
@@ -145,12 +174,16 @@ describe('P2.5 — adapter réel, transport offline', () => {
     expect(direct.creative_compile.report.diagnostics.map((entry) => entry.code)).not.toContain('creative_compile.narration_required_unresolved');
   });
 
-  it('expose des budgets P1 par scène uniquement aux contenus on-screen', async () => {
+  it('expose le budget temporel aux textes écran et le fitting exact aux contenus sous-titrés', async () => {
     const transport = new OfflineStructuredTransport();
     const readingPolicy = {
       profile: SHORT_FORM_DEFAULT_PROFILE,
       resolved_style: p23Style('signal'),
       pattern: pattern(),
+      platform_presets: platforms(),
+      font_resources: p14FontResources(p23Style('signal')),
+      render_scale: 1,
+      minimum_readable_size: 28,
     };
     const result = await runCreativeGateway(p24Request(), {
       provider: new OpenAICreativeProvider({ transport }),
@@ -167,6 +200,8 @@ describe('P2.5 — adapter réel, transport offline', () => {
     expect(spokenOnly.length).toBeGreaterThan(0);
     expect(onScreen.every((slot) => slot.reading_budget_applies && slot.scene_time_budgets.length > 0)).toBe(true);
     expect(spokenOnly.every((slot) => !slot.reading_budget_applies && slot.scene_time_budgets.length === 0)).toBe(true);
+    expect(spokenOnly.every((slot) => slot.subtitle_fit_applies && slot.scene_subtitle_budgets.length > 0)).toBe(true);
+    expect(spokenOnly.every((slot) => slot.generic_subtitle_budget?.maximum_lines === 2)).toBe(true);
     expect(onScreen.filter((slot) => slot.allowed_scene_ids.length > 1)
       .every((slot) => slot.generic_time_budget?.maximum_total_words
         === Math.min(...slot.scene_time_budgets.map((budget) => budget.maximum_total_words)))).toBe(true);
@@ -181,6 +216,10 @@ describe('P2.5 — adapter réel, transport offline', () => {
         profile: SHORT_FORM_DEFAULT_PROFILE,
         resolved_style: p23Style('signal'),
         pattern: pattern(),
+        platform_presets: platforms(),
+        font_resources: p14FontResources(p23Style('signal')),
+        render_scale: 1,
+        minimum_readable_size: 28,
       },
     });
     expect(result.ok).toBe(false);
@@ -203,6 +242,10 @@ describe('P2.5 — adapter réel, transport offline', () => {
       profile: SHORT_FORM_DEFAULT_PROFILE,
       resolved_style: p23Style('signal'),
       pattern: pattern(),
+      platform_presets: platforms(),
+      font_resources: p14FontResources(p23Style('signal')),
+      render_scale: 1,
+      minimum_readable_size: 28,
     };
     const result = await runCreativeGateway(p24Request(), {
       provider: new OpenAICreativeProvider({ transport }),
@@ -219,5 +262,60 @@ describe('P2.5 — adapter réel, transport offline', () => {
     expect(transport.requests.at(-1)?.input).toContain('gateway.output.content_reading_budget_exceeded');
     const compiled = compileP24GatewayResult(result, 'signal');
     expect(compiled.p1.preflight.summary?.errors ?? 0).toBe(0);
+  });
+
+  it('rejette un contenu parlé qui dépasse la géométrie réelle des sous-titres', async () => {
+    const transport = new OfflineStructuredTransport('subtitle_too_long');
+    const style = p23Style('signal');
+    const result = await runCreativeGateway(p24Request(), {
+      provider: new OpenAICreativeProvider({ transport }),
+      max_repair_attempts: 0,
+      reading_policy: {
+        profile: SHORT_FORM_DEFAULT_PROFILE,
+        resolved_style: style,
+        pattern: pattern(),
+        platform_presets: platforms(),
+        font_resources: p14FontResources(style),
+        render_scale: 1,
+        minimum_readable_size: 28,
+      },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.creative_resolution).toBeNull();
+    expect(result.report.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'gateway.output.subtitle_geometry_overflow',
+        severity: 'error',
+        context: expect.objectContaining({ maximum_lines: 2, overflow_reason: expect.any(String) }),
+      }),
+    ]));
+  });
+
+  it('répare uniquement le sous-titre trop long puis franchit SubtitlePlan P1', async () => {
+    const transport = new OfflineStructuredTransport('subtitle_repair');
+    const style = p23Style('signal');
+    const readingPolicy = {
+      profile: SHORT_FORM_DEFAULT_PROFILE,
+      resolved_style: style,
+      pattern: pattern(),
+      platform_presets: platforms(),
+      font_resources: p14FontResources(style),
+      render_scale: 1,
+      minimum_readable_size: 28,
+    };
+    const result = await runCreativeGateway(p24Request(), {
+      provider: new OpenAICreativeProvider({ transport }),
+      max_repair_attempts: 1,
+      reading_policy: readingPolicy,
+      resolve_asset_bindings: ({ asset_intents }) => asset_intents.map((asset) => ({
+        asset_slot: asset.slot, asset_ref: 'neutral_landscape', provenance: 'fixture' as const,
+      })),
+    });
+    expect(result.ok).toBe(true);
+    expect(transport.resolutionCalls).toBe(2);
+    expect(transport.requests.at(-1)?.input).toContain('gateway.output.subtitle_geometry_overflow');
+    const compiled = compileP24GatewayResult(result, 'signal');
+    expect(compiled.p1.subtitle_plan.segments.length).toBeGreaterThan(0);
+    expect(compiled.p1.preflight.issues.map((entry) => entry.code)).not.toContain('text.overflow');
   });
 });

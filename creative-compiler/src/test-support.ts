@@ -2,10 +2,14 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import {
+  loadPlatformPresetsFile,
   loadStyleFile,
   resolveStyle,
+  sha256Hex,
   validatePatternDefinition,
+  type FontResource,
   type PatternDefinition,
+  type PlatformPresets,
   type ResolvedStyle,
 } from '@motion-engine/core';
 import {
@@ -43,6 +47,24 @@ export function genericPattern(): PatternDefinition {
   const result = validatePatternDefinition(readJson('packs/patterns/generic/statement.interrupt.json'));
   if (!result.ok) throw new Error(JSON.stringify(result.issues));
   return result.value;
+}
+
+export function platformPresets(): PlatformPresets {
+  return loadPlatformPresetsFile(path.join(WORKSPACE, 'packs', 'platforms', 'platforms.json'));
+}
+
+export function fontResources(style: ResolvedStyle): Record<string, FontResource> {
+  const result: Record<string, FontResource> = {};
+  for (const family of Object.values(style.style.typography.families)) {
+    for (const file of family.files) {
+      if (!file.src.startsWith('lib:')) throw new Error(`Police locale lib: attendue, reçu ${file.src}`);
+      const absolute = path.join(FONT_LIBRARY.libraryRoot, file.src.slice(4));
+      const data = readFileSync(absolute);
+      if (sha256Hex(data) !== file.sha256) throw new Error(`Hash de police invalide : ${file.src}`);
+      result[file.src] = { file: path.relative(WORKSPACE, absolute).replaceAll('\\', '/'), sha256: file.sha256, data };
+    }
+  }
+  return result;
 }
 
 export interface HypotheticalFixture {
