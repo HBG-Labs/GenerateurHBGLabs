@@ -5,7 +5,7 @@ import { StyleBindingSchema } from './motion-spec.ts';
 import { AssetProvenanceSchema, SemanticRegionSchema } from './visual.ts';
 
 export const MANIFEST_SCHEMA = 'reproducibility-manifest';
-export const MANIFEST_VERSION = '0.2.0';
+export const MANIFEST_VERSION = '0.3.0';
 
 /**
  * Tout ce qui détermine le rendu. Deux manifestes d'empreinte égale doivent
@@ -22,6 +22,7 @@ export const ReproducibilityManifestSchema = z.strictObject({
     git_commit: z.string().regex(/^[0-9a-f]{7,40}$/).nullable(),
     git_dirty: z.boolean(),
     reference_eligible: z.boolean(),
+    reference_ineligibility_reasons: z.array(z.string().min(1)),
   }),
   spec: z.strictObject({ spec_id: IdSchema, revision: z.number().int().min(1), sha256: Sha256Schema }),
   style: z.strictObject({
@@ -39,6 +40,7 @@ export const ReproducibilityManifestSchema = z.strictObject({
     substitution_reason: z.string().min(1).max(300).nullable(),
   }),
   platform_presets: z.strictObject({ version: SemVerSchema, sha256: Sha256Schema }).nullable(),
+  patterns: z.array(z.strictObject({ id: z.string(), version: SemVerSchema, sha256: Sha256Schema })),
   fonts: z.array(
     z.strictObject({
       file: z.string(),
@@ -74,13 +76,26 @@ export const ReproducibilityManifestSchema = z.strictObject({
       shaping_configuration: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
     }),
     renderer: z.strictObject({ name: z.string(), version: SemVerSchema }).nullable(),
+    renderer_capabilities_fingerprint: Sha256Schema.nullable(),
   }),
   render_plan_sha256: Sha256Schema,
+  audio_plan_sha256: Sha256Schema.nullable(),
+  subtitle_plan_sha256: Sha256Schema.nullable(),
+  preflight_sha256: Sha256Schema,
+  dependency_graph_sha256: Sha256Schema.nullable(),
   toolchain: z.strictObject({
     node: z.string(),
     remotion: z.string().nullable(),
     chromium: z.string().nullable(),
     ffmpeg: z.string().nullable(),
+    harfbuzzjs: z.string(),
+    renderer_package: z.string().nullable(),
+    os: z.string(),
+    arch: z.string(),
+  }),
+  configuration: z.strictObject({
+    engine_limits_sha256: Sha256Schema,
+    network_required: z.literal(false),
   }),
   render_config: z.strictObject({
     width: z.number().int().positive(),

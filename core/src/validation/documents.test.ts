@@ -14,10 +14,12 @@ import { documentKinds, readVersioned } from './versioning.ts';
 describe('versionnement', () => {
   it('connaît tous les types de documents du moteur', () => {
     expect(documentKinds().sort()).toEqual([
+      'audio-plan',
       'behavior-definition',
       'brand-motion-profile',
       'creative-intent',
       'creative-style-profile',
+      'dependency-graph',
       'motion-scene-spec',
       'pattern-definition',
       'platform-presets',
@@ -25,6 +27,7 @@ describe('versionnement', () => {
       'reproducibility-manifest',
       'resolved-style',
       'series-motion-profile',
+      'subtitle-plan',
     ]);
   });
   it('refuse un document d’un autre type', () => {

@@ -5,7 +5,23 @@ import { EasingSchema } from './style-profile.ts';
 import { AssetProvenanceSchema, NormalizedPointSchema, QualityPreflightReportSchema, SemanticRegionSchema } from './visual.ts';
 
 export const RENDER_PLAN_SCHEMA = 'render-plan';
-export const RENDER_PLAN_VERSION = '0.2.0';
+export const RENDER_PLAN_VERSION = '0.3.0';
+export const AUDIO_PLAN_VERSION = '0.2.0';
+export const SUBTITLE_PLAN_VERSION = '0.2.0';
+
+export const RENDER_CAPABILITIES = [
+  'TEXT', 'SHAPE', 'IMAGE', 'PATH', 'MASK', 'GROUP', 'TRANSFORM', 'OPACITY', 'CLIP',
+  'PATH_PROGRESS', 'COLOR', 'VARIABLE_FONT', 'CUT',
+] as const;
+export const RenderCapabilitySchema = z.enum(RENDER_CAPABILITIES);
+export type RenderCapability = z.infer<typeof RenderCapabilitySchema>;
+export const RendererRequirementsSchema = z.strictObject({
+  capabilities: z.array(RenderCapabilitySchema),
+  fingerprint: Sha256Schema,
+}).superRefine((requirements, context) => {
+  const normalized = [...new Set(requirements.capabilities)].sort();
+  if (JSON.stringify(normalized) !== JSON.stringify(requirements.capabilities)) context.addIssue({ code: 'custom', path: ['capabilities'], message: 'capabilities attendues triées et uniques' });
+});
 
 const Frame = z.number().int().min(0);
 const Px = z.number().finite();
@@ -39,6 +55,7 @@ export const KeyframeSchema = z.strictObject({
 export type Keyframe = z.infer<typeof KeyframeSchema>;
 
 export const TrackSchema = z.strictObject({
+  id: IdSchema,
   property: TrackPropertySchema,
   target: z.strictObject({ run: IdSchema.optional(), line: z.number().int().min(0).optional() }).optional(),
   keys: z.array(KeyframeSchema).min(1),
@@ -257,6 +274,7 @@ export const RenderPlanSchema = z.strictObject({
     duration_frames: z.number().int().positive(),
   }),
   safe_zone: BoxSchema,
+  requirements: RendererRequirementsSchema,
   provenance: z.strictObject({
     timing_source: z.enum(['explicit_duration', 'voice_timestamps', 'fallback_frames']),
     behavior_registry_fingerprint: Sha256Schema,
@@ -306,48 +324,72 @@ export const RenderPlanSchema = z.strictObject({
 });
 export type RenderPlan = z.infer<typeof RenderPlanSchema>;
 
-/** Montage audio : la voix n'est jamais étirée, seuls les silences entre segments changent. */
+const FrameRangeSchema = z.strictObject({ start_frame: Frame, end_frame: Frame });
+
+/** Contrat audio intégralement minuté. P1.5 ne produit aucun fichier voix. */
 export const AudioPlanSchema = z.strictObject({
   schema: z.literal('audio-plan'),
-  schema_version: SemVerSchema,
-  duration_s: z.number().positive(),
-  voice: z
-    .strictObject({
-      file: z.string(),
-      sha256: Sha256Schema,
-      segments: z.array(
-        z.strictObject({
-          id: IdSchema,
-          source_start_s: z.number().min(0),
-          source_end_s: z.number().min(0),
-          start_s: z.number().min(0),
-        }),
-      ),
-    })
-    .nullable(),
-  cues: z.array(
-    z.strictObject({
-      cue: CueIdSchema,
-      t_s: z.number().min(0),
-      gain_db: z.number().max(0),
-      source_event: IdSchema,
-    }),
-  ),
-  target_lufs: z.number().min(-30).max(-8),
-  true_peak_dbtp: z.number().min(-6).max(0),
+  schema_version: z.literal(AUDIO_PLAN_VERSION),
+  timing_source: z.enum(['estimated', 'aligned']),
+  fps: z.number().int().positive(),
+  duration_frames: z.number().int().positive(),
+  voice_segments: z.array(z.strictObject({
+    id: IdSchema,
+    source_segment_id: IdSchema,
+    source_text: z.string().min(1),
+    ...FrameRangeSchema.shape,
+    timing_source: z.enum(['estimated', 'aligned']),
+    asset: z.strictObject({ file: z.string(), sha256: Sha256Schema }).nullable(),
+    gain_db: z.number().min(-40).max(12),
+    priority: z.number().int().min(0).max(100),
+  })),
+  silences: z.array(z.strictObject({ id: IdSchema, ...FrameRangeSchema.shape, reason: z.enum(['lead_in', 'gap', 'tail', 'authored']) })),
+  sfx_cues: z.array(z.strictObject({
+    id: IdSchema, cue: CueIdSchema, at_frame: Frame, duration_frames: z.number().int().min(0),
+    gain_db: z.number().min(-40).max(12), priority: z.number().int().min(0).max(100),
+    source_event: IdSchema, asset: z.strictObject({ file: z.string(), sha256: Sha256Schema }).nullable(),
+  })),
+  music_regions: z.array(z.strictObject({
+    id: IdSchema, ...FrameRangeSchema.shape, gain_db: z.number().min(-40).max(12),
+    priority: z.number().int().min(0).max(100), asset: z.strictObject({ file: z.string(), sha256: Sha256Schema }).nullable(),
+    ducking: z.strictObject({ enabled: z.boolean(), target: z.enum(['voice', 'sfx']), attenuation_db: z.number().min(-40).max(0) }),
+  })),
+  mix: z.strictObject({ target_lufs: z.number().min(-30).max(-8), true_peak_dbtp: z.number().min(-6).max(0) }),
+}).superRefine((plan, context) => {
+  const ranges = [...plan.voice_segments, ...plan.silences, ...plan.music_regions];
+  ranges.forEach((range, index) => {
+    if (range.end_frame <= range.start_frame || range.end_frame > plan.duration_frames) context.addIssue({ code: 'custom', path: ['ranges', index], message: 'intervalle audio invalide' });
+  });
+  plan.sfx_cues.forEach((cue, index) => {
+    if (cue.at_frame >= plan.duration_frames) context.addIssue({ code: 'custom', path: ['sfx_cues', index, 'at_frame'], message: 'cue hors durée' });
+  });
 });
 export type AudioPlan = z.infer<typeof AudioPlanSchema>;
 
 export const SubtitlePlanSchema = z.strictObject({
   schema: z.literal('subtitle-plan'),
-  schema_version: SemVerSchema,
-  cues: z.array(
-    z.strictObject({
-      scene: IdSchema,
-      start_s: z.number().min(0),
-      end_s: z.number().min(0),
-      lines: z.array(z.string()).min(1).max(3),
-    }),
-  ),
+  schema_version: z.literal(SUBTITLE_PLAN_VERSION),
+  timing_source: z.enum(['estimated', 'aligned']),
+  fps: z.number().int().positive(),
+  duration_frames: z.number().int().positive(),
+  safe_region: BoxSchema,
+  style_role: IdSchema,
+  segments: z.array(z.strictObject({
+    id: IdSchema,
+    scene_id: IdSchema,
+    source_segment_id: IdSchema,
+    ...FrameRangeSchema.shape,
+    box: BoxSchema,
+    font: IdSchema,
+    font_size: z.number().positive(),
+    line_height: z.number().positive(),
+    minimum_size: z.number().positive(),
+    lines: z.array(PlanLineSchema).min(1).max(3),
+  })),
+}).superRefine((plan, context) => {
+  plan.segments.forEach((segment, index) => {
+    if (segment.end_frame <= segment.start_frame || segment.end_frame > plan.duration_frames) context.addIssue({ code: 'custom', path: ['segments', index], message: 'intervalle de sous-titre invalide' });
+    if (segment.font_size < segment.minimum_size) context.addIssue({ code: 'custom', path: ['segments', index, 'font_size'], message: 'taille sous le minimum lisible' });
+  });
 });
 export type SubtitlePlan = z.infer<typeof SubtitlePlanSchema>;

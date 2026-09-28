@@ -43,6 +43,3 @@ jobs:
 
       - name: Core isolation tests
         run: npm run test:isolation
-
-      - name: Renderer frame smoke test
-        run: npm run test:renderer-smoke

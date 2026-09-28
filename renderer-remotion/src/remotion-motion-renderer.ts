@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,13 +7,38 @@ import { fileURLToPath } from 'node:url';
 import { bundle } from '@remotion/bundler';
 import { renderMedia, renderStill, selectComposition } from '@remotion/renderer';
 
-import type { MotionRenderer, RenderFrameRequest, RenderFrameResult, RenderPlan, RenderVideoRequest, RenderVideoResult } from '@motion-engine/core';
+import { assertRenderGate } from '@motion-engine/core';
+import type { MotionRenderer, RenderCapability, RenderFrameRequest, RenderFrameResult, RenderPlan, RenderVideoRequest, RenderVideoResult } from '@motion-engine/core';
 
-import { assertP14Plan } from './interpreter.tsx';
+import { assertP15Plan } from './interpreter.tsx';
 import { REMOTION_RENDERER_VERSION, REMOTION_VERSION } from './version.ts';
 
 export interface RemotionMotionRendererOptions {
   browserExecutable?: string;
+}
+
+export const REMOTION_CAPABILITIES: readonly RenderCapability[] = Object.freeze([
+  'TEXT', 'SHAPE', 'IMAGE', 'PATH', 'MASK', 'GROUP', 'TRANSFORM', 'OPACITY', 'CLIP',
+  'PATH_PROGRESS', 'COLOR', 'VARIABLE_FONT', 'CUT',
+]);
+
+function temporaryOutput(finalFile: string): string {
+  const parsed = path.parse(finalFile);
+  return path.join(parsed.dir, `.${parsed.name}.${process.pid}.${Date.now()}.partial${parsed.ext}`);
+}
+
+export function finalizeAtomicOutput(temporary: string, finalFile: string): void {
+  if (!existsSync(temporary) || statSync(temporary).size <= 0) throw new Error(`Artefact temporaire invalide : ${temporary}`);
+  const backup = `${finalFile}.previous`;
+  if (existsSync(backup)) rmSync(backup, { force: true });
+  if (existsSync(finalFile)) renameSync(finalFile, backup);
+  try {
+    renameSync(temporary, finalFile);
+    if (existsSync(backup)) rmSync(backup, { force: true });
+  } catch (error) {
+    if (existsSync(backup) && !existsSync(finalFile)) renameSync(backup, finalFile);
+    throw error;
+  }
 }
 
 function safeRemove(directory: string): void {
@@ -48,6 +73,9 @@ function prepareResources(plan: RenderPlan, root: string): { fontUrls: Record<st
 }
 
 export class RemotionMotionRenderer implements MotionRenderer {
+  readonly descriptor = Object.freeze({
+    name: '@motion-engine/renderer-remotion', version: REMOTION_RENDERER_VERSION, capabilities: REMOTION_CAPABILITIES,
+  });
   readonly #browserExecutable: string | undefined;
   #serveUrl: string | null = null;
   #bundlePromise: Promise<{ serveUrl: string; bundleMs: number }> | null = null;
@@ -78,7 +106,8 @@ export class RemotionMotionRenderer implements MotionRenderer {
   }
 
   async renderFrame(request: RenderFrameRequest): Promise<RenderFrameResult> {
-    assertP14Plan(request.plan);
+    assertRenderGate(request.plan, this.descriptor);
+    assertP15Plan(request.plan);
     if (request.frame < 0 || request.frame >= request.plan.canvas.duration_frames) throw new Error(`Frame ${request.frame} hors du RenderPlan.`);
     const resources = prepareResources(request.plan, request.resource_root);
     mkdirSync(path.dirname(request.output_file), { recursive: true });
@@ -87,7 +116,13 @@ export class RemotionMotionRenderer implements MotionRenderer {
     const browserOptions = this.#browserExecutable ? { browserExecutable: this.#browserExecutable, chromeMode: 'chrome-for-testing' as const } : {};
     const composition = await selectComposition({ serveUrl: bundled.serveUrl, id: 'MotionEngine', inputProps, ...browserOptions });
     const renderStarted = performance.now();
-    await renderStill({ composition, serveUrl: bundled.serveUrl, inputProps, output: request.output_file, frame: request.frame, imageFormat: 'png', overwrite: true, logLevel: 'warn', ...browserOptions });
+    const temporary = temporaryOutput(request.output_file);
+    try {
+      await renderStill({ composition, serveUrl: bundled.serveUrl, inputProps, output: temporary, frame: request.frame, imageFormat: 'png', overwrite: true, logLevel: 'warn', ...browserOptions });
+      finalizeAtomicOutput(temporary, request.output_file);
+    } finally {
+      if (existsSync(temporary)) rmSync(temporary, { force: true });
+    }
     return {
       output_file: request.output_file,
       frame: request.frame,
@@ -102,7 +137,8 @@ export class RemotionMotionRenderer implements MotionRenderer {
   }
 
   async renderVideo(request: RenderVideoRequest): Promise<RenderVideoResult> {
-    assertP14Plan(request.plan);
+    assertRenderGate(request.plan, this.descriptor);
+    assertP15Plan(request.plan);
     const resources = prepareResources(request.plan, request.resource_root);
     mkdirSync(path.dirname(request.output_file), { recursive: true });
     const bundled = await this.#ensureBundle();
@@ -110,7 +146,13 @@ export class RemotionMotionRenderer implements MotionRenderer {
     const browserOptions = this.#browserExecutable ? { browserExecutable: this.#browserExecutable, chromeMode: 'chrome-for-testing' as const } : {};
     const composition = await selectComposition({ serveUrl: bundled.serveUrl, id: 'MotionEngine', inputProps, ...browserOptions });
     const renderStarted = performance.now();
-    await renderMedia({ composition, serveUrl: bundled.serveUrl, inputProps, outputLocation: request.output_file, codec: 'h264', overwrite: true, logLevel: 'warn', ...browserOptions });
+    const temporary = temporaryOutput(request.output_file);
+    try {
+      await renderMedia({ composition, serveUrl: bundled.serveUrl, inputProps, outputLocation: temporary, codec: 'h264', overwrite: true, logLevel: 'warn', ...browserOptions });
+      finalizeAtomicOutput(temporary, request.output_file);
+    } finally {
+      if (existsSync(temporary)) rmSync(temporary, { force: true });
+    }
     return {
       output_file: request.output_file,
       bytes: statSync(request.output_file).size,

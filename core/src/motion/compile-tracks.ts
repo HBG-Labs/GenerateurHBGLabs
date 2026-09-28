@@ -2,6 +2,7 @@ import type { BehaviorInstance, Layer } from '../contracts/motion-spec.ts';
 import type { Easing } from '../contracts/style-profile.ts';
 import type { ResolvedStyle } from '../contracts/resolved-style.ts';
 import type { Track } from '../contracts/render-plan.ts';
+import { hashDocument } from '../integrity/canonical.ts';
 import type { ResolvedSceneTiming, TemporalDiagnostic } from '../temporal/resolve.ts';
 
 export class MotionTrackError extends Error {
@@ -42,6 +43,8 @@ export interface VisualTrackContext {
   focus?: { translate_x: number; translate_y: number; scale: number };
 }
 
+type TrackDraft = Omit<Track, 'id'>;
+
 export function compileLayerTracks(
   layer: Layer,
   timing: ResolvedSceneTiming,
@@ -51,7 +54,7 @@ export function compileLayerTracks(
   visual: VisualTrackContext = {},
 ): Track[] {
   const instances = instanceMap(layer);
-  const tracks: Track[] = [];
+  const tracks: TrackDraft[] = [];
   const motionDistance = Math.max(8, (style.style.space['md'] ?? 24) * scaleY);
   const accentScale = 1 + style.style.motion_personality.max_overshoot;
 
@@ -127,10 +130,13 @@ export function compileLayerTracks(
     }
   }
   assertNoTrackConflicts(layer.id, tracks);
-  return tracks;
+  return tracks.map((track) => ({
+    ...track,
+    id: `track_${hashDocument({ layer: layer.id, source: track.source, property: track.property, target: track.target ?? null }).slice(0, 16)}`,
+  }));
 }
 
-export function assertNoTrackConflicts(layerId: string, tracks: readonly Track[]): void {
+export function assertNoTrackConflicts(layerId: string, tracks: readonly TrackDraft[]): void {
   const diagnostics: TemporalDiagnostic[] = [];
   for (let leftIndex = 0; leftIndex < tracks.length; leftIndex += 1) {
     const left = tracks[leftIndex]!;

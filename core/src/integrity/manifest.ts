@@ -3,13 +3,19 @@ import type { ReproducibilityManifest } from '../contracts/manifest.ts';
 import type { MotionSceneSpec } from '../contracts/motion-spec.ts';
 import type { PlatformPresets } from '../contracts/platform.ts';
 import type { RenderPlan } from '../contracts/render-plan.ts';
+import type { AudioPlan, SubtitlePlan } from '../contracts/render-plan.ts';
+import type { DependencyGraph } from '../contracts/dependency-graph.ts';
+import type { EngineLimits } from '../contracts/limits.ts';
+import { DEFAULT_ENGINE_LIMITS } from '../contracts/limits.ts';
 import type { ResolvedStyle } from '../contracts/resolved-style.ts';
 import { bindingMatches, describeResolved } from '../style/binding.ts';
 import { hashDocument } from './canonical.ts';
+import { rendererCompatibility } from '../rendering/capabilities.ts';
+import type { RendererDescriptor } from '../rendering/capabilities.ts';
 
 export interface ManifestInput {
   createdAt: string;
-  engine: Omit<ReproducibilityManifest['engine'], 'git_dirty' | 'reference_eligible'> & {
+  engine: Omit<ReproducibilityManifest['engine'], 'git_dirty' | 'reference_eligible' | 'reference_ineligibility_reasons'> & {
     git_dirty?: boolean;
     reference_eligible?: boolean;
   };
@@ -17,9 +23,16 @@ export interface ManifestInput {
   resolvedStyle: ResolvedStyle;
   plan: RenderPlan;
   platformPresets: PlatformPresets | null;
-  toolchain: ReproducibilityManifest['toolchain'];
+  toolchain: Omit<ReproducibilityManifest['toolchain'], 'harfbuzzjs' | 'renderer_package' | 'os' | 'arch'> &
+    Partial<Pick<ReproducibilityManifest['toolchain'], 'harfbuzzjs' | 'renderer_package' | 'os' | 'arch'>>;
   renderConfig: ReproducibilityManifest['render_config'];
   renderer?: { name: string; version: string } | null;
+  rendererDescriptor?: RendererDescriptor | null;
+  audioPlan?: AudioPlan | null;
+  subtitlePlan?: SubtitlePlan | null;
+  dependencyGraph?: DependencyGraph | null;
+  engineLimits?: EngineLimits;
+  pattern?: { id: string; version: string; sha256: string } | null;
   /** Obligatoire si le style utilisé n'est pas celui de la liaison de la spec. */
   substitutionReason?: string;
 }
@@ -31,6 +44,24 @@ export class ManifestError extends Error {
     super(message);
     this.name = 'ManifestError';
   }
+}
+
+export interface ReferenceEligibility {
+  eligible: boolean;
+  reasons: string[];
+}
+
+export function referenceEligibility(input: Pick<ManifestInput, 'engine' | 'plan' | 'platformPresets' | 'renderer' | 'rendererDescriptor'>): ReferenceEligibility {
+  const reasons: string[] = [];
+  if (input.engine.git_dirty ?? true) reasons.push('git_dirty');
+  if (!input.platformPresets) reasons.push('platform_version_unknown');
+  if (input.plan.preflight.issues.some((issue) => issue.severity === 'error')) reasons.push('preflight_error');
+  if (input.plan.fonts.some((font) => !/^[0-9a-f]{64}$/u.test(font.sha256))) reasons.push('font_unhashed');
+  if (input.plan.assets.some((asset) => !/^[0-9a-f]{64}$/u.test(asset.sha256))) reasons.push('asset_unhashed');
+  const descriptor = input.rendererDescriptor;
+  if (!descriptor && !input.renderer) reasons.push('renderer_unknown');
+  if (descriptor && rendererCompatibility(input.plan, descriptor).length > 0) reasons.push('renderer_incompatible');
+  return { eligible: reasons.length === 0, reasons: [...new Set(reasons)].sort() };
 }
 
 export function buildReproducibilityManifest(input: ManifestInput): ReproducibilityManifest {
@@ -54,13 +85,20 @@ export function buildReproducibilityManifest(input: ManifestInput): Reproducibil
     throw new ManifestError('Le Render Plan a été compilé depuis une autre spec.');
   }
 
+  const eligibility = referenceEligibility(input);
+  const requestedEligibility = input.engine.reference_eligible;
+  const eligible = (requestedEligibility ?? true) && eligibility.eligible;
+  if (requestedEligibility === true && !eligibility.eligible) throw new ManifestError(`Référence demandée mais inéligible : ${eligibility.reasons.join(', ')}`);
+  const limits = input.engineLimits ?? DEFAULT_ENGINE_LIMITS;
+  const renderer = input.rendererDescriptor ? { name: input.rendererDescriptor.name, version: input.rendererDescriptor.version } : input.renderer ?? null;
   const body: ManifestBody = {
     schema: MANIFEST_SCHEMA,
     schema_version: MANIFEST_VERSION,
     engine: {
       ...input.engine,
       git_dirty: input.engine.git_dirty ?? true,
-      reference_eligible: input.engine.reference_eligible ?? false,
+      reference_eligible: eligible,
+      reference_ineligibility_reasons: eligible ? [] : eligibility.reasons,
     },
     spec: { spec_id: spec.spec_id, revision: spec.revision, sha256: specHash },
     style: {
@@ -78,6 +116,7 @@ export function buildReproducibilityManifest(input: ManifestInput): Reproducibil
     platform_presets: input.platformPresets
       ? { version: input.platformPresets.version, sha256: hashDocument(input.platformPresets) }
       : null,
+    patterns: input.pattern ? [input.pattern] : [{ id: spec.system.id, version: spec.system.version, sha256: hashDocument({ id: spec.system.id, version: spec.system.version }) }],
     fonts: plan.fonts
       .map((font) => ({
         file: font.file,
@@ -109,10 +148,22 @@ export function buildReproducibilityManifest(input: ManifestInput): Reproducibil
         native_version: plan.provenance.text_engine.native_version,
         shaping_configuration: plan.provenance.text_engine.shaping_configuration,
       },
-      renderer: input.renderer ?? null,
+      renderer,
+      renderer_capabilities_fingerprint: input.rendererDescriptor ? hashDocument([...input.rendererDescriptor.capabilities].sort()) : null,
     },
     render_plan_sha256: hashDocument(plan),
-    toolchain: input.toolchain,
+    audio_plan_sha256: input.audioPlan ? hashDocument(input.audioPlan) : null,
+    subtitle_plan_sha256: input.subtitlePlan ? hashDocument(input.subtitlePlan) : null,
+    preflight_sha256: hashDocument(plan.preflight),
+    dependency_graph_sha256: input.dependencyGraph?.sha256 ?? null,
+    toolchain: {
+      ...input.toolchain,
+      harfbuzzjs: input.toolchain.harfbuzzjs ?? plan.provenance.text_engine.package_version,
+      renderer_package: input.toolchain.renderer_package ?? renderer?.version ?? null,
+      os: input.toolchain.os ?? process.platform,
+      arch: input.toolchain.arch ?? process.arch,
+    },
+    configuration: { engine_limits_sha256: hashDocument(limits), network_required: false },
     render_config: input.renderConfig,
   };
   return ReproducibilityManifestSchema.parse({

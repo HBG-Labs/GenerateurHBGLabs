@@ -7,6 +7,10 @@ import type { Box, PlanImageNode, PlanNode, PlanPathNode, PlanRun, PlanTextNode,
 import type { ResolvedStyle } from '../contracts/resolved-style.ts';
 import type { TypeStyle } from '../contracts/style-profile.ts';
 import type { QualityIssue } from '../contracts/visual.ts';
+import type { AudioPlan, SubtitlePlan } from '../contracts/render-plan.ts';
+import type { DependencyGraph } from '../contracts/dependency-graph.ts';
+import type { EngineLimits } from '../contracts/limits.ts';
+import { resolveEngineLimits } from '../contracts/limits.ts';
 import { hashDocument, sha256Hex } from '../integrity/canonical.ts';
 import { compileLayerTracks } from '../motion/compile-tracks.ts';
 import { behaviorRegistryFingerprint, P14_BEHAVIOR_REGISTRY } from '../motion/behavior-registry.ts';
@@ -21,10 +25,20 @@ import type { ImageResource } from '../visual/assets.ts';
 import { gridPlacementBox, intersectBoxes, normalizedRegionBox } from '../visual/layout.ts';
 import { compileNormalizedPath } from '../visual/path.ts';
 import { buildQualityPreflight } from '../visual/preflight.ts';
+import { rendererRequirements, assertRenderGate } from '../rendering/capabilities.ts';
+import type { RendererDescriptor } from '../rendering/capabilities.ts';
+import { buildDependencyGraph } from './dependency-graph.ts';
+import { assertInputLimits, assertPlanLimits } from './limits.ts';
+import { compileAudioPlan, compileSubtitlePlan } from './plans.ts';
+import { assertStyleVersionPolicy } from '../style/version-policy.ts';
+import type { StyleVersionBaseline } from '../style/version-policy.ts';
+import { buildReproducibilityManifest } from '../integrity/manifest.ts';
+import type { ManifestInput } from '../integrity/manifest.ts';
+import type { ReproducibilityManifest } from '../contracts/manifest.ts';
 import { validatePatternDefinition, validatePlatformPresets, validateRenderPlan, validateSpec } from '../validation/validate.ts';
 import type { MotionSceneSpec } from '../contracts/motion-spec.ts';
 
-export const COMPILER_VERSION = '0.3.0';
+export const COMPILER_VERSION = '0.4.0';
 
 export interface FontResource {
   file: string;
@@ -47,9 +61,11 @@ export interface CompileInput {
     max_render_cost?: number;
     max_attention_cost?: number;
     minimum_readable_size?: number;
+    limits?: Partial<EngineLimits>;
   };
   behaviorRegistry?: BehaviorRegistry;
   allowStyleSubstitution?: boolean;
+  previousStyle?: StyleVersionBaseline | null;
 }
 
 export class CompileError extends Error {
@@ -221,7 +237,7 @@ function compileText(layer: TextLayer, box: Box, context: CompileContext): PlanT
       shape: (text, size, trackingPx) => context.textEngine.shape(text, size, trackingPx, binary, context.spec.locale),
     });
   } catch (error) {
-    const diagnostics: QualityIssue[] = [{ code: 'text.overflow', severity: 'error', path: `layers.${layer.id}`, message: error instanceof Error ? error.message : 'texte impossible à ajuster' }];
+    const diagnostics: QualityIssue[] = [{ code: 'text.overflow', severity: 'error', path: `layers.${layer.id}`, node_id: layer.id, scene_id: context.timing.scene_id, message: error instanceof Error ? error.message : 'texte impossible à ajuster' }];
     throw new CompileError(diagnostics[0]!.message, diagnostics);
   }
   let top = 0;
@@ -468,8 +484,9 @@ function compileGroup(group: GroupLayer, groupBox: Box, pattern: PatternDefiniti
 }
 
 /** Compilation pure : aucun accès disque, aucune horloge, aucun hasard. */
-export function compileMotionScene(input: CompileInput): RenderPlan {
+function compileRenderPlan(input: CompileInput): RenderPlan {
   const registry = input.behaviorRegistry ?? P14_BEHAVIOR_REGISTRY;
+  assertStyleVersionPolicy(input.resolvedStyle, input.previousStyle ?? null);
   failValidation('PatternDefinition', validatePatternDefinition(input.pattern));
   failValidation('PlatformPresets', validatePlatformPresets(input.platformPresets));
   failValidation('MotionSceneSpecification', validateSpec(input.spec, input.resolvedStyle, {
@@ -480,6 +497,8 @@ export function compileMotionScene(input: CompileInput): RenderPlan {
   if (!Number.isInteger(input.config.fps) || input.config.fps <= 0) throw new CompileError('fps doit être un entier positif.');
   if (input.config.scene_duration_frames !== undefined && (!Number.isInteger(input.config.scene_duration_frames) || input.config.scene_duration_frames <= 0)) throw new CompileError('scene_duration_frames doit être un entier positif quand il est fourni.');
   if (input.spec.system.id !== input.pattern.id || input.spec.system.version !== input.pattern.version) throw new CompileError('Le PatternDefinition ne correspond pas au système déclaré par la spec.');
+  const limits = resolveEngineLimits(input.config.limits);
+  assertInputLimits(input.spec, input.assetResources ?? {}, limits);
 
   const presetCanvas = input.platformPresets.formats[input.spec.format.preset];
   if (!presetCanvas) throw new CompileError(`Format « ${input.spec.format.preset} » introuvable.`);
@@ -520,7 +539,9 @@ export function compileMotionScene(input: CompileInput): RenderPlan {
       transition_out: transition ? { kind: transition.behavior === 'CUT' ? 'cut' as const : 'tracks' as const, behavior: { id: transition.behavior, version: transition.version }, to_scene: transition.to_scene, at_frame: transition.at_frame } : null,
     };
   });
-  const base = {
+  const resolvedFonts = [...fonts.values()].sort((a, b) => a.id.localeCompare(b.id));
+  const resolvedAssets = [...assets.values()].sort((a, b) => a.ref.localeCompare(b.ref));
+  const baseWithoutRequirements = {
     schema: 'render-plan' as const,
     schema_version: RENDER_PLAN_VERSION,
     spec: { spec_id: input.spec.spec_id, revision: input.spec.revision, sha256: hashDocument(input.spec) },
@@ -529,13 +550,99 @@ export function compileMotionScene(input: CompileInput): RenderPlan {
     canvas: { width: canvas.width, height: canvas.height, fps: input.config.fps, duration_frames: temporal.duration_frames },
     safe_zone: safe,
     provenance: { timing_source: temporal.timing_source, behavior_registry_fingerprint: behaviorRegistryFingerprint(registry), text_engine: textEngine.descriptor },
-    fonts: [...fonts.values()].sort((a, b) => a.id.localeCompare(b.id)),
-    assets: [...assets.values()].sort((a, b) => a.ref.localeCompare(b.ref)),
+    fonts: resolvedFonts,
+    assets: resolvedAssets,
     scenes,
   };
+  const base = { ...baseWithoutRequirements, requirements: rendererRequirements({ scenes, fonts: resolvedFonts }) };
   const preflight = buildQualityPreflight(base);
   if (preflight.status === 'fail') throw new CompileError(`Quality preflight refusé — ${preflight.issues.filter((issue) => issue.severity === 'error').map((issue) => issue.code).join(', ')}`, preflight.issues);
   const plan = RenderPlanSchema.parse({ ...base, preflight });
   failValidation('RenderPlan', validateRenderPlan(plan));
+  assertPlanLimits(plan, limits);
   return plan;
+}
+
+export const COMPILER_PIPELINE_PHASES = [
+  'validate_inputs', 'resolve_dependencies', 'resolve_temporal', 'resolve_layout', 'resolve_typography',
+  'resolve_assets', 'compile_behaviors', 'resolve_audio_plan', 'resolve_subtitles',
+  'quality_preflight', 'build_render_plan', 'build_manifest',
+] as const;
+
+const PURE_COMPILER_PHASES = COMPILER_PIPELINE_PHASES.slice(0, -1) as readonly (typeof COMPILER_PIPELINE_PHASES)[number][];
+
+export interface CompilerPipelineResult {
+  render_plan: RenderPlan;
+  audio_plan: AudioPlan;
+  subtitle_plan: SubtitlePlan;
+  preflight: RenderPlan['preflight'];
+  dependency_graph: DependencyGraph;
+  hashes: { render_plan: string; audio_plan: string; subtitle_plan: string; dependency_graph: string };
+  phases: readonly (typeof COMPILER_PIPELINE_PHASES)[number][];
+}
+
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child);
+  }
+  return value;
+}
+
+/** Pipeline P1.5 pur : aucun disque, réseau, hasard ou horloge. */
+export function compilePipeline(input: CompileInput): CompilerPipelineResult {
+  let renderPlan = compileRenderPlan(input);
+  const audioPlan = compileAudioPlan(input.spec, input.resolvedStyle, renderPlan);
+  const minimumReadableSize = input.config.minimum_readable_size ?? Math.max(14, 28 * (input.config.render_scale ?? 1));
+  const subtitles = compileSubtitlePlan(input.spec, input.resolvedStyle, renderPlan, audioPlan, input.fontResources, minimumReadableSize);
+  if (subtitles.font && !renderPlan.fonts.some((font) => font.id === subtitles.font!.id)) {
+    const { preflight: _oldPreflight, requirements: _oldRequirements, ...base } = renderPlan;
+    const fonts = [...renderPlan.fonts, subtitles.font].sort((a, b) => a.id.localeCompare(b.id));
+    const requirements = rendererRequirements({ scenes: renderPlan.scenes, fonts });
+    const draft = { ...base, fonts, requirements };
+    const preflight = buildQualityPreflight(draft, { audioPlan, subtitlePlan: subtitles.plan });
+    renderPlan = RenderPlanSchema.parse({ ...draft, preflight });
+  } else {
+    const { preflight: _oldPreflight, ...draft } = renderPlan;
+    renderPlan = RenderPlanSchema.parse({ ...draft, preflight: buildQualityPreflight(draft, { audioPlan, subtitlePlan: subtitles.plan }) });
+  }
+  assertPlanLimits(renderPlan, resolveEngineLimits(input.config.limits));
+  if (audioPlan.sfx_cues.length > resolveEngineLimits(input.config.limits).max_audio_cues) throw new CompileError('limits.audio_cues');
+  if (subtitles.plan.segments.length > resolveEngineLimits(input.config.limits).max_subtitle_segments) throw new CompileError('limits.subtitle_segments');
+  const graph = buildDependencyGraph(input.spec, renderPlan, audioPlan, subtitles.plan);
+  const result: CompilerPipelineResult = {
+    render_plan: renderPlan, audio_plan: audioPlan, subtitle_plan: subtitles.plan, preflight: renderPlan.preflight,
+    dependency_graph: graph,
+    hashes: { render_plan: hashDocument(renderPlan), audio_plan: hashDocument(audioPlan), subtitle_plan: hashDocument(subtitles.plan), dependency_graph: graph.sha256 },
+    phases: PURE_COMPILER_PHASES,
+  };
+  return deepFreeze(result);
+}
+
+/** Compatibilité P1.1–P1.4 : renvoie la sortie RenderPlan du pipeline fermé. */
+export function compileMotionScene(input: CompileInput): RenderPlan {
+  return compilePipeline(input).render_plan;
+}
+
+/** Frontière obligatoire avant tout lancement renderer. */
+export type CompilationManifestContext = Omit<ManifestInput, 'spec' | 'resolvedStyle' | 'plan' | 'audioPlan' | 'subtitlePlan' | 'dependencyGraph' | 'rendererDescriptor' | 'pattern'>;
+export interface RenderCompilationResult extends CompilerPipelineResult {
+  manifest: ReproducibilityManifest;
+}
+
+export function compileForRender(input: CompileInput, renderer: RendererDescriptor, manifest: CompilationManifestContext): RenderCompilationResult {
+  const result = compilePipeline(input);
+  assertRenderGate(result.render_plan, renderer);
+  const reproducibilityManifest = buildReproducibilityManifest({
+    ...manifest,
+    spec: input.spec,
+    resolvedStyle: input.resolvedStyle,
+    plan: result.render_plan,
+    audioPlan: result.audio_plan,
+    subtitlePlan: result.subtitle_plan,
+    dependencyGraph: result.dependency_graph,
+    rendererDescriptor: renderer,
+    pattern: { id: input.pattern.id, version: input.pattern.version, sha256: hashDocument(input.pattern) },
+  });
+  return deepFreeze({ ...result, phases: COMPILER_PIPELINE_PHASES, manifest: reproducibilityManifest });
 }

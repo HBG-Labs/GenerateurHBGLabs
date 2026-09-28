@@ -51,22 +51,35 @@ export type ImageAssetMetadata = z.infer<typeof ImageAssetMetadataSchema>;
 
 export const QualityIssueSchema = z.strictObject({
   code: z.string().regex(/^[a-z][a-z0-9_.]*$/),
-  severity: z.enum(['error', 'warning']),
+  severity: z.enum(['error', 'warning', 'info']),
   path: z.string().min(1),
+  node_id: IdSchema.nullable().optional(),
+  scene_id: IdSchema.nullable().optional(),
   message: z.string().min(1).max(500),
+  context: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+  suggested_action: z.string().min(1).max(500).nullable().optional(),
+  /** @deprecated P1.4 compatibility; new producers use `context`. */
   details: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 export type QualityIssue = z.infer<typeof QualityIssueSchema>;
 
 export const QualityPreflightReportSchema = z.strictObject({
+  schema: z.literal('quality-preflight-report').optional(),
+  schema_version: z.literal('0.2.0').optional(),
   status: z.enum(['pass', 'warn', 'fail']),
   issues: z.array(QualityIssueSchema),
+  summary: z
+    .strictObject({ errors: z.number().int().min(0), warnings: z.number().int().min(0), infos: z.number().int().min(0) })
+    .optional(),
   checks: z.strictObject({
     fonts: z.number().int().min(0),
     assets: z.number().int().min(0),
     text_nodes: z.number().int().min(0),
     safe_nodes: z.number().int().min(0),
     contrast_pairs: z.number().int().min(0),
+    motion_tracks: z.number().int().min(0).optional(),
+    subtitle_segments: z.number().int().min(0).optional(),
+    audio_cues: z.number().int().min(0).optional(),
   }),
 });
 export type QualityPreflightReport = z.infer<typeof QualityPreflightReportSchema>;

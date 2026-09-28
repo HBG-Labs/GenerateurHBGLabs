@@ -14,6 +14,9 @@ export * from './contracts/pattern.ts';
 export * from './contracts/render-plan.ts';
 export * from './contracts/manifest.ts';
 export * from './contracts/visual.ts';
+export * from './contracts/limits.ts';
+export * from './contracts/dependency-graph.ts';
+export * from './contracts/metrics.ts';
 
 export { resolveStyle, resolvedStyleHash } from './style/resolve-style.ts';
 export type { ResolveStyleInput } from './style/resolve-style.ts';
@@ -21,9 +24,11 @@ export { bindingMatches, describeResolved } from './style/binding.ts';
 export { contrastRatio, relativeLuminance } from './style/contrast.ts';
 
 export { canonicalJson, hashDocument, sha256Hex } from './integrity/canonical.ts';
-export { buildReproducibilityManifest, manifestHash, verifyManifest, ManifestError } from './integrity/manifest.ts';
+export { buildReproducibilityManifest, manifestHash, verifyManifest, referenceEligibility, ManifestError } from './integrity/manifest.ts';
 export type { ManifestInput } from './integrity/manifest.ts';
 export type { MotionRenderer, RenderFrameRequest, RenderFrameResult, RenderVideoRequest, RenderVideoResult } from './rendering/motion-renderer.ts';
+export { assertRendererCompatible, assertRenderGate, rendererCompatibility, rendererRequirements, RendererCompatibilityError, RenderGateError } from './rendering/capabilities.ts';
+export type { RendererDescriptor } from './rendering/capabilities.ts';
 
 export {
   validateBrandProfile,
@@ -37,7 +42,7 @@ export {
   validateSpec,
   validateStyle,
 } from './validation/validate.ts';
-export { readVersioned, currentVersion, documentKinds } from './validation/versioning.ts';
+export { readVersioned, currentVersion, documentKinds, versionRegistry } from './validation/versioning.ts';
 export type { DocumentKind, DocumentKinds } from './validation/versioning.ts';
 export { formatIssues, hasErrors, ValidationFailure } from './validation/issues.ts';
 export type { ValidationIssue, ValidationResult } from './validation/issues.ts';
@@ -91,8 +96,13 @@ export { boxContains, gridPlacementBox, intersectBoxes, normalizedRegionBox, res
 export type { VisualLayoutKind } from './visual/layout.ts';
 export { compileNormalizedPath, PathGeometryError } from './visual/path.ts';
 export { buildQualityPreflight } from './visual/preflight.ts';
+export { assertStyleVersionPolicy, StyleVersionPolicyError } from './style/version-policy.ts';
+export type { StyleVersionBaseline } from './style/version-policy.ts';
 
 export { buildMotionSceneSpec, SPEC_BUILDER_VERSION, SpecBuilderError } from './spec-builder/build-spec.ts';
 export type { BuildSpecInput, SpecContentLine } from './spec-builder/build-spec.ts';
-export { compileMotionScene, COMPILER_VERSION, CompileError } from './compiler/compile.ts';
-export type { CompileInput, FontResource } from './compiler/compile.ts';
+export { compileMotionScene, compilePipeline, compileForRender, COMPILER_PIPELINE_PHASES, COMPILER_VERSION, CompileError } from './compiler/compile.ts';
+export type { CompilationManifestContext, CompileInput, CompilerPipelineResult, FontResource, RenderCompilationResult } from './compiler/compile.ts';
+export { buildDependencyGraph, affectedNodes } from './compiler/dependency-graph.ts';
+export { compileAudioPlan, compileSubtitlePlan } from './compiler/plans.ts';
+export { assertInputLimits, assertPlanLimits, EngineLimitError } from './compiler/limits.ts';

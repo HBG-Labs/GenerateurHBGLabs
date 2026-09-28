@@ -47,12 +47,13 @@ export function codes(result: { ok: boolean; issues?: { code: string; severity?:
 export function minimalPlan(): Json {
   return {
     schema: 'render-plan',
-    schema_version: '0.2.0',
+    schema_version: '0.3.0',
     spec: { spec_id: 'moon_question', revision: 1, sha256: 'a'.repeat(64) },
     style: { mode: 'creative', sha256: 'b'.repeat(64) },
-    compiler_version: '0.3.0',
+    compiler_version: '0.4.0',
     canvas: { width: 1080, height: 1920, fps: 30, duration_frames: 60 },
     safe_zone: { x: 120, y: 200, w: 840, h: 1500 },
+    requirements: { capabilities: ['OPACITY', 'TEXT'], fingerprint: 'e'.repeat(64) },
     provenance: {
       timing_source: 'explicit_duration',
       behavior_registry_fingerprint: 'd'.repeat(64),
@@ -100,7 +101,7 @@ export function minimalPlan(): Json {
                 baseline: 115,
               },
             ],
-            tracks: [{ property: 'opacity', keys: [{ frame: 0, value: 0 }, { frame: 10, value: 1 }], source: 'bh_question_in' }],
+            tracks: [{ id: 'track_question', property: 'opacity', keys: [{ frame: 0, value: 0 }, { frame: 10, value: 1 }], source: 'bh_question_in' }],
           },
         ],
         transition_out: null,

@@ -27,7 +27,15 @@ describe('frontières Core / renderer-remotion', () => {
     };
     expect(corePackage.dependencies?.['remotion']).toBeUndefined();
     expect(corePackage.dependencies?.['@motion-engine/renderer-remotion']).toBeUndefined();
-    expect(rendererPackage.dependencies?.['@motion-engine/core']).toBe('0.3.0');
+    expect(rendererPackage.dependencies?.['@motion-engine/core']).toBe('0.4.0');
     expect(rendererPackage.dependencies?.['remotion']).toBe('4.0.529');
+  });
+
+  it('le renderer de référence ne contient aucun client réseau', () => {
+    const sources = sourceFiles(path.join(WORKSPACE, 'renderer-remotion', 'src')).map((file) => readFileSync(file, 'utf8')).join('\n');
+    expect(sources).not.toMatch(/\bfetch\s*\(/u);
+    expect(sources).not.toMatch(/\bXMLHttpRequest\b/u);
+    expect(sources).not.toMatch(/from\s+['"](?:node:)?(?:http|https)['"]/u);
+    expect(sources).toContain('data:${mime};base64');
   });
 });

@@ -49,12 +49,13 @@ describe('la même spec, d’autres styles', () => {
     const spec = pilotSpec() as unknown as MotionSceneSpec;
     const plan = {
       schema: 'render-plan',
-      schema_version: '0.2.0',
+      schema_version: '0.3.0',
       spec: { spec_id: spec.spec_id, revision: spec.revision, sha256: hashDocument(spec) },
       style: { mode: nocturne.mode, sha256: nocturne.sha256 },
-      compiler_version: '0.3.0',
+      compiler_version: '0.4.0',
       canvas: { width: 1080, height: 1920, fps: 30, duration_frames: 30 },
       safe_zone: { x: 0, y: 0, w: 1080, h: 1920 },
+      requirements: { capabilities: [], fingerprint: hashDocument([]) },
       provenance: {
         timing_source: 'explicit_duration',
         behavior_registry_fingerprint: 'c'.repeat(64),

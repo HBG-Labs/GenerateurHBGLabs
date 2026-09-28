@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import {
-  compileMotionScene,
+  compilePipeline,
   ImageAssetMetadataSchema,
   loadStyleFile,
   P14_BEHAVIOR_REGISTRY,
@@ -10,7 +10,7 @@ import {
   sha256Hex,
   validateSpec,
 } from '@motion-engine/core';
-import type { FontResource, ImageResource, MotionSceneSpec, RenderPlan, ResolvedStyle } from '@motion-engine/core';
+import type { CompilerPipelineResult, FontResource, ImageResource, MotionSceneSpec, RenderPlan, ResolvedStyle } from '@motion-engine/core';
 
 import { pattern, platforms } from './p1.2-support.ts';
 import { FONT_LIBRARY, WORKSPACE, loadNocturne, readJson } from './support.ts';
@@ -22,6 +22,8 @@ export interface P14Pipeline {
   signalPlan: RenderPlan;
   nocturnePlan: RenderPlan;
   asset: ImageResource;
+  signalPipeline: CompilerPipelineResult;
+  nocturnePipeline: CompilerPipelineResult;
 }
 
 function p14Signal(): ResolvedStyle {
@@ -31,7 +33,7 @@ function p14Signal(): ResolvedStyle {
   return resolved.value;
 }
 
-function resources(style: ResolvedStyle): Record<string, FontResource> {
+export function p14FontResources(style: ResolvedStyle): Record<string, FontResource> {
   const result: Record<string, FontResource> = {};
   for (const family of Object.values(style.style.typography.families)) {
     for (const file of family.files) {
@@ -69,12 +71,14 @@ export function buildP14Pipeline(renderScale = 0.5): P14Pipeline {
     behaviorRegistry: P14_BEHAVIOR_REGISTRY,
     config: { fps: 30, render_scale: renderScale, minimum_readable_size: renderScale === 1 ? 28 : 14 },
   } as const;
-  const signalPlan = compileMotionScene({ ...common, resolvedStyle: signalStyle, fontResources: resources(signalStyle) });
-  const nocturnePlan = compileMotionScene({
+  const signalPipeline = compilePipeline({ ...common, resolvedStyle: signalStyle, fontResources: p14FontResources(signalStyle) });
+  const nocturnePipeline = compilePipeline({
     ...common,
     resolvedStyle: nocturneStyle,
-    fontResources: resources(nocturneStyle),
+    fontResources: p14FontResources(nocturneStyle),
     allowStyleSubstitution: true,
   });
-  return { spec, signalStyle, nocturneStyle, signalPlan, nocturnePlan, asset };
+  const signalPlan = signalPipeline.render_plan;
+  const nocturnePlan = nocturnePipeline.render_plan;
+  return { spec, signalStyle, nocturneStyle, signalPlan, nocturnePlan, signalPipeline, nocturnePipeline, asset };
 }

@@ -1,4 +1,5 @@
 import type { RenderPlan } from '../contracts/render-plan.ts';
+import type { RendererDescriptor } from './capabilities.ts';
 
 export interface RenderFrameRequest {
   plan: RenderPlan;
@@ -41,6 +42,7 @@ export interface RenderVideoResult {
 
 /** Frontière générique : le cœur ne connaît ni React, ni Chromium, ni Remotion. */
 export interface MotionRenderer {
+  readonly descriptor: RendererDescriptor;
   renderFrame(request: RenderFrameRequest): Promise<RenderFrameResult>;
   renderVideo(request: RenderVideoRequest): Promise<RenderVideoResult>;
 }

@@ -12,7 +12,7 @@ export interface GenericCompositionProps extends Record<string, unknown> {
 
 const TRACKS = new Set(['opacity', 'translate_x', 'translate_y', 'scale', 'rotate', 'clip_top', 'clip_right', 'clip_bottom', 'clip_left', 'path_progress', 'color']);
 
-export function assertP14Plan(plan: RenderPlan): void {
+export function assertP15Plan(plan: RenderPlan): void {
   const visit = (node: PlanNode): void => {
     for (const track of node.tracks) if (!TRACKS.has(track.property)) throw new Error(`Track « ${track.property} » inconnu du renderer générique.`);
     if (node.type === 'group' || node.type === 'mask') node.children.forEach(visit);
@@ -20,8 +20,9 @@ export function assertP14Plan(plan: RenderPlan): void {
   plan.scenes.forEach((scene) => scene.nodes.forEach(visit));
 }
 
-export const assertP13Plan = assertP14Plan;
-export const assertP12Plan = assertP14Plan;
+export const assertP14Plan = assertP15Plan;
+export const assertP13Plan = assertP15Plan;
+export const assertP12Plan = assertP15Plan;
 
 function genericSpring(progress: number, durationFrames: number, fps: number, ease: Extract<Track['keys'][number]['ease'], { type: 'spring' }>): number {
   const duration = durationFrames / fps;

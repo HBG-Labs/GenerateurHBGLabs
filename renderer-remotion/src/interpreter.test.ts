@@ -6,12 +6,13 @@ import { assertP12Plan, numericTrackValue } from './interpreter.tsx';
 
 const plan = (): RenderPlan => ({
   schema: 'render-plan',
-  schema_version: '0.2.0',
+  schema_version: '0.3.0',
   spec: { spec_id: 'test_plan', revision: 1, sha256: 'a'.repeat(64) },
   style: { mode: 'creative', sha256: 'b'.repeat(64) },
-  compiler_version: '0.3.0',
+  compiler_version: '0.4.0',
   canvas: { width: 540, height: 960, fps: 30, duration_frames: 30 },
   safe_zone: { x: 0, y: 0, w: 540, h: 960 },
+  requirements: { capabilities: ['GROUP', 'SHAPE', 'TEXT'], fingerprint: 'd'.repeat(64) },
   provenance: {
     timing_source: 'explicit_duration',
     behavior_registry_fingerprint: 'c'.repeat(64),
@@ -105,6 +106,7 @@ describe('interpréteur Remotion P1.3', () => {
 
   it('interpole le sous-ensemble minimal des tracks', () => {
     const track: Track = {
+      id: 'track_linear',
       property: 'opacity',
       source: 'test_track',
       keys: [
@@ -117,6 +119,7 @@ describe('interpréteur Remotion P1.3', () => {
 
   it('exécute l’easing concret du RenderPlan sans connaître le behavior source', () => {
     const track: Track = {
+      id: 'track_eased',
       property: 'opacity',
       source: 'source_opaque',
       keys: [

@@ -8,12 +8,13 @@ import type { GenericCompositionProps } from './interpreter.tsx';
 
 const EMPTY_PLAN: RenderPlan = {
   schema: 'render-plan',
-  schema_version: '0.2.0',
+  schema_version: '0.3.0',
   spec: { spec_id: 'empty_plan', revision: 1, sha256: '0'.repeat(64) },
   style: { mode: 'creative', sha256: '0'.repeat(64) },
-  compiler_version: '0.3.0',
+  compiler_version: '0.4.0',
   canvas: { width: 1080, height: 1920, fps: 30, duration_frames: 1 },
   safe_zone: { x: 0, y: 0, w: 1080, h: 1920 },
+  requirements: { capabilities: [], fingerprint: '0'.repeat(64) },
   provenance: {
     timing_source: 'explicit_duration',
     behavior_registry_fingerprint: '0'.repeat(64),

@@ -16,6 +16,10 @@ import { PLATFORM_PRESETS_SCHEMA, PLATFORM_PRESETS_VERSION, PlatformPresetsSchem
 import type { PlatformPresets } from '../contracts/platform.ts';
 import { RENDER_PLAN_SCHEMA, RENDER_PLAN_VERSION, RenderPlanSchema } from '../contracts/render-plan.ts';
 import type { RenderPlan } from '../contracts/render-plan.ts';
+import { AUDIO_PLAN_VERSION, AudioPlanSchema, SUBTITLE_PLAN_VERSION, SubtitlePlanSchema } from '../contracts/render-plan.ts';
+import type { AudioPlan, SubtitlePlan } from '../contracts/render-plan.ts';
+import { DEPENDENCY_GRAPH_VERSION, DependencyGraphSchema } from '../contracts/dependency-graph.ts';
+import type { DependencyGraph } from '../contracts/dependency-graph.ts';
 import { RESOLVED_STYLE_SCHEMA, RESOLVED_STYLE_VERSION, ResolvedStyleSchema } from '../contracts/resolved-style.ts';
 import type { ResolvedStyle } from '../contracts/resolved-style.ts';
 import { SERIES_PROFILE_SCHEMA, SERIES_PROFILE_VERSION, SeriesMotionProfileSchema } from '../contracts/series-profile.ts';
@@ -37,6 +41,9 @@ export interface DocumentKinds {
   'behavior-definition': BehaviorDefinition;
   'render-plan': RenderPlan;
   'reproducibility-manifest': ReproducibilityManifest;
+  'audio-plan': AudioPlan;
+  'subtitle-plan': SubtitlePlan;
+  'dependency-graph': DependencyGraph;
 }
 export type DocumentKind = keyof DocumentKinds;
 
@@ -89,6 +96,9 @@ const REGISTRY: { [K in DocumentKind]: KindEntry<DocumentKinds[K]> } = {
   [BEHAVIOR_DEFINITION_SCHEMA]: { current: BEHAVIOR_DEFINITION_VERSION, schema: BehaviorDefinitionSchema, migrations: {} },
   [RENDER_PLAN_SCHEMA]: { current: RENDER_PLAN_VERSION, schema: RenderPlanSchema, migrations: {} },
   [MANIFEST_SCHEMA]: { current: MANIFEST_VERSION, schema: ReproducibilityManifestSchema, migrations: {} },
+  'audio-plan': { current: AUDIO_PLAN_VERSION, schema: AudioPlanSchema, migrations: {} },
+  'subtitle-plan': { current: SUBTITLE_PLAN_VERSION, schema: SubtitlePlanSchema, migrations: {} },
+  'dependency-graph': { current: DEPENDENCY_GRAPH_VERSION, schema: DependencyGraphSchema, migrations: {} },
 };
 
 export function currentVersion(kind: DocumentKind): string {
@@ -97,6 +107,10 @@ export function currentVersion(kind: DocumentKind): string {
 
 export function documentKinds(): DocumentKind[] {
   return Object.keys(REGISTRY) as DocumentKind[];
+}
+
+export function versionRegistry(): Array<{ kind: DocumentKind; current: string; automatic_from: string[] }> {
+  return documentKinds().map((kind) => ({ kind, current: REGISTRY[kind].current, automatic_from: Object.keys(REGISTRY[kind].migrations).sort() }));
 }
 
 /**

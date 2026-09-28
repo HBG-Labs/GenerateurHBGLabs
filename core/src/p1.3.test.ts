@@ -218,8 +218,8 @@ describe('tracks P1.3', () => {
 
   it('refuse deux tracks incompatibles sur le même intervalle', () => {
     const conflicting: Track[] = [
-      { property: 'opacity', source: 'first', keys: [{ frame: 0, value: 0 }, { frame: 10, value: 1 }] },
-      { property: 'opacity', source: 'second', keys: [{ frame: 5, value: 1 }, { frame: 15, value: 0 }] },
+      { id: 'track_first', property: 'opacity', source: 'first', keys: [{ frame: 0, value: 0 }, { frame: 10, value: 1 }] },
+      { id: 'track_second', property: 'opacity', source: 'second', keys: [{ frame: 5, value: 1 }, { frame: 15, value: 0 }] },
     ];
     expect(() => assertNoTrackConflicts('text', conflicting)).toThrow(MotionTrackError);
   });
