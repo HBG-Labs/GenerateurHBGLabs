@@ -1,0 +1,6 @@
+Neutral Landscape fixture
+Created procedurally for Motion Generator P1.4; no generative AI or external image source was used.
+Author: Motion Generator project contributors
+License: CC0 1.0 Universal
+Commercial use: allowed
+Source generator: scripts/generate-neutral-fixture.mjs

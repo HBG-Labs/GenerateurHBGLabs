@@ -5,7 +5,19 @@ import { BehaviorIdSchema, IdSchema, SemVerSchema } from './common.ts';
 export const BEHAVIOR_DEFINITION_SCHEMA = 'behavior-definition';
 export const BEHAVIOR_DEFINITION_VERSION = '0.1.0';
 
-export const P13_ANIMATABLE_PROPERTIES = ['opacity', 'translate_x', 'translate_y', 'scale'] as const;
+export const P13_ANIMATABLE_PROPERTIES = [
+  'opacity',
+  'translate_x',
+  'translate_y',
+  'scale',
+  'rotate',
+  'clip_top',
+  'clip_right',
+  'clip_bottom',
+  'clip_left',
+  'path_progress',
+  'color',
+] as const;
 export const P13_ANCHOR_KINDS = [
   'SCENE_START',
   'SCENE_END',
@@ -30,6 +42,11 @@ const ParameterDefinitionSchema = z.discriminatedUnion('type', [
     values: z.array(IdSchema).min(1).max(16),
   }),
   z.strictObject({ type: z.literal('boolean'), required: z.boolean(), default: z.boolean().optional() }),
+  z.strictObject({
+    type: z.literal('string'),
+    required: z.boolean(),
+    default: IdSchema.optional(),
+  }),
 ]);
 
 export const BehaviorDefinitionSchema = z.strictObject({
@@ -38,10 +55,10 @@ export const BehaviorDefinitionSchema = z.strictObject({
   id: BehaviorIdSchema,
   version: SemVerSchema,
   intent: z.string().min(1).max(240),
-  compatible_primitives: z.array(z.enum(['group', 'text', 'shape'])).min(1).max(3),
+  compatible_primitives: z.array(z.enum(['group', 'text', 'shape', 'image', 'path', 'mask'])).min(1).max(6),
   variants: z.array(IdSchema).max(12),
   parameters: z.record(z.string().regex(/^[a-z][a-z0-9_]*$/), ParameterDefinitionSchema),
-  animatable_properties: z.array(z.enum(P13_ANIMATABLE_PROPERTIES)).min(1).max(4),
+  animatable_properties: z.array(z.enum(P13_ANIMATABLE_PROPERTIES)).min(1).max(10),
   accepted_anchors: z.array(z.enum(P13_ANCHOR_KINDS)).min(1).max(6),
   constraints: z.strictObject({
     target: z.enum(['none', 'optional_run_or_line', 'required_run']),

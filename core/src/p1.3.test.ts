@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import type { CreativeIntent } from './contracts/creative-intent.ts';
@@ -31,7 +34,11 @@ const intent = () => readFixture('moon.intent.json') as CreativeIntent;
 
 function resources(style: ResolvedStyle) {
   return Object.fromEntries(Object.values(style.style.typography.families).flatMap((family) =>
-    family.files.map((file) => [file.src, { file: `fixtures/${file.src.slice(4)}`, sha256: file.sha256 }])),
+    family.files.map((file) => [file.src, {
+      file: `fixtures/${file.src.slice(4)}`,
+      sha256: file.sha256,
+      data: readFileSync(path.join(import.meta.dirname, '..', 'test-fixtures', 'fonts', file.src.slice(4).split('/').at(-1)!)),
+    }])),
   );
 }
 
@@ -171,6 +178,19 @@ describe('Temporal Engine P1.3', () => {
 });
 
 describe('tracks P1.3', () => {
+  it('refuse une police absente ou dont les octets ne correspondent pas au hash déclaré', () => {
+    const spec = animatedSpec();
+    const style = resolvedSignal();
+    const base = {
+      spec, resolvedStyle: style, platformPresets: platforms(), pattern,
+      config: { fps: 30, render_scale: 0.5 }, behaviorRegistry: P13_BEHAVIOR_REGISTRY,
+    } as const;
+    expect(() => compileMotionScene({ ...base, fontResources: {} })).toThrow(/font\.missing/);
+    const altered = resources(style);
+    for (const key of Object.keys(altered)) altered[key] = { ...altered[key]!, data: Buffer.from([1, 2, 3]) };
+    expect(() => compileMotionScene({ ...base, fontResources: altered })).toThrow(/font\.hash_mismatch/);
+  });
+
   it('compile easing, stagger et keyframes ordonnées dans la scène', () => {
     const spec = animatedSpec();
     const plan = compile(spec);

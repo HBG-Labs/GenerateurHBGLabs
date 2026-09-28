@@ -17,7 +17,7 @@ export class MotionTrackError extends Error {
 function easing(style: ResolvedStyle, id: 'enter' | 'exit' | 'inout' | 'settle'): Easing {
   const value = style.style.motion_personality.easings[id];
   if (!value) throw new MotionTrackError([{ code: 'easing.missing', path: `motion_personality.easings.${id}`, message: `easing « ${id} » absent du style` }]);
-  return value;
+  return value.type === 'spring' ? { ...value, initial_velocity: value.initial_velocity ?? 0 } : value;
 }
 
 const frameAt = (ms: number, fps: number): number => Math.round((ms * fps) / 1_000);
@@ -38,12 +38,17 @@ function targetOf(instance: BehaviorInstance): Track['target'] {
   return { ...(instance.target.run ? { run: instance.target.run } : {}), ...(instance.target.line !== undefined ? { line: instance.target.line } : {}) };
 }
 
+export interface VisualTrackContext {
+  focus?: { translate_x: number; translate_y: number; scale: number };
+}
+
 export function compileLayerTracks(
   layer: Layer,
   timing: ResolvedSceneTiming,
   style: ResolvedStyle,
   fps: number,
   scaleY: number,
+  visual: VisualTrackContext = {},
 ): Track[] {
   const instances = instanceMap(layer);
   const tracks: Track[] = [];
@@ -84,6 +89,41 @@ export function compileLayerTracks(
       }
     } else if (resolved.behavior === 'CUT') {
       tracks.push({ property: 'opacity', source: instance.id, keys: [{ frame: Math.min(timing.to_frame - 1, frameAt(start, fps)), value: 1 }] });
+    } else if (resolved.behavior === 'DRAW_PATH' || resolved.behavior === 'MATCH_LINE') {
+      tracks.push({
+        property: 'path_progress',
+        source: instance.id,
+        keys: resolved.reduced_motion
+          ? [{ frame: Math.min(timing.to_frame - 1, frameAt(start, fps)), value: 1 }]
+          : keys(start, baseEnd, fps, timing.to_frame, 0, 1, easing(style, 'enter')),
+      });
+    } else if (resolved.behavior === 'CAMERA_PUSH') {
+      if (!resolved.reduced_motion) {
+        const scale = typeof instance.params?.['scale'] === 'number' ? instance.params['scale'] : 1.06;
+        tracks.push({ property: 'scale', source: instance.id, keys: keys(start, baseEnd, fps, timing.to_frame, 1, scale, easing(style, 'inout')) });
+      }
+    } else if (resolved.behavior === 'FOCUS_REGION') {
+      if (!resolved.reduced_motion) {
+        const requestedScale = typeof instance.params?.['scale'] === 'number' ? instance.params['scale'] : visual.focus?.scale ?? 1.08;
+        tracks.push({ property: 'scale', source: instance.id, keys: keys(start, baseEnd, fps, timing.to_frame, 1, requestedScale, easing(style, 'inout')) });
+        tracks.push({ property: 'translate_x', source: instance.id, keys: keys(start, baseEnd, fps, timing.to_frame, 0, visual.focus?.translate_x ?? 0, easing(style, 'inout')) });
+        tracks.push({ property: 'translate_y', source: instance.id, keys: keys(start, baseEnd, fps, timing.to_frame, 0, visual.focus?.translate_y ?? 0, easing(style, 'inout')) });
+      }
+    } else if (resolved.behavior === 'HIGHLIGHT_REGION') {
+      tracks.push({ property: 'opacity', source: instance.id, keys: keys(start, baseEnd, fps, timing.to_frame, 0, 1, easing(style, 'enter')) });
+      if (!resolved.reduced_motion) {
+        tracks.push({ property: 'scale', source: instance.id, keys: keys(start, baseEnd, fps, timing.to_frame, 0.96, 1, easing(style, 'settle')) });
+      }
+    } else if (resolved.behavior === 'MASK_WIPE') {
+      const direction = instance.params?.['direction'] ?? (layer.primitive === 'mask' ? layer.clip.direction : undefined) ?? 'left_to_right';
+      const property = direction === 'left_to_right' ? 'clip_right' : direction === 'right_to_left' ? 'clip_left' : direction === 'top_to_bottom' ? 'clip_bottom' : 'clip_top';
+      tracks.push({
+        property,
+        source: instance.id,
+        keys: resolved.reduced_motion
+          ? [{ frame: Math.min(timing.to_frame - 1, frameAt(start, fps)), value: 0 }]
+          : keys(start, baseEnd, fps, timing.to_frame, 1, 0, easing(style, 'enter')),
+      });
     }
   }
   assertNoTrackConflicts(layer.id, tracks);

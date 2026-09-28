@@ -1,0 +1,1739 @@
+{
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "arch": "x64"
+  },
+  "font": {
+    "file": "packs/fonts/noto_sans_mono/noto-sans-mono-wdth-wght.ttf",
+    "axes_fontkit": {
+      "wght": {
+        "name": "Weight",
+        "min": 100,
+        "default": 400,
+        "max": 900
+      },
+      "wdth": {
+        "name": "Width",
+        "min": 62.5,
+        "default": 100,
+        "max": 100
+      }
+    },
+    "axes_harfbuzz": {
+      "wght": {
+        "axisIndex": 0,
+        "tag": "wght",
+        "nameId": 257,
+        "flags": 0,
+        "min": 100,
+        "default": 400,
+        "max": 900
+      },
+      "wdth": {
+        "axisIndex": 1,
+        "tag": "wdth",
+        "nameId": 258,
+        "flags": 0,
+        "min": 62.5,
+        "default": 100,
+        "max": 100
+      }
+    },
+    "units_per_em": {
+      "fontkit": 1000,
+      "harfbuzzjs": 1000
+    }
+  },
+  "versions": {
+    "fontkit": "2.0.4",
+    "harfbuzzjs_package": "1.6.2",
+    "harfbuzz": "14.5.0"
+  },
+  "setup_ms": {
+    "fontkit": 5.518,
+    "harfbuzzjs": 3.475
+  },
+  "samples": [
+    {
+      "text": "disparaissait ?",
+      "fontkit": {
+        "glyphs": [
+          71,
+          76,
+          86,
+          83,
+          68,
+          85,
+          68,
+          76,
+          86,
+          86,
+          68,
+          76,
+          87,
+          1838,
+          34
+        ],
+        "clusters": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14
+        ],
+        "width_em": 8.350012,
+        "positions": [
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          }
+        ]
+      },
+      "harfbuzzjs": {
+        "glyphs": [
+          71,
+          76,
+          86,
+          83,
+          68,
+          85,
+          68,
+          76,
+          86,
+          86,
+          68,
+          76,
+          87,
+          1838,
+          34
+        ],
+        "clusters": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14
+        ],
+        "width_em": 8.355,
+        "positions": [
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          }
+        ]
+      }
+    },
+    {
+      "text": "« ÉÈÀÇÙ : l’été ! »",
+      "fontkit": {
+        "glyphs": [
+          109,
+          1838,
+          138,
+          137,
+          129,
+          136,
+          154,
+          98,
+          29,
+          3,
+          79,
+          517,
+          170,
+          87,
+          170,
+          1838,
+          4,
+          1838,
+          124
+        ],
+        "clusters": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        "width_em": 10.576682,
+        "positions": [
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          }
+        ]
+      },
+      "harfbuzzjs": {
+        "glyphs": [
+          109,
+          1838,
+          138,
+          137,
+          129,
+          136,
+          154,
+          98,
+          29,
+          3,
+          79,
+          517,
+          170,
+          87,
+          170,
+          1838,
+          4,
+          1838,
+          124
+        ],
+        "clusters": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        "width_em": 10.583,
+        "positions": [
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          }
+        ]
+      }
+    },
+    {
+      "text": "office affine efficace",
+      "fontkit": {
+        "glyphs": [
+          82,
+          73,
+          73,
+          76,
+          70,
+          72,
+          3,
+          68,
+          73,
+          73,
+          76,
+          81,
+          72,
+          3,
+          72,
+          73,
+          73,
+          76,
+          70,
+          68,
+          70,
+          72
+        ],
+        "clusters": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21
+        ],
+        "width_em": 12.246685,
+        "positions": [
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          }
+        ]
+      },
+      "harfbuzzjs": {
+        "glyphs": [
+          82,
+          73,
+          73,
+          76,
+          70,
+          72,
+          3,
+          68,
+          73,
+          73,
+          76,
+          81,
+          72,
+          3,
+          72,
+          73,
+          73,
+          76,
+          70,
+          68,
+          70,
+          72
+        ],
+        "clusters": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21
+        ],
+        "width_em": 12.254,
+        "positions": [
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          }
+        ]
+      }
+    },
+    {
+      "text": "AVATAR To Wa",
+      "fontkit": {
+        "glyphs": [
+          36,
+          57,
+          36,
+          55,
+          36,
+          53,
+          3,
+          55,
+          82,
+          3,
+          58,
+          68
+        ],
+        "clusters": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "width_em": 6.68001,
+        "positions": [
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          }
+        ]
+      },
+      "harfbuzzjs": {
+        "glyphs": [
+          36,
+          57,
+          36,
+          55,
+          36,
+          53,
+          3,
+          55,
+          82,
+          3,
+          58,
+          68
+        ],
+        "clusters": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "width_em": 6.684,
+        "positions": [
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          }
+        ]
+      }
+    },
+    {
+      "text": "12 kg ; 3,5 m",
+      "fontkit": {
+        "glyphs": [
+          20,
+          21,
+          1838,
+          78,
+          74,
+          98,
+          30,
+          3,
+          22,
+          15,
+          24,
+          1838,
+          80
+        ],
+        "clusters": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "width_em": 7.236677,
+        "positions": [
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          }
+        ]
+      },
+      "harfbuzzjs": {
+        "glyphs": [
+          20,
+          21,
+          1838,
+          78,
+          74,
+          98,
+          30,
+          3,
+          22,
+          15,
+          24,
+          1838,
+          80
+        ],
+        "clusters": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "width_em": 7.241,
+        "positions": [
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          }
+        ]
+      }
+    },
+    {
+      "text": "A simple English line.",
+      "fontkit": {
+        "glyphs": [
+          36,
+          3,
+          86,
+          76,
+          80,
+          83,
+          79,
+          72,
+          3,
+          40,
+          81,
+          74,
+          79,
+          76,
+          86,
+          75,
+          3,
+          79,
+          76,
+          81,
+          72,
+          17
+        ],
+        "clusters": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21
+        ],
+        "width_em": 12.246685,
+        "positions": [
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.556667,
+            "x_offset": 0,
+            "y_offset": 0
+          }
+        ]
+      },
+      "harfbuzzjs": {
+        "glyphs": [
+          36,
+          3,
+          86,
+          76,
+          80,
+          83,
+          79,
+          72,
+          3,
+          40,
+          81,
+          74,
+          79,
+          76,
+          86,
+          75,
+          3,
+          79,
+          76,
+          81,
+          72,
+          17
+        ],
+        "clusters": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21
+        ],
+        "width_em": 12.254,
+        "positions": [
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          },
+          {
+            "x_advance": 0.557,
+            "x_offset": 0,
+            "y_offset": 0
+          }
+        ]
+      }
+    }
+  ],
+  "opentype_features": {
+    "font": "packs/fonts/playfair_display/playfair-display-latin-700.ttf",
+    "ligatures": {
+      "source_codepoints": 22,
+      "fontkit": {
+        "glyph_count": 22,
+        "glyphs": [
+          100,
+          81,
+          81,
+          84,
+          72,
+          76,
+          238,
+          63,
+          81,
+          81,
+          84,
+          98,
+          76,
+          238,
+          76,
+          81,
+          81,
+          84,
+          72,
+          63,
+          72,
+          76
+        ],
+        "width_em": 9.242
+      },
+      "harfbuzzjs": {
+        "glyph_count": 22,
+        "glyphs": [
+          100,
+          81,
+          81,
+          84,
+          72,
+          76,
+          238,
+          63,
+          81,
+          81,
+          84,
+          98,
+          76,
+          238,
+          76,
+          81,
+          81,
+          84,
+          72,
+          63,
+          72,
+          76
+        ],
+        "width_em": 9.242
+      }
+    },
+    "kerning": {
+      "source_codepoints": 12,
+      "fontkit": {
+        "glyph_count": 12,
+        "glyphs": [
+          1,
+          55,
+          1,
+          49,
+          1,
+          47,
+          238,
+          49,
+          100,
+          238,
+          56,
+          63
+        ],
+        "width_em": 6.74
+      },
+      "harfbuzzjs": {
+        "glyph_count": 12,
+        "glyphs": [
+          1,
+          55,
+          1,
+          49,
+          1,
+          47,
+          238,
+          49,
+          100,
+          238,
+          56,
+          63
+        ],
+        "width_em": 6.74
+      }
+    }
+  },
+  "throughput": {
+    "iterations": 3000,
+    "fontkit": {
+      "total_ms": 1506.679,
+      "checksum": 172010.253
+    },
+    "harfbuzzjs": {
+      "total_ms": 413.662,
+      "checksum": 172113
+    }
+  }
+}

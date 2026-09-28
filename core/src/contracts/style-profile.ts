@@ -28,6 +28,10 @@ export const FontFileSchema = z.strictObject({
   style: z.enum(['normal', 'italic']),
   src: ResourceRefSchema,
   sha256: Sha256Schema,
+  /** Coordonnées OpenType explicites ; aucune variation implicite n'est autorisée. */
+  axes: z.record(z.string().regex(/^[A-Za-z0-9]{4}$/), z.number().finite()).optional(),
+  /** Une substitution n'est valide que si elle est déclarée dans le style. */
+  fallback_for: TokenKeySchema.optional(),
 });
 export type FontFile = z.infer<typeof FontFileSchema>;
 
@@ -38,6 +42,8 @@ export const TypeStyleSchema = z.strictObject({
   line_height: z.number().min(0.7).max(2.5),
   tracking_em: z.number().min(-0.2).max(0.5),
   case: z.enum(['upper', 'as_is']),
+  min_size: Px.optional(),
+  fallback_role: TypeTokenSchema.optional(),
 });
 export type TypeStyle = z.infer<typeof TypeStyleSchema>;
 
@@ -52,6 +58,8 @@ export const EasingSchema = z.discriminatedUnion('type', [
     damping: z.number().min(1).max(200),
     stiffness: z.number().min(1).max(1000),
     mass: z.number().min(0.1).max(10),
+    /** Vitesse initiale générique en unités de progression par seconde. */
+    initial_velocity: z.number().finite().min(-100).max(100).optional(),
   }),
 ]);
 export type Easing = z.infer<typeof EasingSchema>;

@@ -49,14 +49,21 @@ describe('la même spec, d’autres styles', () => {
     const spec = pilotSpec() as unknown as MotionSceneSpec;
     const plan = {
       schema: 'render-plan',
-      schema_version: '0.1.0',
+      schema_version: '0.2.0',
       spec: { spec_id: spec.spec_id, revision: spec.revision, sha256: hashDocument(spec) },
       style: { mode: nocturne.mode, sha256: nocturne.sha256 },
-      compiler_version: '0.1.0',
+      compiler_version: '0.3.0',
       canvas: { width: 1080, height: 1920, fps: 30, duration_frames: 30 },
+      safe_zone: { x: 0, y: 0, w: 1080, h: 1920 },
+      provenance: {
+        timing_source: 'explicit_duration',
+        behavior_registry_fingerprint: 'c'.repeat(64),
+        text_engine: { name: 'harfbuzzjs', package_version: '1.6.2', native_version: '14.5.0', shaping_configuration: { direction: 'auto', kerning: true, ligatures: true, cluster_level: 'monotone_graphemes' } },
+      },
       fonts: [],
       assets: [],
-      scenes: [{ id: 'sc_02', from: 0, to: 30, background: nocturne.style.palette['surface.primary']!, nodes: [] }],
+      scenes: [{ id: 'sc_02', from: 0, to: 30, background: nocturne.style.palette['surface.primary']!, nodes: [], transition_out: null }],
+      preflight: { status: 'pass', issues: [], checks: { fonts: 0, assets: 0, text_nodes: 0, safe_nodes: 0, contrast_pairs: 0 } },
     } satisfies RenderPlan;
     const manifest = buildReproducibilityManifest({
       createdAt: '2026-09-27T18:00:00+02:00',

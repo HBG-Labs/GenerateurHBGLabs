@@ -9,13 +9,17 @@ import { hashDocument } from './canonical.ts';
 
 export interface ManifestInput {
   createdAt: string;
-  engine: ReproducibilityManifest['engine'];
+  engine: Omit<ReproducibilityManifest['engine'], 'git_dirty' | 'reference_eligible'> & {
+    git_dirty?: boolean;
+    reference_eligible?: boolean;
+  };
   spec: MotionSceneSpec;
   resolvedStyle: ResolvedStyle;
   plan: RenderPlan;
   platformPresets: PlatformPresets | null;
   toolchain: ReproducibilityManifest['toolchain'];
   renderConfig: ReproducibilityManifest['render_config'];
+  renderer?: { name: string; version: string } | null;
   /** Obligatoire si le style utilisé n'est pas celui de la liaison de la spec. */
   substitutionReason?: string;
 }
@@ -53,7 +57,11 @@ export function buildReproducibilityManifest(input: ManifestInput): Reproducibil
   const body: ManifestBody = {
     schema: MANIFEST_SCHEMA,
     schema_version: MANIFEST_VERSION,
-    engine: input.engine,
+    engine: {
+      ...input.engine,
+      git_dirty: input.engine.git_dirty ?? true,
+      reference_eligible: input.engine.reference_eligible ?? false,
+    },
     spec: { spec_id: spec.spec_id, revision: spec.revision, sha256: specHash },
     style: {
       binding: spec.style_binding,
@@ -71,11 +79,38 @@ export function buildReproducibilityManifest(input: ManifestInput): Reproducibil
       ? { version: input.platformPresets.version, sha256: hashDocument(input.platformPresets) }
       : null,
     fonts: plan.fonts
-      .map((font) => ({ file: font.file, sha256: font.sha256 }))
+      .map((font) => ({
+        file: font.file,
+        sha256: font.sha256,
+        axes: font.axes,
+        supported_axes: font.supported_axes,
+        substituted_for: font.substituted_for,
+      }))
       .sort((a, b) => a.file.localeCompare(b.file)),
     assets: plan.assets
-      .map((asset) => ({ ref: asset.ref, sha256: asset.sha256 }))
+      .map((asset) => ({
+        ref: asset.ref,
+        file: asset.file,
+        sha256: asset.sha256,
+        width: asset.width,
+        height: asset.height,
+        mime: asset.mime,
+        provenance: asset.provenance,
+        semantic_regions: asset.semantic_regions,
+        transformations: asset.transformations,
+      }))
       .sort((a, b) => a.ref.localeCompare(b.ref)),
+    compilation: {
+      timing_source: plan.provenance.timing_source,
+      behavior_registry_fingerprint: plan.provenance.behavior_registry_fingerprint,
+      text_engine: {
+        name: plan.provenance.text_engine.name,
+        package_version: plan.provenance.text_engine.package_version,
+        native_version: plan.provenance.text_engine.native_version,
+        shaping_configuration: plan.provenance.text_engine.shaping_configuration,
+      },
+      renderer: input.renderer ?? null,
+    },
     render_plan_sha256: hashDocument(plan),
     toolchain: input.toolchain,
     render_config: input.renderConfig,

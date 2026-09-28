@@ -13,7 +13,7 @@ export interface BehaviorInfo {
   variants: readonly string[];
   version: string;
   accepted_anchors: readonly P13AnchorKind[];
-  parameters: Readonly<Record<string, { type: 'number' | 'enum' | 'boolean'; required: boolean; min?: number; max?: number; values?: readonly string[] }>>;
+  parameters: Readonly<Record<string, { type: 'number' | 'enum' | 'boolean' | 'string'; required: boolean; min?: number; max?: number; values?: readonly string[] }>>;
   target: 'none' | 'optional_run_or_line' | 'required_run';
   max_instances_per_layer: number;
 }
@@ -333,8 +333,16 @@ export function validateSpecSemantics(
           c.error('behavior.param_type', `${path}.params.${name}`, `nombre hors bornes attendu pour ${name}`);
         }
         if (parameter.type === 'boolean' && typeof value !== 'boolean') c.error('behavior.param_type', `${path}.params.${name}`, `booléen attendu pour ${name}`);
+        if (parameter.type === 'string' && (typeof value !== 'string' || !/^[a-z][a-z0-9_]{0,63}$/.test(value))) {
+          c.error('behavior.param_type', `${path}.params.${name}`, `identifiant attendu pour ${name}`);
+        }
         if (parameter.type === 'enum' && (typeof value !== 'string' || !parameter.values?.includes(value))) {
           c.error('behavior.param_type', `${path}.params.${name}`, `valeur enum invalide pour ${name}`);
+        }
+      }
+      for (const [name, parameter] of Object.entries(info.parameters)) {
+        if (parameter.required && b.params?.[name] === undefined) {
+          c.error('behavior.param_required', `${path}.params.${name}`, `paramètre requis « ${name} » absent`);
         }
       }
     }

@@ -23,6 +23,8 @@ import {
   TypeTokenSchema,
 } from './common.ts';
 import type { Anchor, Duration, GridPlacement } from './common.ts';
+import { NormalizedBoxSchema, NormalizedPointSchema } from './visual.ts';
+import type { NormalizedBox, NormalizedPoint } from './visual.ts';
 
 export const MOTION_SPEC_SCHEMA = 'motion-scene-spec';
 export const MOTION_SPEC_VERSION = '0.2.0';
@@ -40,6 +42,7 @@ export const BehaviorInstanceSchema = z.strictObject({
     .strictObject({
       run: IdSchema.optional(),
       line: z.number().int().min(0).max(16).optional(),
+      region: IdSchema.optional(),
     })
     .optional(),
   at: AnchorSchema,
@@ -65,6 +68,12 @@ interface LayerCommon {
   slot?: string | undefined;
   placement?: GridPlacement | undefined;
   opacity?: number | undefined;
+  must_be_safe?: boolean | undefined;
+  transform?: {
+    scale?: number | undefined;
+    rotate_deg?: number | undefined;
+    translate?: { x: number; y: number } | undefined;
+  } | undefined;
   behaviors: BehaviorInstance[];
 }
 
@@ -78,6 +87,11 @@ export interface TextLayer extends LayerCommon {
     muted_color?: string | undefined;
     align?: 'start' | 'center' | 'end' | undefined;
   };
+  fit?: {
+    min_size?: number | undefined;
+    max_lines?: number | undefined;
+    allow_role_downgrade?: boolean | undefined;
+  } | undefined;
 }
 
 export interface ShapeLayer extends LayerCommon {
@@ -94,16 +108,31 @@ export interface ImageLayer extends LayerCommon {
   fit: 'cover' | 'contain';
   focus?:
     | { region: string }
-    | { point: { x: number; y: number } }
+    | { point: NormalizedPoint }
     | undefined;
+  crop?: NormalizedBox | undefined;
 }
+
+export type PathSegment =
+  | { command: 'move'; to: NormalizedPoint }
+  | { command: 'line'; to: NormalizedPoint }
+  | { command: 'quadratic'; control: NormalizedPoint; to: NormalizedPoint }
+  | { command: 'cubic'; control1: NormalizedPoint; control2: NormalizedPoint; to: NormalizedPoint }
+  | { command: 'close' };
 
 export interface PathLayer extends LayerCommon {
   primitive: 'path';
   geometry:
     | { motif: string }
-    | { points: { x: number; y: number }[]; closed?: boolean | undefined };
-  style: { stroke: string; weight: string; cap?: 'butt' | 'round' | 'square' | undefined };
+    | { points: NormalizedPoint[]; closed?: boolean | undefined }
+    | { segments: PathSegment[] };
+  style: {
+    stroke: string;
+    weight: string;
+    cap?: 'butt' | 'round' | 'square' | undefined;
+    join?: 'miter' | 'round' | 'bevel' | undefined;
+  };
+  progress?: number | undefined;
 }
 
 export interface GroupLayer extends LayerCommon {
@@ -113,7 +142,12 @@ export interface GroupLayer extends LayerCommon {
 
 export interface MaskLayer extends LayerCommon {
   primitive: 'mask';
-  clip: { shape: 'rect' | 'ellipse'; radius?: string | undefined };
+  clip: {
+    shape: 'rect' | 'ellipse';
+    radius?: string | undefined;
+    mode?: 'clip' | 'reveal' | 'wipe' | undefined;
+    direction?: 'left_to_right' | 'right_to_left' | 'top_to_bottom' | 'bottom_to_top' | undefined;
+  };
   children: Layer[];
 }
 
@@ -126,6 +160,14 @@ const layerCommon = {
   slot: SlotNameSchema.optional(),
   placement: GridPlacementSchema.optional(),
   opacity: z.number().min(0).max(1).optional(),
+  must_be_safe: z.boolean().optional(),
+  transform: z
+    .strictObject({
+      scale: z.number().finite().positive().min(0.01).max(20).optional(),
+      rotate_deg: z.number().finite().min(-360).max(360).optional(),
+      translate: z.strictObject({ x: z.number().finite().min(-1).max(1), y: z.number().finite().min(-1).max(1) }).optional(),
+    })
+    .optional(),
   behaviors: z.array(BehaviorInstanceSchema).max(12),
 };
 
@@ -143,6 +185,13 @@ const TextLayerSchema = z.strictObject({
     muted_color: ColorTokenSchema.optional(),
     align: z.enum(['start', 'center', 'end']).optional(),
   }),
+  fit: z
+    .strictObject({
+      min_size: z.number().finite().positive().max(4000).optional(),
+      max_lines: z.number().int().min(1).max(16).optional(),
+      allow_role_downgrade: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 const ShapeLayerSchema = z.strictObject({
@@ -167,7 +216,16 @@ const ImageLayerSchema = z.strictObject({
       }),
     ])
     .optional(),
+  crop: NormalizedBoxSchema.optional(),
 });
+
+const PathSegmentSchema = z.discriminatedUnion('command', [
+  z.strictObject({ command: z.literal('move'), to: NormalizedPointSchema }),
+  z.strictObject({ command: z.literal('line'), to: NormalizedPointSchema }),
+  z.strictObject({ command: z.literal('quadratic'), control: NormalizedPointSchema, to: NormalizedPointSchema }),
+  z.strictObject({ command: z.literal('cubic'), control1: NormalizedPointSchema, control2: NormalizedPointSchema, to: NormalizedPointSchema }),
+  z.strictObject({ command: z.literal('close') }),
+]);
 
 const PathLayerSchema = z.strictObject({
   ...layerCommon,
@@ -175,19 +233,22 @@ const PathLayerSchema = z.strictObject({
   geometry: z.union([
     z.strictObject({ motif: MotifTokenSchema }),
     z.strictObject({
-      // Points en unités de grille (colonnes, rangées), jamais en pixels.
+      // Géométrie normalisée dans la boîte du calque, jamais du SVG arbitraire.
       points: z
-        .array(z.strictObject({ x: z.number().min(0).max(48), y: z.number().min(0).max(96) }))
+        .array(NormalizedPointSchema)
         .min(2)
         .max(64),
       closed: z.boolean().optional(),
     }),
+    z.strictObject({ segments: z.array(PathSegmentSchema).min(2).max(64) }),
   ]),
   style: z.strictObject({
     stroke: ColorTokenSchema,
     weight: StrokeTokenSchema,
     cap: z.enum(['butt', 'round', 'square']).optional(),
+    join: z.enum(['miter', 'round', 'bevel']).optional(),
   }),
+  progress: z.number().finite().min(0).max(1).optional(),
 });
 
 export const LayerSchema: z.ZodType<Layer> = z.lazy(() =>
@@ -204,7 +265,12 @@ export const LayerSchema: z.ZodType<Layer> = z.lazy(() =>
     z.strictObject({
       ...layerCommon,
       primitive: z.literal('mask'),
-      clip: z.strictObject({ shape: z.enum(['rect', 'ellipse']), radius: SpaceTokenSchema.optional() }),
+      clip: z.strictObject({
+        shape: z.enum(['rect', 'ellipse']),
+        radius: SpaceTokenSchema.optional(),
+        mode: z.enum(['clip', 'reveal', 'wipe']).optional(),
+        direction: z.enum(['left_to_right', 'right_to_left', 'top_to_bottom', 'bottom_to_top']).optional(),
+      }),
       children: z.array(LayerSchema).min(1).max(24),
     }),
   ]),

@@ -1,0 +1,123 @@
+{
+  "schema": "motion-scene-spec",
+  "schema_version": "0.2.0",
+  "spec_id": "p14_visual_proof",
+  "revision": 1,
+  "parent_revision": null,
+  "created_from": {
+    "intent_id": "p14_neutral_intent",
+    "builder_version": "0.3.0"
+  },
+  "locale": "fr-FR",
+  "style_binding": { "kind": "style", "id": "p14_signal", "version": "1.0.0" },
+  "format": { "preset": "vertical_9x16", "platform_safe_zones": ["tiktok"] },
+  "system": { "id": "statement.interrupt", "version": "0.1.0" },
+  "rhythm": {
+    "curve": "visual.proof",
+    "sections": [{ "id": "proof_section", "phase": "INTERRUPTION", "scenes": ["visual_scene"] }]
+  },
+  "voice": {
+    "direction": { "persona": "neutral", "intention": "Démonstration visuelle sans voix", "tempo": "measured" },
+    "segments": []
+  },
+  "scenes": [
+    {
+      "id": "visual_scene",
+      "pattern": { "id": "statement.interrupt", "version": "0.1.0", "variation": { "layout_variant": "image_hero", "motion_variant": "visual_focus", "energy": "medium" } },
+      "purpose": "proof",
+      "locks": ["layers.hero_mask", "layers.headline", "layers.highlight", "layers.match_path"],
+      "timing": { "anchor": { "duration": { "ms": 7000 } }, "min_hold": "reading" },
+      "background": { "fill": "color.surface.primary" },
+      "layers": [
+        {
+          "id": "visual_root",
+          "primitive": "group",
+          "must_be_safe": true,
+          "behaviors": [],
+          "children": [
+            {
+              "id": "hero_mask",
+              "primitive": "mask",
+              "placement": { "col": 1, "row": 1, "col_span": 6, "row_span": 12 },
+              "must_be_safe": true,
+              "clip": { "shape": "rect", "radius": "space.lg", "mode": "wipe", "direction": "left_to_right" },
+              "behaviors": [
+                { "id": "hero_wipe", "behavior": "MASK_WIPE", "version": "1.0.0", "params": { "direction": "left_to_right" }, "at": { "semantic": "SCENE_START" } }
+              ],
+              "children": [
+                {
+                  "id": "camera_group",
+                  "primitive": "group",
+                  "behaviors": [
+                    { "id": "camera_push", "behavior": "CAMERA_PUSH", "version": "1.0.0", "params": { "scale": 1.06 }, "at": { "semantic": "AFTER_PREVIOUS" }, "duration": { "ms": 1000 } }
+                  ],
+                  "children": [
+                    {
+                      "id": "hero_image",
+                      "primitive": "image",
+                      "asset": "neutral_landscape",
+                      "fit": "cover",
+                      "focus": { "region": "focus_disc" },
+                      "behaviors": [
+                        { "id": "focus_subject", "behavior": "FOCUS_REGION", "version": "1.0.0", "params": { "region": "focus_disc", "scale": 1.08 }, "at": { "semantic": "AFTER_PREVIOUS" }, "duration": { "ms": 700 } }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "headline",
+              "slot": "image.negative_space",
+              "primitive": "text",
+              "must_be_safe": true,
+              "content": {
+                "runs": [
+                  { "id": "headline_setup", "text": "« L’espace ", "role": "base" },
+                  { "id": "headline_accent", "text": "change ? »", "role": "accent" }
+                ],
+                "break_policy": "balance"
+              },
+              "style": {
+                "type": "type.display.m",
+                "color": "color.text.inverse",
+                "accent_color": "color.accent",
+                "align": "start"
+              },
+              "fit": { "max_lines": 3, "allow_role_downgrade": false },
+              "behaviors": [
+                { "id": "headline_reveal", "behavior": "REVEAL_TEXT", "version": "1.0.0", "params": { "unit": "line", "stagger": "style" }, "at": { "semantic": "AFTER_PREVIOUS" } }
+              ]
+            },
+            {
+              "id": "highlight",
+              "primitive": "shape",
+              "placement": { "col": 1, "row": 2, "col_span": 2, "row_span": 4 },
+              "must_be_safe": true,
+              "shape": "ellipse",
+              "stroke": { "color": "color.accent", "weight": "stroke.emphasis" },
+              "behaviors": [
+                { "id": "highlight_subject", "behavior": "HIGHLIGHT_REGION", "version": "1.0.0", "variant": "outline", "params": { "image_layer": "hero_image", "region": "focus_disc" }, "at": { "semantic": "AFTER_PREVIOUS" } }
+              ]
+            },
+            {
+              "id": "match_path",
+              "primitive": "path",
+              "placement": { "col": 1, "row": 1, "col_span": 6, "row_span": 12 },
+              "must_be_safe": true,
+              "geometry": { "points": [{ "x": 0.2, "y": 0.35 }, { "x": 0.78, "y": 0.42 }] },
+              "style": { "stroke": "color.accent", "weight": "stroke.hairline", "cap": "round", "join": "round" },
+              "progress": 1,
+              "behaviors": [
+                { "id": "match_line", "behavior": "MATCH_LINE", "version": "1.0.0", "params": { "from_layer": "highlight", "to_layer": "headline" }, "at": { "semantic": "AFTER_PREVIOUS" } }
+              ]
+            }
+          ]
+        }
+      ],
+      "events": [],
+      "sound": { "derive_from_events": false, "overrides": [] },
+      "subtitles": { "mode": "off", "reason": "Preuve visuelle muette P1.4" }
+    }
+  ]
+}

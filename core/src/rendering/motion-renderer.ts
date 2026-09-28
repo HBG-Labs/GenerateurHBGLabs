@@ -12,6 +12,7 @@ export interface RenderFrameResult {
   frame: number;
   bytes: number;
   bundle_ms: number;
+  bundle_reused: boolean;
   render_ms: number;
   max_rss_bytes: number;
   renderer: { name: string; version: string };
@@ -28,6 +29,7 @@ export interface RenderVideoResult {
   output_file: string;
   bytes: number;
   bundle_ms: number;
+  bundle_reused: boolean;
   render_ms: number;
   max_rss_bytes: number;
   renderer: { name: string; version: string };

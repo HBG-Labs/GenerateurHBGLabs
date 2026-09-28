@@ -51,7 +51,17 @@ export interface ResolvedSceneTiming {
 export interface TemporalResolution {
   duration_ms: number;
   duration_frames: number;
+  timing_source: 'explicit_duration' | 'voice_timestamps' | 'fallback_frames';
   scenes: readonly ResolvedSceneTiming[];
+  transitions: readonly ResolvedTransitionTiming[];
+}
+
+export interface ResolvedTransitionTiming {
+  from_scene: string;
+  to_scene: string;
+  behavior: string;
+  version: string;
+  at_frame: number;
 }
 
 export interface ResolveTemporalInput {
@@ -324,6 +334,33 @@ export function resolveTemporalPlan(input: ResolveTemporalInput): TemporalResolu
     timelineMs = sceneEnd;
   });
 
+  const transitions: ResolvedTransitionTiming[] = [];
+  input.spec.scenes.slice(0, -1).forEach((scene, index) => {
+    const next = input.spec.scenes[index + 1]!;
+    const declared = scene.transition_out ?? { behavior: 'CUT', version: '1.0.0', to: next.id };
+    if (!registry.definition(declared.behavior, declared.version)) {
+      diagnostics.push({
+        code: 'transition.unknown_or_version',
+        path: `scenes[${index}].transition_out`,
+        message: `${declared.behavior}@${declared.version} absent du registre`,
+      });
+      return;
+    }
+    transitions.push({
+      from_scene: scene.id,
+      to_scene: next.id,
+      behavior: declared.behavior,
+      version: declared.version,
+      at_frame: scenes[index]!.to_frame,
+    });
+  });
+
   if (diagnostics.length > 0) throw new TemporalResolutionError(diagnostics);
-  return { duration_ms: timelineMs, duration_frames: frameAt(timelineMs, input.fps), scenes };
+  return {
+    duration_ms: timelineMs,
+    duration_frames: frameAt(timelineMs, input.fps),
+    timing_source: input.fallbackSceneFrames !== undefined ? 'fallback_frames' : 'explicit_duration',
+    scenes,
+    transitions,
+  };
 }

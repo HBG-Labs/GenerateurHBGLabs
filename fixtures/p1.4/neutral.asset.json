@@ -1,0 +1,35 @@
+{
+  "ref": "neutral_landscape",
+  "src": "pack:assets/neutral-landscape.png",
+  "sha256": "ff44d7e3c67f6d0bc69e8507e9ed9bb9cc9cce108f10398b27bf04f0388f1a06",
+  "mime": "image/png",
+  "width": 1200,
+  "height": 1600,
+  "focal_point": { "x": 0.27, "y": 0.42 },
+  "regions": [
+    {
+      "id": "subject_region",
+      "kind": "subject",
+      "box": { "x": 0.04, "y": 0.12, "w": 0.43, "h": 0.68 },
+      "source": "fixture"
+    },
+    {
+      "id": "focus_disc",
+      "kind": "subject",
+      "box": { "x": 0.1, "y": 0.13, "w": 0.34, "h": 0.255 },
+      "source": "fixture"
+    },
+    {
+      "id": "quiet_region",
+      "kind": "negative_space",
+      "box": { "x": 0.52, "y": 0.08, "w": 0.42, "h": 0.7 },
+      "source": "fixture"
+    }
+  ],
+  "provenance": {
+    "license": "CC0-1.0",
+    "source": "scripts/generate-neutral-fixture.mjs",
+    "author": "Motion Generator project contributors",
+    "commercial_use": "allowed"
+  }
+}

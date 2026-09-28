@@ -2,9 +2,10 @@ import { z } from 'zod';
 
 import { CueIdSchema, HexColorSchema, IdSchema, SemVerSchema, Sha256Schema } from './common.ts';
 import { EasingSchema } from './style-profile.ts';
+import { AssetProvenanceSchema, NormalizedPointSchema, QualityPreflightReportSchema, SemanticRegionSchema } from './visual.ts';
 
 export const RENDER_PLAN_SCHEMA = 'render-plan';
-export const RENDER_PLAN_VERSION = '0.1.0';
+export const RENDER_PLAN_VERSION = '0.2.0';
 
 const Frame = z.number().int().min(0);
 const Px = z.number().finite();
@@ -48,12 +49,29 @@ export type Track = z.infer<typeof TrackSchema>;
 
 export const PlanRunSchema = z.strictObject({
   id: IdSchema,
+  source_run: IdSchema,
+  source_text: z.string(),
+  formatted_text: z.string(),
   text: z.string(),
   font: IdSchema,
   weight: z.number().int(),
   size: z.number().positive(),
   tracking_px: Px,
   color: HexColorSchema,
+  role: z.enum(['base', 'accent', 'muted']),
+  measured_width: z.number().min(0),
+  glyphs: z.array(
+    z.strictObject({
+      glyph_id: z.number().int().min(0),
+      cluster: z.number().int().min(0),
+      x: Px,
+      y: Px,
+      x_advance: Px,
+      y_advance: Px,
+      x_offset: Px,
+      y_offset: Px,
+    }),
+  ),
 });
 export type PlanRun = z.infer<typeof PlanRunSchema>;
 
@@ -63,8 +81,11 @@ export const PlanLineSchema = z.strictObject({
   /** Haut de la boîte de ligne, relatif à la boîte du calque. */
   top: Px,
   height: z.number().positive(),
-  /** Largeur mesurée par le compilateur (null tant que la mesure n'existe pas). */
-  measured_width: z.number().min(0).nullable(),
+  measured_width: z.number().min(0),
+  ascent: z.number().min(0),
+  descent: z.number().min(0),
+  line_gap: z.number().min(0),
+  baseline: z.number().min(0),
 });
 export type PlanLine = z.infer<typeof PlanLineSchema>;
 
@@ -74,6 +95,8 @@ interface PlanNodeCommon {
   /** Origine des transformations, relative à la boîte (0..1). */
   origin: { x: number; y: number };
   opacity: number;
+  transform: { translate_x: number; translate_y: number; scale: number; rotate: number };
+  must_be_safe: boolean;
   tracks: Track[];
 }
 
@@ -95,12 +118,22 @@ export interface PlanImageNode extends PlanNodeCommon {
   fit: 'cover' | 'contain';
   /** Recadrage dans l'image source, en pixels source. */
   crop: Box;
+  destination: Box;
+  focal_point: { x: number; y: number };
+  semantic_regions: z.infer<typeof SemanticRegionSchema>[];
+  treatment: {
+    grade: 'none' | 'warm' | 'cool' | 'mono' | 'duotone';
+    contrast: number;
+    grain: number;
+    duotone: { dark: string; light: string } | null;
+  };
 }
 export interface PlanPathNode extends PlanNodeCommon {
   type: 'path';
   /** Tracé SVG en pixels, relatif à la boîte. */
   d: string;
-  stroke: { color: string; width: number; cap: 'butt' | 'round' | 'square' };
+  stroke: { color: string; width: number; cap: 'butt' | 'round' | 'square'; join: 'miter' | 'round' | 'bevel' };
+  progress: number;
 }
 export interface PlanGroupNode extends PlanNodeCommon {
   type: 'group';
@@ -108,7 +141,12 @@ export interface PlanGroupNode extends PlanNodeCommon {
 }
 export interface PlanMaskNode extends PlanNodeCommon {
   type: 'mask';
-  clip: { shape: 'rect' | 'ellipse'; radius: number };
+  clip: {
+    shape: 'rect' | 'ellipse';
+    radius: number;
+    mode: 'clip' | 'reveal' | 'wipe';
+    direction: 'left_to_right' | 'right_to_left' | 'top_to_bottom' | 'bottom_to_top';
+  };
   children: PlanNode[];
 }
 export type PlanNode = PlanTextNode | PlanShapeNode | PlanImageNode | PlanPathNode | PlanGroupNode | PlanMaskNode;
@@ -118,6 +156,13 @@ const nodeCommon = {
   box: BoxSchema,
   origin: z.strictObject({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }),
   opacity: z.number().min(0).max(1),
+  transform: z.strictObject({
+    translate_x: Px,
+    translate_y: Px,
+    scale: z.number().finite().positive(),
+    rotate: Px,
+  }),
+  must_be_safe: z.boolean(),
   tracks: z.array(TrackSchema),
 };
 
@@ -143,6 +188,15 @@ export const PlanNodeSchema: z.ZodType<PlanNode> = z.lazy(() =>
       asset: IdSchema,
       fit: z.enum(['cover', 'contain']),
       crop: BoxSchema,
+      destination: BoxSchema,
+      focal_point: NormalizedPointSchema,
+      semantic_regions: z.array(SemanticRegionSchema).max(32),
+      treatment: z.strictObject({
+        grade: z.enum(['none', 'warm', 'cool', 'mono', 'duotone']),
+        contrast: z.number().min(-1).max(1),
+        grain: z.number().min(0).max(1),
+        duotone: z.strictObject({ dark: HexColorSchema, light: HexColorSchema }).nullable(),
+      }),
     }),
     z.strictObject({
       ...nodeCommon,
@@ -152,13 +206,20 @@ export const PlanNodeSchema: z.ZodType<PlanNode> = z.lazy(() =>
         color: HexColorSchema,
         width: z.number().positive(),
         cap: z.enum(['butt', 'round', 'square']),
+        join: z.enum(['miter', 'round', 'bevel']),
       }),
+      progress: z.number().min(0).max(1),
     }),
     z.strictObject({ ...nodeCommon, type: z.literal('group'), children: z.array(PlanNodeSchema) }),
     z.strictObject({
       ...nodeCommon,
       type: z.literal('mask'),
-      clip: z.strictObject({ shape: z.enum(['rect', 'ellipse']), radius: z.number().min(0) }),
+      clip: z.strictObject({
+        shape: z.enum(['rect', 'ellipse']),
+        radius: z.number().min(0),
+        mode: z.enum(['clip', 'reveal', 'wipe']),
+        direction: z.enum(['left_to_right', 'right_to_left', 'top_to_bottom', 'bottom_to_top']),
+      }),
       children: z.array(PlanNodeSchema),
     }),
   ]),
@@ -171,6 +232,14 @@ export const PlanSceneSchema = z.strictObject({
   to: Frame,
   background: HexColorSchema,
   nodes: z.array(PlanNodeSchema),
+  transition_out: z
+    .strictObject({
+      kind: z.enum(['cut', 'tracks']),
+      behavior: z.strictObject({ id: z.string(), version: SemVerSchema }),
+      to_scene: IdSchema,
+      at_frame: Frame,
+    })
+    .nullable(),
 });
 export type PlanScene = z.infer<typeof PlanSceneSchema>;
 
@@ -187,6 +256,22 @@ export const RenderPlanSchema = z.strictObject({
     fps: z.number().int().positive(),
     duration_frames: z.number().int().positive(),
   }),
+  safe_zone: BoxSchema,
+  provenance: z.strictObject({
+    timing_source: z.enum(['explicit_duration', 'voice_timestamps', 'fallback_frames']),
+    behavior_registry_fingerprint: Sha256Schema,
+    text_engine: z.strictObject({
+      name: z.literal('harfbuzzjs'),
+      package_version: SemVerSchema,
+      native_version: z.string().min(1),
+      shaping_configuration: z.strictObject({
+        direction: z.enum(['ltr', 'rtl', 'auto']),
+        kerning: z.boolean(),
+        ligatures: z.boolean(),
+        cluster_level: z.string(),
+      }),
+    }),
+  }),
   fonts: z.array(
     z.strictObject({
       id: IdSchema,
@@ -195,6 +280,12 @@ export const RenderPlanSchema = z.strictObject({
       style: z.enum(['normal', 'italic']),
       file: z.string(),
       sha256: Sha256Schema,
+      axes: z.record(z.string(), z.number().finite()),
+      supported_axes: z.record(
+        z.string(),
+        z.strictObject({ min: z.number().finite(), default: z.number().finite(), max: z.number().finite() }),
+      ),
+      substituted_for: z.string().nullable(),
     }),
   ),
   assets: z.array(
@@ -204,9 +295,14 @@ export const RenderPlanSchema = z.strictObject({
       sha256: Sha256Schema,
       width: z.number().int().positive(),
       height: z.number().int().positive(),
+      mime: z.enum(['image/png', 'image/jpeg']),
+      provenance: AssetProvenanceSchema,
+      semantic_regions: z.array(SemanticRegionSchema).max(32),
+      transformations: z.array(z.string().min(1).max(160)),
     }),
   ),
   scenes: z.array(PlanSceneSchema).min(1),
+  preflight: QualityPreflightReportSchema,
 });
 export type RenderPlan = z.infer<typeof RenderPlanSchema>;
 

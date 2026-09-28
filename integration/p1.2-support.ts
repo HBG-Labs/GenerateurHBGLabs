@@ -54,7 +54,7 @@ export function fontResources(style: ResolvedStyle, libraryRoot: string): Record
       if (sha256Hex(readFileSync(absolute)) !== file.sha256) {
         throw new Error(`Empreinte de police invalide : ${file.src}`);
       }
-      result[file.src] = { file: toRelative(absolute), sha256: file.sha256 };
+      result[file.src] = { file: toRelative(absolute), sha256: file.sha256, data: readFileSync(absolute) };
     }
   }
   return result;

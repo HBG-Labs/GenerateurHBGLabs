@@ -13,6 +13,7 @@ export * from './contracts/behavior.ts';
 export * from './contracts/pattern.ts';
 export * from './contracts/render-plan.ts';
 export * from './contracts/manifest.ts';
+export * from './contracts/visual.ts';
 
 export { resolveStyle, resolvedStyleHash } from './style/resolve-style.ts';
 export type { ResolveStyleInput } from './style/resolve-style.ts';
@@ -42,7 +43,15 @@ export { formatIssues, hasErrors, ValidationFailure } from './validation/issues.
 export type { ValidationIssue, ValidationResult } from './validation/issues.ts';
 export type { SemanticRegistry, SpecSemanticOptions, BehaviorInfo } from './validation/semantic-spec.ts';
 
-export { BehaviorRegistry, P13_BEHAVIOR_DEFINITIONS, P13_BEHAVIOR_REGISTRY } from './motion/behavior-registry.ts';
+export {
+  BehaviorRegistry,
+  behaviorRegistryFingerprint,
+  P13_BEHAVIOR_DEFINITIONS,
+  P13_BEHAVIOR_REGISTRY,
+  P14_BEHAVIOR_DEFINITIONS,
+  P14_BEHAVIOR_REGISTRY,
+  P14_VISUAL_BEHAVIOR_DEFINITIONS,
+} from './motion/behavior-registry.ts';
 export { assertNoTrackConflicts, compileLayerTracks, MotionTrackError } from './motion/compile-tracks.ts';
 export {
   anchorKind,
@@ -55,6 +64,7 @@ export type {
   ResolveTemporalInput,
   ResolvedBehaviorTiming,
   ResolvedSceneTiming,
+  ResolvedTransitionTiming,
   TemporalDiagnostic,
   TemporalResolution,
 } from './temporal/resolve.ts';
@@ -63,6 +73,24 @@ export { loadBrandFile, loadPlatformPresetsFile, loadSeriesFile, loadStyleFile, 
 export type { LoadedBrand, LoadedSeries, LoadOptions } from './io/load.ts';
 
 export { findWordMatches, normalizeWord, voiceWords } from './text/voice-words.ts';
+export { formatTypography, FRENCH_TYPOGRAPHY_SPACES } from './typography/formatter.ts';
+export type { FormattedTypography } from './typography/formatter.ts';
+export {
+  HarfBuzzTextEngine,
+  TEXT_ENGINE_NAME,
+  TEXT_ENGINE_PACKAGE_VERSION,
+  TypographyEngineError,
+} from './typography/harfbuzz-text-engine.ts';
+export type { FontBinary, GlyphPlacement, SupportedAxis, TextMetrics, TypographyDiagnostic } from './typography/harfbuzz-text-engine.ts';
+export { fitText, TextOverflowError } from './typography/fit-text.ts';
+export type { FitFragmentInput, FittedFragment, FittedLine, FitTextInput, FitTextResult } from './typography/fit-text.ts';
+
+export { AssetValidationError, inspectImage, placeImage, resolveContainedAssetPath, validateImageResource } from './visual/assets.ts';
+export type { ImageResource } from './visual/assets.ts';
+export { boxContains, gridPlacementBox, intersectBoxes, normalizedRegionBox, resolveVisualLayout } from './visual/layout.ts';
+export type { VisualLayoutKind } from './visual/layout.ts';
+export { compileNormalizedPath, PathGeometryError } from './visual/path.ts';
+export { buildQualityPreflight } from './visual/preflight.ts';
 
 export { buildMotionSceneSpec, SPEC_BUILDER_VERSION, SpecBuilderError } from './spec-builder/build-spec.ts';
 export type { BuildSpecInput, SpecContentLine } from './spec-builder/build-spec.ts';

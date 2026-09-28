@@ -21,7 +21,9 @@ describe('verticale P1.2', () => {
     if (group?.type !== 'group') throw new Error('Group attendu.');
     expect(group.children.map((node) => node.type)).toEqual(['shape', 'text']);
     const text = group.children.find((node) => node.type === 'text');
-    expect(text?.type === 'text' && text.lines.every((line) => line.measured_width === null)).toBe(true);
+    expect(text?.type === 'text' && text.lines.every((line) =>
+      line.measured_width >= 0 && line.runs.every((run) => run.measured_width >= 0 && run.glyphs.length > 0),
+    )).toBe(true);
   });
 
   it('produit deux plans différents depuis exactement la même spec', () => {

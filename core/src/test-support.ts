@@ -47,12 +47,26 @@ export function codes(result: { ok: boolean; issues?: { code: string; severity?:
 export function minimalPlan(): Json {
   return {
     schema: 'render-plan',
-    schema_version: '0.1.0',
+    schema_version: '0.2.0',
     spec: { spec_id: 'moon_question', revision: 1, sha256: 'a'.repeat(64) },
     style: { mode: 'creative', sha256: 'b'.repeat(64) },
-    compiler_version: '0.1.0',
+    compiler_version: '0.3.0',
     canvas: { width: 1080, height: 1920, fps: 30, duration_frames: 60 },
-    fonts: [{ id: 'display_900', css_name: 'fixture-ink-serif', weight: 900, style: 'normal', file: 'lib:playfair-display-latin-900.ttf', sha256: 'c'.repeat(64) }],
+    safe_zone: { x: 120, y: 200, w: 840, h: 1500 },
+    provenance: {
+      timing_source: 'explicit_duration',
+      behavior_registry_fingerprint: 'd'.repeat(64),
+      text_engine: {
+        name: 'harfbuzzjs',
+        package_version: '1.6.2',
+        native_version: '14.5.0',
+        shaping_configuration: { direction: 'auto', kerning: true, ligatures: true, cluster_level: 'monotone_graphemes' },
+      },
+    },
+    fonts: [{
+      id: 'display_900', css_name: 'fixture-ink-serif', weight: 900, style: 'normal',
+      file: 'lib:playfair-display-latin-900.ttf', sha256: 'c'.repeat(64), axes: {}, supported_axes: {}, substituted_for: null,
+    }],
     assets: [],
     scenes: [
       {
@@ -67,19 +81,31 @@ export function minimalPlan(): Json {
             box: { x: 120, y: 760, w: 840, h: 320 },
             origin: { x: 0, y: 0 },
             opacity: 1,
+            transform: { translate_x: 0, translate_y: 0, scale: 1, rotate: 0 },
+            must_be_safe: true,
             align: 'start',
             lines: [
               {
-                runs: [{ id: 'r_setup', text: 'Et si la Lune', font: 'display_900', weight: 900, size: 150, tracking_px: 0, color: '#EFE6D2' }],
+                runs: [{
+                  id: 'r_setup', source_run: 'r_setup', source_text: 'Et si la Lune', formatted_text: 'Et si la Lune',
+                  text: 'Et si la Lune', font: 'display_900', weight: 900, size: 150, tracking_px: 0,
+                  color: '#EFE6D2', role: 'base', measured_width: 820, glyphs: [],
+                }],
                 top: 0,
                 height: 153,
-                measured_width: null,
+                measured_width: 820,
+                ascent: 115,
+                descent: 30,
+                line_gap: 8,
+                baseline: 115,
               },
             ],
             tracks: [{ property: 'opacity', keys: [{ frame: 0, value: 0 }, { frame: 10, value: 1 }], source: 'bh_question_in' }],
           },
         ],
+        transition_out: null,
       },
     ],
+    preflight: { status: 'pass', issues: [], checks: { fonts: 1, assets: 0, text_nodes: 1, safe_nodes: 1, contrast_pairs: 1 } },
   };
 }

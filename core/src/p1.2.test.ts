@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import type { CreativeIntent } from './contracts/creative-intent.ts';
@@ -54,7 +57,11 @@ const platforms = () => readFixture('platforms.json') as PlatformPresets;
 function resources(style: ResolvedStyle) {
   return Object.fromEntries(
     Object.values(style.style.typography.families).flatMap((family) =>
-      family.files.map((file) => [file.src, { file: `fixtures/${file.src.slice(4)}`, sha256: file.sha256 }]),
+      family.files.map((file) => [file.src, {
+        file: `fixtures/${file.src.slice(4)}`,
+        sha256: file.sha256,
+        data: readFileSync(path.join(import.meta.dirname, '..', 'test-fixtures', 'fonts', file.src.slice(4).split('/').at(-1)!)),
+      }]),
     ),
   );
 }

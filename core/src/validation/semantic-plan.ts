@@ -14,6 +14,24 @@ export function validateRenderPlanSemantics(plan: RenderPlan): ValidationIssue[]
     if (scene.from !== cursor) c.error('plan.scene_gap', base, `la scène commence à ${scene.from}, attendu ${cursor}`);
     if (scene.to <= scene.from) c.error('plan.scene_empty', base, 'scène de durée nulle');
     cursor = scene.to;
+    const nextScene = plan.scenes[si + 1];
+    if (nextScene) {
+      if (scene.transition_out === null) {
+        c.error('plan.transition_missing', `${base}.transition_out`, `transition vers « ${nextScene.id} » absente`);
+      } else {
+        if (scene.transition_out.to_scene !== nextScene.id) {
+          c.error('plan.transition_target', `${base}.transition_out.to_scene`, `cible « ${scene.transition_out.to_scene} », attendu « ${nextScene.id} »`);
+        }
+        if (scene.transition_out.at_frame !== scene.to) {
+          c.error('plan.transition_frame', `${base}.transition_out.at_frame`, `frame ${scene.transition_out.at_frame}, attendu ${scene.to}`);
+        }
+        if (scene.transition_out.kind === 'cut' && scene.transition_out.behavior.id !== 'CUT') {
+          c.error('plan.transition_behavior', `${base}.transition_out.behavior`, 'une transition cut doit tracer CUT');
+        }
+      }
+    } else if (scene.transition_out !== null) {
+      c.error('plan.transition_terminal', `${base}.transition_out`, 'la dernière scène ne doit pas déclarer de transition sortante');
+    }
     const visit = (node: PlanNode, path: string) => {
       if (ids.has(node.id)) c.error('id.duplicate', path, `nœud « ${node.id} » en double`);
       ids.add(node.id);

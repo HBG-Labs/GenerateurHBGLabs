@@ -1,28 +1,35 @@
 import type { Platform } from '../contracts/common.ts';
-import type { GroupLayer, Layer, ShapeLayer, TextLayer } from '../contracts/motion-spec.ts';
+import type { GroupLayer, ImageLayer, Layer, MaskLayer, PathLayer, ShapeLayer, TextLayer } from '../contracts/motion-spec.ts';
 import type { PatternDefinition, PatternSlot } from '../contracts/pattern.ts';
 import type { PlatformPresets } from '../contracts/platform.ts';
-import {
-  RENDER_PLAN_VERSION,
-  RenderPlanSchema,
-} from '../contracts/render-plan.ts';
-import type { Box, PlanNode, PlanRun, PlanTextNode, RenderPlan } from '../contracts/render-plan.ts';
+import { RENDER_PLAN_VERSION, RenderPlanSchema } from '../contracts/render-plan.ts';
+import type { Box, PlanImageNode, PlanNode, PlanPathNode, PlanRun, PlanTextNode, RenderPlan } from '../contracts/render-plan.ts';
 import type { ResolvedStyle } from '../contracts/resolved-style.ts';
 import type { TypeStyle } from '../contracts/style-profile.ts';
-import { hashDocument } from '../integrity/canonical.ts';
+import type { QualityIssue } from '../contracts/visual.ts';
+import { hashDocument, sha256Hex } from '../integrity/canonical.ts';
 import { compileLayerTracks } from '../motion/compile-tracks.ts';
-import { P13_BEHAVIOR_REGISTRY } from '../motion/behavior-registry.ts';
+import { behaviorRegistryFingerprint, P14_BEHAVIOR_REGISTRY } from '../motion/behavior-registry.ts';
 import type { BehaviorRegistry } from '../motion/behavior-registry.ts';
 import { resolveTemporalPlan } from '../temporal/resolve.ts';
 import type { ResolvedSceneTiming } from '../temporal/resolve.ts';
+import { fitText } from '../typography/fit-text.ts';
+import { formatTypography } from '../typography/formatter.ts';
+import { HarfBuzzTextEngine } from '../typography/harfbuzz-text-engine.ts';
+import { placeImage, validateImageResource } from '../visual/assets.ts';
+import type { ImageResource } from '../visual/assets.ts';
+import { gridPlacementBox, intersectBoxes, normalizedRegionBox } from '../visual/layout.ts';
+import { compileNormalizedPath } from '../visual/path.ts';
+import { buildQualityPreflight } from '../visual/preflight.ts';
 import { validatePatternDefinition, validatePlatformPresets, validateRenderPlan, validateSpec } from '../validation/validate.ts';
 import type { MotionSceneSpec } from '../contracts/motion-spec.ts';
 
-export const COMPILER_VERSION = '0.2.0';
+export const COMPILER_VERSION = '0.3.0';
 
 export interface FontResource {
   file: string;
   sha256: string;
+  data: Uint8Array;
 }
 
 export interface CompileInput {
@@ -31,6 +38,7 @@ export interface CompileInput {
   platformPresets: PlatformPresets;
   pattern: PatternDefinition;
   fontResources: Readonly<Record<string, FontResource>>;
+  assetResources?: Readonly<Record<string, ImageResource>>;
   config: {
     fps: number;
     scene_duration_frames?: number;
@@ -38,15 +46,19 @@ export interface CompileInput {
     reduced_motion?: boolean;
     max_render_cost?: number;
     max_attention_cost?: number;
+    minimum_readable_size?: number;
   };
   behaviorRegistry?: BehaviorRegistry;
   allowStyleSubstitution?: boolean;
 }
 
 export class CompileError extends Error {
-  constructor(message: string) {
+  readonly diagnostics: readonly QualityIssue[];
+
+  constructor(message: string, diagnostics: readonly QualityIssue[] = []) {
     super(message);
     this.name = 'CompileError';
+    this.diagnostics = diagnostics;
   }
 }
 
@@ -80,7 +92,7 @@ function resolveType(style: ResolvedStyle, token: string): TypeStyle {
   return value;
 }
 
-function safeBox(presets: PlatformPresets, platform: Platform, format: string, outputWidth: number, outputHeight: number): Box {
+function platformSafeBox(presets: PlatformPresets, platform: Platform, format: string, outputWidth: number, outputHeight: number): Box {
   const canvas = presets.formats[format];
   const preset = presets.platforms[platform];
   if (!canvas || !preset) throw new CompileError(`Preset ${platform}/${format} introuvable.`);
@@ -89,12 +101,23 @@ function safeBox(presets: PlatformPresets, platform: Platform, format: string, o
   const sx = outputWidth / reference.width;
   const sy = outputHeight / reference.height;
   const i = preset.safe_zone.insets;
-  return {
-    x: i.left * sx,
-    y: i.top * sy,
-    w: outputWidth - (i.left + i.right) * sx,
-    h: outputHeight - (i.top + i.bottom) * sy,
+  return { x: i.left * sx, y: i.top * sy, w: outputWidth - (i.left + i.right) * sx, h: outputHeight - (i.top + i.bottom) * sy };
+}
+
+function resolvedSafeBox(presets: PlatformPresets, platform: Platform, format: string, outputWidth: number, outputHeight: number, style: ResolvedStyle): Box {
+  const platformBox = platformSafeBox(presets, platform, format, outputWidth, outputHeight);
+  const sx = outputWidth / style.style.reference_canvas.width;
+  const sy = outputHeight / style.style.reference_canvas.height;
+  const margin = style.style.grid.margin;
+  const styleBox = {
+    x: margin.left * sx,
+    y: margin.top * sy,
+    w: outputWidth - (margin.left + margin.right) * sx,
+    h: outputHeight - (margin.top + margin.bottom) * sy,
   };
+  const result = intersectBoxes(platformBox, styleBox);
+  if (result.w <= 0 || result.h <= 0) throw new CompileError('safe_zone.empty: les contraintes plateforme et style ne se recouvrent pas');
+  return result;
 }
 
 function alignOffset(container: number, item: number, align: 'start' | 'center' | 'end'): number {
@@ -117,18 +140,42 @@ function explicitLines(layer: TextLayer): TextLayer['content']['runs'][] {
   return lines;
 }
 
-function fontId(family: string, weight: number, style: string): string {
-  return `${family}_${weight}_${style}`.replace(/[^a-z0-9_]/g, '_').slice(0, 64);
+function fontId(family: string, weight: number, style: string, axes: Readonly<Record<string, number>>): string {
+  const axis = Object.entries(axes).sort(([a], [b]) => a.localeCompare(b)).map(([tag, value]) => `${tag}_${value}`).join('_');
+  return `${family}_${weight}_${style}${axis ? `_${axis}` : ''}`.replace(/[^a-z0-9_]/g, '_').slice(0, 64);
 }
 
 interface CompileContext {
   style: ResolvedStyle;
+  spec: MotionSceneSpec;
+  pattern: PatternDefinition;
   scaleX: number;
   scaleY: number;
   fonts: Map<string, RenderPlan['fonts'][number]>;
-  resources: Readonly<Record<string, FontResource>>;
+  assets: Map<string, RenderPlan['assets'][number]>;
+  fontResources: Readonly<Record<string, FontResource>>;
+  assetResources: Readonly<Record<string, ImageResource>>;
   timing: ResolvedSceneTiming;
   fps: number;
+  minimumReadableSize: number;
+  textEngine: HarfBuzzTextEngine;
+}
+
+function nodeBase(layer: Layer, box: Box, tracks: PlanNode['tracks']): Pick<PlanNode, 'id' | 'box' | 'origin' | 'opacity' | 'transform' | 'must_be_safe' | 'tracks'> {
+  return {
+    id: layer.id,
+    box,
+    origin: { x: 0.5, y: 0.5 },
+    opacity: layer.opacity ?? 1,
+    transform: {
+      translate_x: (layer.transform?.translate?.x ?? 0) * box.w,
+      translate_y: (layer.transform?.translate?.y ?? 0) * box.h,
+      scale: layer.transform?.scale ?? 1,
+      rotate: layer.transform?.rotate_deg ?? 0,
+    },
+    must_be_safe: layer.must_be_safe ?? false,
+    tracks,
+  };
 }
 
 function compileText(layer: TextLayer, box: Box, context: CompileContext): PlanTextNode {
@@ -137,69 +184,158 @@ function compileText(layer: TextLayer, box: Box, context: CompileContext): PlanT
   if (!family) throw new CompileError(`Famille typographique « ${type.family} » introuvable.`);
   const file = family.files.find((candidate) => candidate.weight === type.weight && candidate.style === 'normal');
   if (!file) throw new CompileError(`Fichier ${type.family}/${type.weight}/normal introuvable.`);
-  const resource = context.resources[file.src];
-  if (!resource || resource.sha256 !== file.sha256) {
-    throw new CompileError(`Ressource de police « ${file.src} » absente ou empreinte différente.`);
-  }
-  const id = fontId(type.family, type.weight, file.style);
+  const resource = context.fontResources[file.src];
+  if (!resource) throw new CompileError(`font.missing: ressource « ${file.src} » absente`);
+  if (resource.sha256 !== file.sha256 || sha256Hex(resource.data) !== file.sha256) throw new CompileError(`font.hash_mismatch: ressource « ${file.src} » altérée`);
+  const axes = file.axes ?? {};
+  const binary = { sha256: resource.sha256, data: resource.data, axes };
+  const supportedAxes = context.textEngine.supportedAxes(binary);
+  const id = fontId(type.family, type.weight, file.style, axes);
   context.fonts.set(id, {
-    id,
-    css_name: family.css_name,
-    weight: type.weight,
-    style: file.style,
-    file: resource.file,
-    sha256: resource.sha256,
+    id, css_name: family.css_name, weight: type.weight, style: file.style, file: resource.file, sha256: resource.sha256,
+    axes, supported_axes: supportedAxes, substituted_for: file.fallback_for ?? null,
   });
 
-  const size = type.size * context.scaleX;
-  const lineHeight = size * type.line_height;
-  const lines = explicitLines(layer).map((runs, index) => ({
-    runs: runs.map((run): PlanRun => {
-      const colorToken = run.role === 'accent' ? layer.style.accent_color ?? layer.style.color : layer.style.color;
-      return {
-        id: run.id,
-        text: type.case === 'upper' ? run.text.toLocaleUpperCase() : run.text,
+  const preferredSize = type.size * context.scaleX;
+  const selectedMinimum = layer.fit?.min_size ?? type.min_size;
+  const configuredMinimum = selectedMinimum !== undefined ? selectedMinimum * context.scaleX : context.minimumReadableSize;
+  const minimumSize = Math.min(preferredSize, Math.max(context.minimumReadableSize, configuredMinimum));
+  const paragraphs = explicitLines(layer).map((runs) => runs.map((run) => {
+    const formatted = formatTypography(run.text, context.spec.locale);
+    const rendered = type.case === 'upper' ? formatted.formatted_text.toLocaleUpperCase(context.spec.locale) : formatted.formatted_text;
+    const colorToken = run.role === 'accent' ? layer.style.accent_color ?? layer.style.color : run.role === 'muted' ? layer.style.muted_color ?? layer.style.color : layer.style.color;
+    return { id: run.id, source_text: formatted.source_text, formatted_text: rendered, color: resolveColor(context.style, colorToken), role: run.role ?? 'base' as const };
+  }));
+  let fitted;
+  try {
+    fitted = fitText({
+      paragraphs,
+      break_policy: layer.content.break_policy,
+      max_width: box.w,
+      max_height: box.h,
+      preferred_size: preferredSize,
+      minimum_size: minimumSize,
+      preferred_line_height: type.line_height,
+      max_lines: layer.fit?.max_lines ?? context.pattern.constraints.max_lines,
+      tracking_em: type.tracking_em,
+      shape: (text, size, trackingPx) => context.textEngine.shape(text, size, trackingPx, binary, context.spec.locale),
+    });
+  } catch (error) {
+    const diagnostics: QualityIssue[] = [{ code: 'text.overflow', severity: 'error', path: `layers.${layer.id}`, message: error instanceof Error ? error.message : 'texte impossible à ajuster' }];
+    throw new CompileError(diagnostics[0]!.message, diagnostics);
+  }
+  let top = 0;
+  const lines = fitted.lines.map((line) => {
+    const result = {
+      runs: line.fragments.map((fragment): PlanRun => ({
+        id: fragment.fragment_id,
+        source_run: fragment.id,
+        source_text: fragment.source_text,
+        formatted_text: fragment.formatted_text,
+        text: fragment.formatted_text,
         font: id,
         weight: type.weight,
-        size,
-        tracking_px: type.tracking_em * size,
-        color: resolveColor(context.style, colorToken),
-      };
-    }),
-    top: index * lineHeight,
-    height: lineHeight,
-    measured_width: null,
-  }));
-  return {
-    id: layer.id,
-    type: 'text',
-    box,
-    origin: { x: 0.5, y: 0.5 },
-    opacity: layer.opacity ?? 1,
-    align: layer.style.align ?? 'start',
-    lines,
-    tracks: compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY),
-  };
+        size: fitted.size,
+        tracking_px: type.tracking_em * fitted.size,
+        color: fragment.color,
+        role: paragraphs.flat().find((candidate) => candidate.id === fragment.id)?.role ?? 'base',
+        measured_width: fragment.metrics.width,
+        glyphs: fragment.metrics.glyphs,
+      })),
+      top,
+      height: line.height,
+      measured_width: line.width,
+      ascent: line.ascent,
+      descent: line.descent,
+      line_gap: line.line_gap,
+      baseline: line.baseline,
+    };
+    top += line.height;
+    return result;
+  });
+  return { ...nodeBase(layer, box, compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY)), type: 'text', align: layer.style.align ?? 'start', lines };
 }
 
 function compileShape(layer: ShapeLayer, box: Box, context: CompileContext): PlanNode {
   return {
-    id: layer.id,
+    ...nodeBase(layer, box, compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY)),
     type: 'shape',
-    box,
-    origin: { x: 0.5, y: 0.5 },
-    opacity: layer.opacity ?? 1,
     shape: layer.shape,
     radius: layer.radius ? resolveSpace(context.style, layer.radius, context.scaleX) : 0,
     fill: layer.fill ? resolveColor(context.style, layer.fill) : null,
-    stroke: layer.stroke
-      ? {
-          color: resolveColor(context.style, layer.stroke.color),
-          width:
-            (context.style.style.strokes[tokenKey(layer.stroke.weight, 'stroke')] ?? 0) * context.scaleX,
-        }
-      : null,
-    tracks: compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY),
+    stroke: layer.stroke ? { color: resolveColor(context.style, layer.stroke.color), width: (context.style.style.strokes[tokenKey(layer.stroke.weight, 'stroke')] ?? 0) * context.scaleX } : null,
+  };
+}
+
+function focalPoint(layer: ImageLayer, resource: ImageResource): { x: number; y: number } {
+  if (layer.focus && 'point' in layer.focus) return layer.focus.point;
+  if (layer.focus && 'region' in layer.focus) {
+    const regionId = layer.focus.region;
+    const region = resource.regions.find((candidate) => candidate.id === regionId);
+    if (!region) throw new CompileError(`image.region_missing: ${resource.ref}.${regionId}`);
+    return { x: region.box.x + region.box.w / 2, y: region.box.y + region.box.h / 2 };
+  }
+  return resource.focal_point ?? { x: 0.5, y: 0.5 };
+}
+
+function focusTrackContext(layer: ImageLayer, resource: ImageResource, box: Box) {
+  const focus = layer.behaviors.find((behavior) => behavior.behavior === 'FOCUS_REGION');
+  const regionId = typeof focus?.params?.['region'] === 'string' ? focus.params['region'] : layer.focus && 'region' in layer.focus ? layer.focus.region : undefined;
+  const region = regionId ? resource.regions.find((candidate) => candidate.id === regionId) : undefined;
+  if (!region) return {};
+  const centerX = region.box.x + region.box.w / 2;
+  const centerY = region.box.y + region.box.h / 2;
+  const scale = typeof focus?.params?.['scale'] === 'number' ? focus.params['scale'] : 1.08;
+  // Le déplacement compense le zoom autour du centre ; il reste donc subtil
+  // et ne peut pas découvrir les bords du conteneur comme un pan complet.
+  return { focus: { translate_x: (0.5 - centerX) * box.w * (scale - 1), translate_y: (0.5 - centerY) * box.h * (scale - 1), scale } };
+}
+
+function compileImage(layer: ImageLayer, box: Box, context: CompileContext): PlanImageNode {
+  const resource = context.assetResources[layer.asset];
+  if (!resource) throw new CompileError(`asset.missing: « ${layer.asset} » absent`);
+  validateImageResource(resource);
+  const focal = focalPoint(layer, resource);
+  const placement = placeImage(resource, { x: 0, y: 0, w: box.w, h: box.h }, layer.fit, focal, layer.crop);
+  const treatment = context.style.style.image_treatment;
+  context.assets.set(resource.ref, {
+    ref: resource.ref, file: resource.file, sha256: resource.sha256, width: resource.width, height: resource.height, mime: resource.mime,
+    provenance: resource.provenance, semantic_regions: resource.regions,
+    transformations: [`fit:${layer.fit}`, `focal:${focal.x.toFixed(4)},${focal.y.toFixed(4)}`, `crop:${placement.crop.x.toFixed(3)},${placement.crop.y.toFixed(3)},${placement.crop.w.toFixed(3)},${placement.crop.h.toFixed(3)}`, `grade:${treatment.grade}`],
+  });
+  return {
+    ...nodeBase(layer, box, compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY, focusTrackContext(layer, resource, box))),
+    type: 'image', asset: resource.ref, fit: layer.fit, crop: placement.crop, destination: placement.destination, focal_point: focal,
+    semantic_regions: resource.regions,
+    treatment: {
+      grade: treatment.grade, contrast: treatment.contrast, grain: treatment.grain,
+      duotone: treatment.duotone ? { dark: resolveColor(context.style, treatment.duotone.dark), light: resolveColor(context.style, treatment.duotone.light) } : null,
+    },
+  };
+}
+
+function matchedGeometry(layer: PathLayer, box: Box, siblings: ReadonlyMap<string, Box>): PathLayer['geometry'] | null {
+  const match = layer.behaviors.find((behavior) => behavior.behavior === 'MATCH_LINE');
+  if (!match) return null;
+  const fromId = match.params?.['from_layer'];
+  const toId = match.params?.['to_layer'];
+  if (typeof fromId !== 'string' || typeof toId !== 'string') throw new CompileError(`match_line.targets_missing: ${layer.id}`);
+  const from = siblings.get(fromId);
+  const to = siblings.get(toId);
+  if (!from || !to) throw new CompileError(`match_line.target_unknown: ${String(fromId)} → ${String(toId)}`);
+  const normalize = (value: Box) => ({ x: Math.min(1, Math.max(0, (value.x + value.w / 2 - box.x) / box.w)), y: Math.min(1, Math.max(0, (value.y + value.h / 2 - box.y) / box.h)) });
+  return { points: [normalize(from), normalize(to)] };
+}
+
+function compilePath(layer: PathLayer, box: Box, context: CompileContext, siblings: ReadonlyMap<string, Box>): PlanPathNode {
+  const motif = 'motif' in layer.geometry ? context.style.style.motifs[tokenKey(layer.geometry.motif, 'motif')] : undefined;
+  const geometry = matchedGeometry(layer, box, siblings) ?? layer.geometry;
+  const d = compileNormalizedPath(geometry, box, motif && motif.kind === 'line' ? motif.length_cols / context.style.style.grid.columns : 1);
+  return {
+    ...nodeBase(layer, box, compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY)),
+    type: 'path', d,
+    stroke: { color: resolveColor(context.style, layer.style.stroke), width: (context.style.style.strokes[tokenKey(layer.style.weight, 'stroke')] ?? 1) * context.scaleX, cap: layer.style.cap ?? 'butt', join: layer.style.join ?? 'miter' },
+    progress: layer.progress ?? 1,
   };
 }
 
@@ -213,66 +349,137 @@ function slotExtent(slot: PatternSlot, layer: Layer, context: CompileContext, ax
   return explicitLines(layer).length * type.size * context.scaleX * type.line_height;
 }
 
-function compileGroup(group: GroupLayer, groupBox: Box, pattern: PatternDefinition, context: CompileContext): PlanNode {
+function findImage(layer: Layer, id?: string): ImageLayer | null {
+  if (layer.primitive === 'image' && (id === undefined || layer.id === id)) return layer;
+  if (layer.primitive === 'group' || layer.primitive === 'mask') {
+    for (const nested of layer.children) {
+      const found = findImage(nested, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function negativeSpaceBox(group: GroupLayer, child: Layer, childBoxes: ReadonlyMap<string, Box>, context: CompileContext): Box | null {
+  if (child.primitive !== 'text' || !child.slot?.includes('negative_space')) return null;
+  const owner = group.children.find((candidate) => findImage(candidate) !== null);
+  const image = owner ? findImage(owner) : null;
+  if (!owner || !image) return null;
+  const resource = context.assetResources[image.asset];
+  const region = resource?.regions.find((candidate) => candidate.kind === 'negative_space');
+  const imageBox = childBoxes.get(owner.id);
+  if (!region || !imageBox) return null;
+  const regionBox = normalizedRegionBox(region.box, imageBox);
+  const inset = Math.min(regionBox.w / 4, regionBox.h / 4, resolveSpace(context.style, 'space.sm', context.scaleX));
+  return { x: regionBox.x + inset, y: regionBox.y + inset, w: regionBox.w - inset * 2, h: regionBox.h - inset * 2 };
+}
+
+function highlightRegionBox(group: GroupLayer, child: Layer, childBoxes: ReadonlyMap<string, Box>, context: CompileContext): Box | null {
+  const highlight = child.behaviors.find((behavior) => behavior.behavior === 'HIGHLIGHT_REGION');
+  if (!highlight) return null;
+  const imageId = highlight.params?.['image_layer'];
+  const regionId = highlight.params?.['region'];
+  if (typeof imageId !== 'string' || typeof regionId !== 'string') throw new CompileError(`highlight_region.targets_missing: ${child.id}`);
+  const owner = group.children.find((candidate) => findImage(candidate, imageId) !== null);
+  const image = owner ? findImage(owner, imageId) : null;
+  const ownerBox = owner ? childBoxes.get(owner.id) : undefined;
+  if (!owner || !image || !ownerBox) throw new CompileError(`highlight_region.image_unknown: ${imageId}`);
+  const resource = context.assetResources[image.asset];
+  const region = resource?.regions.find((candidate) => candidate.id === regionId);
+  if (!resource || !region) throw new CompileError(`highlight_region.region_unknown: ${image.asset}.${regionId}`);
+  const focal = focalPoint(image, resource);
+  const placement = placeImage(resource, { x: 0, y: 0, w: ownerBox.w, h: ownerBox.h }, image.fit, focal, image.crop);
+  const scaleX = placement.destination.w / placement.crop.w;
+  const scaleY = placement.destination.h / placement.crop.h;
+  const source = {
+    x: region.box.x * resource.width,
+    y: region.box.y * resource.height,
+    w: region.box.w * resource.width,
+    h: region.box.h * resource.height,
+  };
+  const mapped = {
+    x: ownerBox.x + placement.destination.x + (source.x - placement.crop.x) * scaleX,
+    y: ownerBox.y + placement.destination.y + (source.y - placement.crop.y) * scaleY,
+    w: source.w * scaleX,
+    h: source.h * scaleY,
+  };
+  const padding = resolveSpace(context.style, 'space.xs', context.scaleX);
+  return intersectBoxes(ownerBox, { x: mapped.x - padding, y: mapped.y - padding, w: mapped.w + padding * 2, h: mapped.h + padding * 2 });
+}
+
+function childBoxes(group: GroupLayer, groupBox: Box, pattern: PatternDefinition, context: CompileContext): Map<string, Box> {
+  const local = { x: 0, y: 0, w: groupBox.w, h: groupBox.h };
+  const result = new Map<string, Box>();
+  const grid = { columns: context.style.style.grid.columns, rows: context.style.style.grid.rows, gutter: context.style.style.grid.gutter * context.scaleX };
+  for (const child of group.children) if (child.placement) result.set(child.id, gridPlacementBox(child.placement, local, grid));
+  for (const child of group.children) {
+    if (result.has(child.id)) continue;
+    const negative = negativeSpaceBox(group, child, result, context);
+    if (negative) result.set(child.id, negative);
+  }
+  for (const child of group.children) {
+    const highlight = highlightRegionBox(group, child, result, context);
+    if (highlight) result.set(child.id, highlight);
+  }
+  if (result.size === group.children.length) return result;
   const bySlot = new Map(group.children.map((child) => [child.slot, child]));
-  const items = [...pattern.slots]
-    .sort((a, b) => a.order - b.order)
-    .map((slot) => {
-      const layer = bySlot.get(slot.id);
-      if (!layer) throw new CompileError(`Slot requis « ${slot.id} » absent du groupe ${group.id}.`);
-      if (layer.primitive !== slot.primitive) throw new CompileError(`Slot « ${slot.id} » incompatible avec ${layer.primitive}.`);
-      return {
-        slot,
-        layer,
-        width: slotExtent(slot, layer, context, 'width', groupBox.w),
-        height: slotExtent(slot, layer, context, 'height', groupBox.h),
-      };
-    });
+  const items = [...pattern.slots].sort((a, b) => a.order - b.order).flatMap((slot) => {
+    const layer = bySlot.get(slot.id);
+    if (!layer || result.has(layer.id)) return [];
+    if (layer.primitive !== slot.primitive) throw new CompileError(`Slot « ${slot.id} » incompatible avec ${layer.primitive}.`);
+    return [{ slot, layer, width: slotExtent(slot, layer, context, 'width', groupBox.w), height: slotExtent(slot, layer, context, 'height', groupBox.h) }];
+  });
   const gap = resolveSpace(context.style, pattern.layout.gap, context.scaleY);
   const total = items.reduce((sum, item) => sum + item.height, 0) + gap * Math.max(0, items.length - 1);
   let y = alignOffset(groupBox.h, total, pattern.layout.align_y);
-  const children = items.map((item) => {
-    const box = {
-      x: alignOffset(groupBox.w, item.width, pattern.layout.align_x),
-      y,
-      w: item.width,
-      h: item.height,
-    };
+  for (const item of items) {
+    result.set(item.layer.id, { x: alignOffset(groupBox.w, item.width, pattern.layout.align_x), y, w: item.width, h: item.height });
     y += item.height + gap;
-    if (item.layer.primitive === 'text') return compileText(item.layer, box, context);
-    if (item.layer.primitive === 'shape') return compileShape(item.layer, box, context);
-    throw new CompileError('Primitive hors périmètre P1.2.');
-  });
+  }
+  for (const child of group.children) if (!result.has(child.id)) result.set(child.id, { ...local });
+  return result;
+}
+
+function compileMask(layer: MaskLayer, box: Box, context: CompileContext): PlanNode {
+  const local = { x: 0, y: 0, w: box.w, h: box.h };
+  const grid = { columns: context.style.style.grid.columns, rows: context.style.style.grid.rows, gutter: context.style.style.grid.gutter * context.scaleX };
+  const siblings = new Map(layer.children.map((child) => [child.id, child.placement ? gridPlacementBox(child.placement, local, grid) : local]));
   return {
-    id: group.id,
-    type: 'group',
-    box: groupBox,
-    origin: { x: 0.5, y: 0.5 },
-    opacity: group.opacity ?? 1,
-    tracks: compileLayerTracks(group, context.timing, context.style, context.fps, context.scaleY),
-    children,
+    ...nodeBase(layer, box, compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY)),
+    type: 'mask',
+    clip: { shape: layer.clip.shape, radius: layer.clip.radius ? resolveSpace(context.style, layer.clip.radius, context.scaleX) : 0, mode: layer.clip.mode ?? 'clip', direction: layer.clip.direction ?? 'left_to_right' },
+    children: layer.children.map((child) => compileLayer(child, siblings.get(child.id)!, context, siblings)),
   };
 }
 
-/** Compilation P1.2 pure : aucune horloge, aucun hasard, aucune lecture disque. */
+function compileLayer(layer: Layer, box: Box, context: CompileContext, siblings: ReadonlyMap<string, Box>): PlanNode {
+  if (layer.primitive === 'text') return compileText(layer, box, context);
+  if (layer.primitive === 'shape') return compileShape(layer, box, context);
+  if (layer.primitive === 'image') return compileImage(layer, box, context);
+  if (layer.primitive === 'path') return compilePath(layer, box, context, siblings);
+  if (layer.primitive === 'mask') return compileMask(layer, box, context);
+  return compileGroup(layer, box, context.pattern, context);
+}
+
+function compileGroup(group: GroupLayer, groupBox: Box, pattern: PatternDefinition, context: CompileContext): PlanNode {
+  const boxes = childBoxes(group, groupBox, pattern, context);
+  const children = group.children.map((child) => compileLayer(child, boxes.get(child.id)!, context, boxes));
+  return { ...nodeBase(group, groupBox, compileLayerTracks(group, context.timing, context.style, context.fps, context.scaleY)), type: 'group', children };
+}
+
+/** Compilation pure : aucun accès disque, aucune horloge, aucun hasard. */
 export function compileMotionScene(input: CompileInput): RenderPlan {
-  const registry = input.behaviorRegistry ?? P13_BEHAVIOR_REGISTRY;
+  const registry = input.behaviorRegistry ?? P14_BEHAVIOR_REGISTRY;
   failValidation('PatternDefinition', validatePatternDefinition(input.pattern));
   failValidation('PlatformPresets', validatePlatformPresets(input.platformPresets));
-  failValidation(
-    'MotionSceneSpecification',
-    validateSpec(input.spec, input.resolvedStyle, {
-      allowStyleSubstitution: input.allowStyleSubstitution ?? false,
-      registry,
-    }),
-  );
+  failValidation('MotionSceneSpecification', validateSpec(input.spec, input.resolvedStyle, {
+    allowStyleSubstitution: input.allowStyleSubstitution ?? false,
+    registry,
+    assetRefs: new Set(Object.keys(input.assetResources ?? {})),
+  }));
   if (!Number.isInteger(input.config.fps) || input.config.fps <= 0) throw new CompileError('fps doit être un entier positif.');
-  if (input.config.scene_duration_frames !== undefined && (!Number.isInteger(input.config.scene_duration_frames) || input.config.scene_duration_frames <= 0)) {
-    throw new CompileError('scene_duration_frames doit être un entier positif quand il est fourni.');
-  }
-  if (input.spec.system.id !== input.pattern.id || input.spec.system.version !== input.pattern.version) {
-    throw new CompileError('Le PatternDefinition ne correspond pas au système déclaré par la spec.');
-  }
+  if (input.config.scene_duration_frames !== undefined && (!Number.isInteger(input.config.scene_duration_frames) || input.config.scene_duration_frames <= 0)) throw new CompileError('scene_duration_frames doit être un entier positif quand il est fourni.');
+  if (input.spec.system.id !== input.pattern.id || input.spec.system.version !== input.pattern.version) throw new CompileError('Le PatternDefinition ne correspond pas au système déclaré par la spec.');
 
   const presetCanvas = input.platformPresets.formats[input.spec.format.preset];
   if (!presetCanvas) throw new CompileError(`Format « ${input.spec.format.preset} » introuvable.`);
@@ -281,63 +488,54 @@ export function compileMotionScene(input: CompileInput): RenderPlan {
   const canvas = { width: Math.round(presetCanvas.width * renderScale), height: Math.round(presetCanvas.height * renderScale) };
   const platform = input.spec.format.platform_safe_zones[0];
   if (!platform) throw new CompileError('Une plateforme de zone sûre est requise.');
-  const box = safeBox(input.platformPresets, platform, input.spec.format.preset, canvas.width, canvas.height);
+  const safe = resolvedSafeBox(input.platformPresets, platform, input.spec.format.preset, canvas.width, canvas.height, input.resolvedStyle);
   const fonts = new Map<string, RenderPlan['fonts'][number]>();
+  const assets = new Map<string, RenderPlan['assets'][number]>();
+  const textEngine = new HarfBuzzTextEngine();
   const temporal = resolveTemporalPlan({
-    spec: input.spec,
-    resolvedStyle: input.resolvedStyle,
-    fps: input.config.fps,
-    registry,
+    spec: input.spec, resolvedStyle: input.resolvedStyle, fps: input.config.fps, registry,
     ...(input.config.reduced_motion !== undefined ? { reducedMotion: input.config.reduced_motion } : {}),
     ...(input.config.scene_duration_frames !== undefined ? { fallbackSceneFrames: input.config.scene_duration_frames } : {}),
     ...(input.config.max_render_cost !== undefined ? { maxRenderCost: input.config.max_render_cost } : {}),
     ...(input.config.max_attention_cost !== undefined ? { maxAttentionCost: input.config.max_attention_cost } : {}),
   });
-
   const scenes = input.spec.scenes.map((scene, index) => {
-    if (scene.pattern.id !== input.pattern.id || scene.pattern.version !== input.pattern.version) {
-      throw new CompileError(`La scène ${scene.id} utilise un autre pattern.`);
-    }
+    if (scene.pattern.id !== input.pattern.id || scene.pattern.version !== input.pattern.version) throw new CompileError(`La scène ${scene.id} utilise un autre pattern.`);
     const timing = temporal.scenes[index];
     if (!timing) throw new CompileError(`Résolution temporelle absente pour ${scene.id}.`);
     const context: CompileContext = {
-      style: input.resolvedStyle,
+      style: input.resolvedStyle, spec: input.spec, pattern: input.pattern,
       scaleX: canvas.width / input.resolvedStyle.style.reference_canvas.width,
       scaleY: canvas.height / input.resolvedStyle.style.reference_canvas.height,
-      fonts,
-      resources: input.fontResources,
-      timing,
-      fps: input.config.fps,
+      fonts, assets, fontResources: input.fontResources, assetResources: input.assetResources ?? {}, timing, fps: input.config.fps,
+      minimumReadableSize: input.config.minimum_readable_size ?? Math.max(14, 28 * renderScale), textEngine,
     };
     const nodes = scene.layers.map((layer) => {
-      if (layer.primitive !== 'group') throw new CompileError('P1.2 exige un Group racine.');
-      return compileGroup(layer, box, input.pattern, context);
+      if (layer.primitive !== 'group') throw new CompileError('Le calque racine doit être un Group.');
+      return compileGroup(layer, safe, input.pattern, context);
     });
+    const transition = temporal.transitions.find((candidate) => candidate.from_scene === scene.id);
     return {
-      id: scene.id,
-      from: timing.from_frame,
-      to: timing.to_frame,
-      background: resolveColor(input.resolvedStyle, scene.background.fill),
-      nodes,
+      id: scene.id, from: timing.from_frame, to: timing.to_frame, background: resolveColor(input.resolvedStyle, scene.background.fill), nodes,
+      transition_out: transition ? { kind: transition.behavior === 'CUT' ? 'cut' as const : 'tracks' as const, behavior: { id: transition.behavior, version: transition.version }, to_scene: transition.to_scene, at_frame: transition.at_frame } : null,
     };
   });
-
-  const plan = RenderPlanSchema.parse({
-    schema: 'render-plan',
+  const base = {
+    schema: 'render-plan' as const,
     schema_version: RENDER_PLAN_VERSION,
     spec: { spec_id: input.spec.spec_id, revision: input.spec.revision, sha256: hashDocument(input.spec) },
     style: { mode: input.resolvedStyle.mode, sha256: input.resolvedStyle.sha256 },
     compiler_version: COMPILER_VERSION,
-    canvas: {
-      width: canvas.width,
-      height: canvas.height,
-      fps: input.config.fps,
-      duration_frames: temporal.duration_frames,
-    },
+    canvas: { width: canvas.width, height: canvas.height, fps: input.config.fps, duration_frames: temporal.duration_frames },
+    safe_zone: safe,
+    provenance: { timing_source: temporal.timing_source, behavior_registry_fingerprint: behaviorRegistryFingerprint(registry), text_engine: textEngine.descriptor },
     fonts: [...fonts.values()].sort((a, b) => a.id.localeCompare(b.id)),
-    assets: [],
+    assets: [...assets.values()].sort((a, b) => a.ref.localeCompare(b.ref)),
     scenes,
-  });
+  };
+  const preflight = buildQualityPreflight(base);
+  if (preflight.status === 'fail') throw new CompileError(`Quality preflight refusé — ${preflight.issues.filter((issue) => issue.severity === 'error').map((issue) => issue.code).join(', ')}`, preflight.issues);
+  const plan = RenderPlanSchema.parse({ ...base, preflight });
   failValidation('RenderPlan', validateRenderPlan(plan));
   return plan;
 }
