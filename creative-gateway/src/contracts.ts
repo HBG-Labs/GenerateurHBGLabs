@@ -7,6 +7,7 @@ import {
   LanguageSchema,
   LocaleSchema,
   PlannerConstraintSchema,
+  SemanticTagSchema,
   Sha256Schema,
   StableIdSchema,
 } from '@motion-engine/creative-core';
@@ -53,7 +54,7 @@ export const CreativeGenerationRequestSchema = z.strictObject({
   request_id: StableIdSchema,
   idempotency_key: Sha256Schema,
   idea: z.string().min(1).max(3_000),
-  creative_goal: z.string().regex(/^[a-z][a-z0-9_.-]{0,63}$/),
+  creative_goal: SemanticTagSchema,
   target_duration_ms: z.number().int().min(3_000).max(180_000),
   target_format: z.enum(['vertical_short', 'square', 'landscape']),
   audience: z.strictObject({
@@ -62,7 +63,7 @@ export const CreativeGenerationRequestSchema = z.strictObject({
   }),
   language: LanguageSchema,
   locale: LocaleSchema,
-  tone: z.array(z.string().regex(/^[a-z][a-z0-9_.-]{0,63}$/)).min(1).max(8),
+  tone: z.array(SemanticTagSchema).min(1).max(8),
   desired_reaction: z.string().min(1).max(1_000),
   factual_mode: z.enum(['factual', 'creative', 'mixed']),
   cta: z.strictObject({ mode: z.enum(['none', 'soft', 'explicit']) }),
@@ -80,7 +81,7 @@ export const PlanningGenerationOutputSchema = z.strictObject({
   request_id: StableIdSchema,
   provenance: OutputProvenanceSchema,
   normalized_topic: z.string().min(1).max(3_000),
-  creative_goal: z.string().regex(/^[a-z][a-z0-9_.-]{0,63}$/),
+  creative_goal: SemanticTagSchema,
   audience: z.strictObject({
     description: z.string().min(1).max(2_000),
     knowledge_level: z.enum(['unaware', 'beginner', 'intermediate', 'advanced', 'expert', 'mixed']),
@@ -89,7 +90,7 @@ export const PlanningGenerationOutputSchema = z.strictObject({
   locale: LocaleSchema,
   target_duration_ms: z.number().int().min(3_000).max(180_000),
   target_format: z.enum(['vertical_short', 'square', 'landscape']),
-  tone: z.array(z.string().regex(/^[a-z][a-z0-9_.-]{0,63}$/)).min(1).max(8),
+  tone: z.array(SemanticTagSchema).min(1).max(8),
   pacing: z.enum(['slow', 'measured', 'medium', 'fast', 'aggressive']),
   information_density: InformationDensitySchema,
   narrative_archetype: ArchetypeIdSchema.optional(),
