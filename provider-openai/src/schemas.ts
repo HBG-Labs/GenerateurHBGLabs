@@ -49,29 +49,47 @@ export function createOpenAIResolutionOutputSchema(allowedSceneIds?: readonly st
 export const OpenAIResolutionOutputSchema = createOpenAIResolutionOutputSchema();
 export type OpenAIResolutionOutput = z.infer<typeof OpenAIResolutionOutputSchema>;
 
-export function createOpenAIResolutionRepairPatchSchema(request: ResolutionRepairRequest) {
-  const slotIds = [...new Set(request.targets.map((target) => target.target.slot_id))];
-  const sceneIds = [...new Set(request.targets.flatMap((target) => (
-    target.target.scene_id === null ? [] : [target.target.scene_id]
-  )))];
-  const includesGenericTarget = request.targets.some((target) => target.target.scene_id === null);
-  const slotSchema = z.enum(slotIds as [string, ...string[]]);
-  const sceneSchema = sceneIds.length === 0
+function repairTextMaximum(target: ResolutionRepairRequest['targets'][number]): number {
+  const subtitleMaximum = target.subtitle_constraint?.maximum_recommended_characters;
+  return Math.min(
+    target.content_constraints.max_characters,
+    subtitleMaximum !== undefined && subtitleMaximum > 0
+      ? subtitleMaximum
+      : target.content_constraints.max_characters,
+  );
+}
+
+function createOpenAIResolutionRepairPatchItemSchema(
+  target: ResolutionRepairRequest['targets'][number],
+) {
+  const sceneSchema = target.target.scene_id === null
     ? z.null()
-    : includesGenericTarget
-      ? z.enum(sceneIds as [string, ...string[]]).nullable()
-      : z.enum(sceneIds as [string, ...string[]]);
-  const itemSchema = ResolutionRepairPatchSchema.shape.items.element.extend({
+    : z.literal(target.target.scene_id);
+  return ResolutionRepairPatchSchema.shape.items.element.extend({
     target: ResolutionRepairPatchSchema.shape.items.element.shape.target.extend({
-      slot_id: slotSchema,
+      slot_id: z.literal(target.target.slot_id),
       scene_id: sceneSchema,
     }).strict(),
     replacement: ResolutionRepairPatchSchema.shape.items.element.shape.replacement.extend({
       scene_id: sceneSchema,
+      text: z.string().min(1).max(repairTextMaximum(target)),
       provenance: z.literal('provider_generated'),
     }).strict(),
   }).strict();
-  return ResolutionRepairPatchSchema.extend({ items: z.array(itemSchema).min(1).max(request.targets.length) }).strict();
+}
+
+export function createOpenAIResolutionRepairPatchSchema(request: ResolutionRepairRequest) {
+  const itemSchemas = request.targets.map(createOpenAIResolutionRepairPatchItemSchema);
+  const [firstItemSchema, secondItemSchema, ...remainingItemSchemas] = itemSchemas;
+  if (!firstItemSchema) throw new Error('Le repair ciblé doit exposer au moins une target.');
+  const itemSchema = secondItemSchema === undefined
+    ? firstItemSchema
+    : z.union([firstItemSchema, secondItemSchema, ...remainingItemSchemas]);
+  return ResolutionRepairPatchSchema.extend({
+    request_id: z.literal(request.request_id),
+    plan_id: z.literal(request.plan_id),
+    items: z.array(itemSchema).min(request.targets.length).max(request.targets.length),
+  }).strict();
 }
 
 export type OpenAIResolutionRepairPatch = z.infer<ReturnType<typeof createOpenAIResolutionRepairPatchSchema>>;

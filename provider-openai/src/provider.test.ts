@@ -380,6 +380,98 @@ describe('P2.5 — OpenAI CreativeProvider adapter', () => {
     }).success).toBe(false);
   });
 
+  it('discrimine chaque target de repair avec sa propre limite de caractères', () => {
+    const makeTarget = (slotId: string, sceneId: string | null, maximumCharacters: number) => ({
+      target: { slot_id: slotId, scene_id: sceneId },
+      previous_content: {
+        scene_id: sceneId, text: 'ÉLECTRICITÉ '.repeat(12).trim(), provenance: 'provider_generated' as const,
+        uncertainty: 'none' as const, source_required: false,
+      },
+      semantic_role: 'narration' as const,
+      semantic_context: `Contexte ${slotId}`,
+      language: 'fr', locale: 'fr-FR', required: true,
+      allowed_scene_ids: sceneId === null ? ['scene_a', 'scene_b'] : [sceneId],
+      generic_resolution_allowed: sceneId === null,
+      content_constraints: {
+        max_characters: 120, channels: ['spoken'] as const, factual_requirement: 'none' as const,
+      },
+      diagnostics: [{
+        code: 'gateway.output.subtitle_geometry_overflow', severity: 'error' as const, path: '$.content',
+        message: 'Trop long.', context: { slot_id: slotId, scene_id: sceneId, repair_target: true },
+      }],
+      temporal_constraint: null,
+      subtitle_constraint: {
+        current_word_count: 18, current_character_count: 119, current_line_count: 3,
+        maximum_lines: 2, preferred_size: 40, minimum_size: 30,
+        available_width: 896, available_height: 321.6,
+        content_relative_maximum_words: 12,
+        maximum_recommended_characters: maximumCharacters,
+        budget_basis: 'current_content_prefix_exact_fit' as const,
+      },
+      effective_concision: {
+        maximum_words: 12, temporal_maximum_words: null,
+        subtitle_maximum_words: 12, limiting_constraints: ['subtitle_geometry'] as const,
+      },
+    });
+    const repairRequest = ResolutionRepairRequestSchema.parse({
+      schema: 'resolution-repair-request', schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
+      request_id: 'request_test', plan_id: 'plan_test', attempt: 1,
+      targets: [makeTarget('slot_a', 'scene_a', 103), makeTarget('slot_b', null, 100)],
+    });
+    const schema = createOpenAIResolutionRepairPatchSchema(repairRequest);
+    const format = zodTextFormat(schema, 'resolution_repair_patch') as unknown as {
+      schema: { properties: { items: {
+        minItems: number;
+        maxItems: number;
+        items: { anyOf: Array<{ properties: {
+          target: { properties: { slot_id: { const: string } } };
+          replacement: { properties: { text: { minLength: number; maxLength: number } } };
+        } }> };
+      } } };
+    };
+    const limits = Object.fromEntries(format.schema.properties.items.items.anyOf.map((branch) => [
+      branch.properties.target.properties.slot_id.const,
+      branch.properties.replacement.properties.text.maxLength,
+    ]));
+    expect(limits).toEqual({ slot_a: 103, slot_b: 100 });
+    expect(format.schema.properties.items).toMatchObject({ minItems: 2, maxItems: 2 });
+
+    const patch = {
+      schema: 'resolution-repair-patch', schema_version: RESOLUTION_REPAIR_CONTRACT_VERSION,
+      request_id: 'request_test', plan_id: 'plan_test',
+      items: [
+        {
+          target: { slot_id: 'slot_a', scene_id: 'scene_a' },
+          replacement: {
+            scene_id: 'scene_a', text: 'a'.repeat(103), provenance: 'provider_generated',
+            uncertainty: 'none', source_required: false,
+          },
+        },
+        {
+          target: { slot_id: 'slot_b', scene_id: null },
+          replacement: {
+            scene_id: null, text: 'b'.repeat(100), provenance: 'provider_generated',
+            uncertainty: 'none', source_required: false,
+          },
+        },
+      ],
+    };
+    expect(schema.safeParse(patch).success).toBe(true);
+    expect(schema.safeParse({
+      ...patch,
+      items: patch.items.map((item, index) => index === 0
+        ? { ...item, replacement: { ...item.replacement, text: 'a'.repeat(104) } }
+        : item),
+    }).success).toBe(false);
+    expect(schema.safeParse({
+      ...patch,
+      items: patch.items.map((item, index) => index === 1
+        ? { ...item, replacement: { ...item.replacement, text: 'b'.repeat(101) } }
+        : item),
+    }).success).toBe(false);
+    expect(schema.safeParse({ ...patch, items: patch.items.slice(0, 1) }).success).toBe(false);
+  });
+
   it.each([
     [401, 'provider_auth_invalid'],
     [403, 'provider_auth_invalid'],

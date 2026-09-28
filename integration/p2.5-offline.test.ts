@@ -127,15 +127,20 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
         const wordCount = maximum === undefined
           ? 2
           : Math.max(1, maximum + (['repair_still_long', 'subtitle_repair_still_long'].includes(this.mode) ? 1 : 0));
-        const replacementWord = this.mode === 'subtitle_same_words_wide'
-          ? 'WWWWWWWWWWWWWWWWWWWW'
-          : this.mode === 'subtitle_repair_still_long' ? 'ÉLECTRICITÉ'
-          : 'mot';
+        const replacementWord = this.mode === 'subtitle_repair_still_long' ? 'ÉLECTRICITÉ' : 'mot';
+        const maximumCharacters = target.subtitle_constraint?.maximum_recommended_characters;
+        const replacementText = this.mode === 'subtitle_same_words_wide' && maximumCharacters !== undefined
+          ? (() => {
+              const shortWords = Array.from({ length: Math.max(0, wordCount - 1) }, () => 'i');
+              const reservedCharacters = shortWords.length * 2;
+              return ['W'.repeat(Math.max(1, maximumCharacters - reservedCharacters)), ...shortWords].join(' ');
+            })()
+          : Array.from({ length: wordCount }, () => replacementWord).join(' ');
         return {
           target: target.target,
           replacement: {
             scene_id: target.target.scene_id,
-            text: Array.from({ length: wordCount }, () => replacementWord).join(' '),
+            text: replacementText,
             provenance: 'provider_generated' as const,
             uncertainty: target.previous_content?.uncertainty ?? 'none' as const,
             source_required: target.previous_content?.source_required ?? false,
@@ -197,6 +202,7 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
     const subtitleTargets = new Set(this.mode === 'subtitle_triple_repair'
       ? tripleSubtitleSlots.map((slot) => slot.slot_id)
       : subtitleTarget === undefined ? [] : [subtitleTarget]);
+    const tripleSubtitleWords = ['ÉLECTRICITÉ', 'WWWWWWWW', 'MMMMMM'] as const;
     const temporalTarget = this.mode === 'combined_repair' ? combinedTarget : context.content_slots.find((slot) => (
       slot.allowed_scene_ids.length > 1
       && slot.constraints.channels.includes('on_screen')
@@ -216,7 +222,13 @@ class OfflineStructuredTransport implements OpenAIStructuredTransport {
             return ['W'.repeat(firstLength), ...tail].join(' ');
           })()
         : mustOverflowSubtitle && subtitleTargets.has(slot.slot_id)
-        ? Array.from({ length: 18 }, () => 'ÉLECTRICITÉ').join(' ').slice(0, slot.constraints.max_characters)
+        ? Array.from(
+            { length: 18 },
+            () => this.mode === 'subtitle_triple_repair'
+              ? tripleSubtitleWords[tripleSubtitleSlots.findIndex((target) => target.slot_id === slot.slot_id)]
+                ?? 'ÉLECTRICITÉ'
+              : 'ÉLECTRICITÉ',
+          ).join(' ').slice(0, slot.constraints.max_characters)
         : mustBeLong && slot.slot_id === temporalTarget
         ? Array.from(
             { length: Math.max(8, Math.min(24, Math.floor((slot.constraints.max_characters + 1) / 4))) },
@@ -445,6 +457,7 @@ describe('P2.5 — adapter réel, transport offline', () => {
     });
     expect(result.ok).toBe(false);
     expect(result.report.failure_kind).toBe('repair_exhausted');
+    expect(transport.requests.at(-1)?.schema.safeParse(transport.outputs.at(-1)).success).toBe(true);
     expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.content_reading_budget_exceeded');
     expect(transport.resolutionCalls).toBe(2);
   });
@@ -572,6 +585,7 @@ describe('P2.5 — adapter réel, transport offline', () => {
     });
     expect(result.ok).toBe(false);
     expect(result.report.failure_kind).toBe('repair_exhausted');
+    expect(transport.requests.at(-1)?.schema.safeParse(transport.outputs.at(-1)).success).toBe(true);
     expect(result.report.diagnostics.map((entry) => entry.code)).toContain('gateway.output.subtitle_geometry_overflow');
   });
 
@@ -622,7 +636,10 @@ describe('P2.5 — adapter réel, transport offline', () => {
         targets: Array<{
           target: { slot_id: string; scene_id: string | null };
           allowed_scene_ids: string[];
-          subtitle_constraint: { content_relative_maximum_words: number } | null;
+          subtitle_constraint: {
+            content_relative_maximum_words: number;
+            maximum_recommended_characters: number;
+          } | null;
           effective_concision: { maximum_words: number } | null;
         }>;
       };
@@ -634,6 +651,12 @@ describe('P2.5 — adapter réel, transport offline', () => {
       && entry.subtitle_constraint.content_relative_maximum_words > 0
       && entry.effective_concision?.maximum_words === entry.subtitle_constraint.content_relative_maximum_words
     ))).toBe(true);
+    expect(new Set(targets.map((entry) => (
+      entry.subtitle_constraint?.maximum_recommended_characters
+    ))).size).toBe(3);
+    const repairTransportRequest = transport.requests.at(-1)!;
+    const repairPatch = transport.outputs.at(-1);
+    expect(repairTransportRequest.schema.safeParse(repairPatch).success).toBe(true);
     expect(result.report.resolution_repair?.initial_invalid_targets).toHaveLength(3);
     expect(result.report.resolution_repair?.patched_targets).toHaveLength(3);
     const genericMultiScene = targets.find((entry) => (
