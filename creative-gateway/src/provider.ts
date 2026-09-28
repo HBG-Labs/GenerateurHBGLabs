@@ -19,6 +19,14 @@ export interface ProviderResolutionContext {
   readonly asset_intents: readonly AssetIntent[];
 }
 
+export interface ProviderSceneTimeBudget {
+  readonly scene_id: string;
+  readonly available_ms: number;
+  /** Budget total du calque texte de la scène, partagé entre les slots applicables. */
+  readonly maximum_total_words: number;
+  readonly maximum_recommended_characters_per_entry: number;
+}
+
 export interface ProviderContentSlotContext {
   readonly slot_id: ContentSlot['id'];
   readonly beat_id: ContentSlot['beat_id'];
@@ -31,6 +39,10 @@ export interface ProviderContentSlotContext {
   readonly status: ContentSlot['status'];
   /** Scènes canoniques P2.2 auxquelles ce slot peut être appliqué. */
   readonly allowed_scene_ids: readonly string[];
+  readonly reading_budget_applies: boolean;
+  readonly scene_time_budgets: readonly ProviderSceneTimeBudget[];
+  /** Pour `scene_id = null`, budget de la scène admissible la plus restrictive. */
+  readonly generic_time_budget: ProviderSceneTimeBudget | null;
   /** `scene_id = null` signifie appliquer la même résolution à toutes les scènes autorisées. */
   readonly generic_resolution_allowed: boolean;
 }

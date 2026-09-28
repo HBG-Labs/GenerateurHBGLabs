@@ -45,6 +45,7 @@ export interface ResolvedSceneTiming {
   to_frame: number;
   beat_ms: number;
   readability_ms: number;
+  reading_available_ms: number;
   behaviors: readonly ResolvedBehaviorTiming[];
 }
 
@@ -54,6 +55,11 @@ export interface TemporalResolution {
   timing_source: 'explicit_duration' | 'voice_timestamps' | 'fallback_frames';
   scenes: readonly ResolvedSceneTiming[];
   transitions: readonly ResolvedTransitionTiming[];
+}
+
+export interface TemporalAnalysis {
+  readonly resolution: TemporalResolution;
+  readonly diagnostics: readonly TemporalDiagnostic[];
 }
 
 export interface ResolvedTransitionTiming {
@@ -111,7 +117,7 @@ export function anchorKind(anchor: Anchor): P13AnchorKind | 'VOICE_SEGMENT' {
   return 'VOICE_SEGMENT';
 }
 
-function words(text: string, locale: string): number {
+export function readabilityWordCount(text: string, locale: string): number {
   const segmented = text.trim().match(/[\p{L}\p{N}]+(?:[’'][\p{L}\p{N}]+)*/gu)?.length ?? 0;
   if (/^(zh|ja|ko)(-|$)/i.test(locale)) return Math.max(segmented, Math.ceil([...text.replace(/\s/gu, '')].length / 3));
   return segmented;
@@ -125,7 +131,40 @@ export function minimumReadabilityMs(
 ): number {
   const localeFactor = /^fr(-|$)/i.test(locale) ? 1.05 : /^(de|nl)(-|$)/i.test(locale) ? 1.1 : 1;
   const roleFactor = role === 'hook' || role === 'tension' ? 0.9 : role === 'cta' || role === 'signature' ? 1.1 : 1;
-  return Math.max(reading.min_hold_ms, roundMs(words(text, locale) * reading.ms_per_word * localeFactor * roleFactor));
+  return Math.max(reading.min_hold_ms, roundMs(readabilityWordCount(text, locale) * reading.ms_per_word * localeFactor * roleFactor));
+}
+
+export function maximumReadableWords(
+  availableMs: number,
+  role: Scene['purpose'],
+  locale: string,
+  reading: { ms_per_word: number; min_hold_ms: number },
+): number {
+  if (availableMs < reading.min_hold_ms) return 0;
+  let low = 0;
+  let high = Math.max(1, Math.ceil(availableMs / Math.max(1, reading.ms_per_word)) * 2);
+  const synthetic = (count: number): string => Array.from({ length: count }, () => 'mot').join(' ');
+  while (minimumReadabilityMs(synthetic(high), role, locale, reading) <= availableMs) high *= 2;
+  while (low + 1 < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (minimumReadabilityMs(synthetic(middle), role, locale, reading) <= availableMs) low = middle;
+    else high = middle;
+  }
+  return low;
+}
+
+export function stableReadingWindowMs(
+  sceneStart: number,
+  sceneEnd: number,
+  behaviors: readonly Pick<ResolvedBehaviorTiming, 'behavior' | 'start_ms' | 'end_ms'>[],
+): number {
+  const stableAt = Math.max(sceneStart, ...behaviors
+    .filter((item) => ['REVEAL_TEXT', 'ACCENT_WORD', 'SETTLE'].includes(item.behavior))
+    .map((item) => item.end_ms));
+  const exitAt = Math.min(sceneEnd, ...behaviors
+    .filter((item) => item.behavior === 'EXIT_CLEAR')
+    .map((item) => item.start_ms));
+  return Math.max(0, exitAt - stableAt);
 }
 
 function visitLayers(layers: readonly Layer[], path: string, result: { layer: Layer; path: string }[] = []) {
@@ -178,7 +217,7 @@ function validateBudgets(entries: readonly ResolvedBehaviorTiming[], maxRender: 
   }
 }
 
-export function resolveTemporalPlan(input: ResolveTemporalInput): TemporalResolution {
+export function analyzeTemporalPlan(input: ResolveTemporalInput): TemporalAnalysis {
   const registry = input.registry ?? P13_BEHAVIOR_REGISTRY;
   const style = input.resolvedStyle.style;
   const diagnostics: TemporalDiagnostic[] = [];
@@ -303,15 +342,14 @@ export function resolveTemporalPlan(input: ResolveTemporalInput): TemporalResolu
         ? [minimumReadabilityMs(textOf(layer), scene.purpose, input.spec.locale, style.rhythm_personality.reading)]
         : []),
     );
+    const readingAvailable = stableReadingWindowMs(sceneStart, sceneEnd, resolvedEntries);
     if (scene.timing.min_hold === 'reading') {
-      const stableAt = Math.max(sceneStart, ...resolvedEntries.filter((item) => ['REVEAL_TEXT', 'ACCENT_WORD', 'SETTLE'].includes(item.behavior)).map((item) => item.end_ms));
-      const exitAt = Math.min(sceneEnd, ...resolvedEntries.filter((item) => item.behavior === 'EXIT_CLEAR').map((item) => item.start_ms));
-      if (exitAt - stableAt < readability) {
+      if (readingAvailable < readability) {
         diagnostics.push({
           code: 'temporal.impossible_reading',
           path: `${scenePath}.timing`,
-          message: `fenêtre stable ${Math.max(0, exitAt - stableAt)} ms, lecture minimale ${readability} ms`,
-          details: { available_ms: Math.max(0, exitAt - stableAt), required_ms: readability },
+          message: `fenêtre stable ${readingAvailable} ms, lecture minimale ${readability} ms`,
+          details: { available_ms: readingAvailable, required_ms: readability },
         });
       }
     }
@@ -329,6 +367,7 @@ export function resolveTemporalPlan(input: ResolveTemporalInput): TemporalResolu
       to_frame: toFrame,
       beat_ms: beatMs,
       readability_ms: readability,
+      reading_available_ms: readingAvailable,
       behaviors: resolvedEntries,
     });
     timelineMs = sceneEnd;
@@ -355,12 +394,20 @@ export function resolveTemporalPlan(input: ResolveTemporalInput): TemporalResolu
     });
   });
 
-  if (diagnostics.length > 0) throw new TemporalResolutionError(diagnostics);
   return {
-    duration_ms: timelineMs,
-    duration_frames: frameAt(timelineMs, input.fps),
-    timing_source: input.fallbackSceneFrames !== undefined ? 'fallback_frames' : 'explicit_duration',
-    scenes,
-    transitions,
+    resolution: {
+      duration_ms: timelineMs,
+      duration_frames: frameAt(timelineMs, input.fps),
+      timing_source: input.fallbackSceneFrames !== undefined ? 'fallback_frames' : 'explicit_duration',
+      scenes,
+      transitions,
+    },
+    diagnostics,
   };
+}
+
+export function resolveTemporalPlan(input: ResolveTemporalInput): TemporalResolution {
+  const analysis = analyzeTemporalPlan(input);
+  if (analysis.diagnostics.length > 0) throw new TemporalResolutionError(analysis.diagnostics);
+  return analysis.resolution;
 }

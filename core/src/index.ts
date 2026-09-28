@@ -61,10 +61,14 @@ export {
 } from './motion/behavior-registry.ts';
 export { assertNoTrackConflicts, compileLayerTracks, MotionTrackError } from './motion/compile-tracks.ts';
 export {
+  analyzeTemporalPlan,
   anchorKind,
   durationToMs,
+  maximumReadableWords,
   minimumReadabilityMs,
+  readabilityWordCount,
   resolveTemporalPlan,
+  stableReadingWindowMs,
   TemporalResolutionError,
 } from './temporal/resolve.ts';
 export type {
@@ -73,6 +77,7 @@ export type {
   ResolvedSceneTiming,
   ResolvedTransitionTiming,
   TemporalDiagnostic,
+  TemporalAnalysis,
   TemporalResolution,
 } from './temporal/resolve.ts';
 

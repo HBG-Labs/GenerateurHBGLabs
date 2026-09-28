@@ -14,7 +14,13 @@ import { hashDocument } from './integrity/canonical.ts';
 import { assertNoTrackConflicts, MotionTrackError } from './motion/compile-tracks.ts';
 import { P13_BEHAVIOR_DEFINITIONS, P13_BEHAVIOR_REGISTRY } from './motion/behavior-registry.ts';
 import { buildMotionSceneSpec } from './spec-builder/build-spec.ts';
-import { minimumReadabilityMs, resolveTemporalPlan, TemporalResolutionError } from './temporal/resolve.ts';
+import {
+  analyzeTemporalPlan,
+  maximumReadableWords,
+  minimumReadabilityMs,
+  resolveTemporalPlan,
+  TemporalResolutionError,
+} from './temporal/resolve.ts';
 import { readFixture, resolvedInk, resolvedSignal } from './test-support.ts';
 import { validateBehaviorDefinition, validateSpec } from './validation/validate.ts';
 
@@ -151,6 +157,18 @@ describe('Temporal Engine P1.3', () => {
     const reading = { ms_per_word: 250, min_hold_ms: 600 };
     expect(minimumReadabilityMs('Un texte court', 'hook', 'fr-FR', reading)).toBeGreaterThanOrEqual(600);
     expect(minimumReadabilityMs('Un texte nettement plus long à lire', 'signature', 'fr-FR', reading)).toBeGreaterThan(minimumReadabilityMs('Un texte court', 'hook', 'fr-FR', reading));
+    const maximum = maximumReadableWords(2_000, 'hook', 'fr-FR', reading);
+    expect(minimumReadabilityMs(Array.from({ length: maximum }, () => 'mot').join(' '), 'hook', 'fr-FR', reading)).toBeLessThanOrEqual(2_000);
+    expect(minimumReadabilityMs(Array.from({ length: maximum + 1 }, () => 'mot').join(' '), 'hook', 'fr-FR', reading)).toBeGreaterThan(2_000);
+  });
+
+  it('analyse sans masquer le diagnostic P1 bloquant de lecture impossible', () => {
+    const spec = animatedSpec();
+    spec.scenes[0]!.timing.anchor = { duration: { ms: 500 } };
+    const analysis = analyzeTemporalPlan({ spec, resolvedStyle: resolvedSignal(), fps: 30 });
+    expect(analysis.diagnostics.map((issue) => issue.code)).toContain('temporal.impossible_reading');
+    expect(analysis.resolution.scenes[0]!.reading_available_ms).toBeGreaterThanOrEqual(0);
+    expect(() => resolveTemporalPlan({ spec, resolvedStyle: resolvedSignal(), fps: 30 })).toThrow(TemporalResolutionError);
   });
 
   it('résout le rythme depuis le style', () => {

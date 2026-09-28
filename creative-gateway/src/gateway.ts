@@ -13,7 +13,13 @@ import {
   type PlannerInput,
   type StoryPlanningResult,
 } from '@motion-engine/creative-core';
-import type { CreativeResolution } from '@motion-engine/creative-compiler';
+import {
+  deriveCreativeReadingBudgets,
+  inspectCreativeReadingFeasibility,
+  type CreativeReadingBudget,
+  type CreativeReadingPolicy,
+  type CreativeResolution,
+} from '@motion-engine/creative-compiler';
 
 import {
   CREATIVE_GATEWAY_VERSION,
@@ -77,6 +83,8 @@ export interface CreativeGatewayOptions {
   readonly signal?: AbortSignal;
   readonly limits?: GatewayLimits;
   readonly source_verifications?: readonly GatewaySourceVerification[];
+  /** Politique P2.3/P1 explicite utilisée pour prévenir les lectures impossibles avant compilation finale. */
+  readonly reading_policy?: CreativeReadingPolicy;
   readonly resolve_asset_bindings?: (
     context: AssetBindingContext,
   ) => readonly GatewayAssetBinding[] | Promise<readonly GatewayAssetBinding[]>;
@@ -84,6 +92,7 @@ export interface CreativeGatewayOptions {
 
 export interface CreativeGatewayReplayOptions {
   readonly planner?: PlannerOptions;
+  readonly reading_policy?: CreativeReadingPolicy;
 }
 
 export interface CreativeGatewayResult {
@@ -434,6 +443,7 @@ function buildProviderResolutionContext(
   slots: readonly ContentSlot[],
   report: PlanningReport,
   assets: readonly AssetIntent[],
+  readingBudgets: readonly CreativeReadingBudget[],
 ): ProviderResolutionContext {
   const scenesByBeat = new Map<string, string[]>();
   report.scenes.forEach((scene) => scene.beat_ids.forEach((beatId) => {
@@ -441,20 +451,101 @@ function buildProviderResolutionContext(
     if (!sceneIds.includes(scene.scene_id)) sceneIds.push(scene.scene_id);
     scenesByBeat.set(beatId, sceneIds);
   }));
-  const contentSlots: ProviderContentSlotContext[] = slots.map((slot) => ({
-    slot_id: slot.id,
-    beat_id: slot.beat_id,
-    role: slot.role,
-    semantic_context: slot.semantic_context,
-    constraints: slot.constraints,
-    required: slot.required,
-    language: slot.language,
-    factual_requirement: slot.factual_requirement,
-    status: slot.status,
-    allowed_scene_ids: [...(scenesByBeat.get(slot.beat_id) ?? [])],
-    generic_resolution_allowed: true,
-  }));
+  const contentSlots: ProviderContentSlotContext[] = slots.map((slot) => {
+    const allowedSceneIds = [...(scenesByBeat.get(slot.beat_id) ?? [])];
+    const sceneTimeBudgets = slot.constraints.channels.includes('on_screen')
+      ? readingBudgets.filter((budget) => allowedSceneIds.includes(budget.scene_id)).map((budget) => ({
+          scene_id: budget.scene_id,
+          available_ms: budget.available_ms,
+          maximum_total_words: budget.maximum_total_words,
+          maximum_recommended_characters_per_entry: Math.min(
+            slot.constraints.max_characters,
+            budget.maximum_recommended_characters_per_entry,
+          ),
+        }))
+      : [];
+    const genericTimeBudget = sceneTimeBudgets.length === 0
+      ? null
+      : [...sceneTimeBudgets].sort((left, right) =>
+          left.maximum_total_words - right.maximum_total_words
+          || left.available_ms - right.available_ms
+          || left.scene_id.localeCompare(right.scene_id))[0]!;
+    return {
+      slot_id: slot.id,
+      beat_id: slot.beat_id,
+      role: slot.role,
+      semantic_context: slot.semantic_context,
+      constraints: slot.constraints,
+      required: slot.required,
+      language: slot.language,
+      factual_requirement: slot.factual_requirement,
+      status: slot.status,
+      allowed_scene_ids: allowedSceneIds,
+      reading_budget_applies: slot.constraints.channels.includes('on_screen'),
+      scene_time_budgets: sceneTimeBudgets,
+      generic_time_budget: genericTimeBudget,
+      generic_resolution_allowed: true,
+    };
+  });
   return { plan_id: planId, content_slots: contentSlots, asset_intents: assets };
+}
+
+function readingSemantics(
+  output: ResolutionGenerationOutput,
+  plan: NonNullable<StoryPlanningResult['creative_plan']>,
+  report: PlanningReport,
+  slots: readonly ContentSlot[],
+  resolutionContext: ProviderResolutionContext,
+  policy: CreativeReadingPolicy,
+): CreativeDiagnostic[] {
+  const slotMap = new Map(slots.map((slot) => [slot.id, slot]));
+  const targetMap = new Map(resolutionContext.content_slots.map((slot) => [slot.slot_id, slot]));
+  const inspection = inspectCreativeReadingFeasibility({
+    plan,
+    planning_report: report,
+    content_slots: slots,
+    content: output.content.map((entry) => ({
+      slot_id: entry.slot_id,
+      ...(entry.scene_id === undefined ? {} : { scene_id: entry.scene_id }),
+      text: entry.text,
+      ...(slotMap.get(entry.slot_id)?.factual_requirement === 'source_required'
+        ? { source_slot: 'reading_budget_source' }
+        : {}),
+    })),
+    policy,
+  });
+  if (inspection.diagnostics.length > 0) return inspection.diagnostics.map((entry) => ({
+    ...entry,
+    code: `gateway.reading_preflight.${entry.code}`,
+    suggested_action: entry.code === 'creative_compile.text_runs_exceeded'
+      ? 'Raccourcir le contenu tout en préservant son rôle sémantique.'
+      : entry.suggested_action,
+  }));
+  const diagnostics: CreativeDiagnostic[] = [];
+  inspection.issues.forEach((issue) => {
+    const contributors = output.content.flatMap((entry, index) => {
+      const target = targetMap.get(entry.slot_id);
+      if (!target?.reading_budget_applies) return [];
+      const applies = entry.scene_id === issue.scene_id
+        || (entry.scene_id === undefined && target.allowed_scene_ids.includes(issue.scene_id));
+      return applies ? [{ entry, index }] : [];
+    });
+    contributors.forEach(({ entry, index }) => diagnostics.push(diagnostic(
+      'gateway.output.content_reading_budget_exceeded',
+      'error',
+      `$.content[${index}].text`,
+      'Le contenu cumulé de la scène dépasse sa fenêtre de lecture certifiée.',
+      'Raccourcir le contenu tout en préservant son rôle sémantique ; ne modifier ni la scène ni sa durée.',
+      {
+        slot_id: entry.slot_id,
+        scene_id: issue.scene_id,
+        available_ms: issue.available_ms,
+        required_ms: issue.required_ms,
+        maximum_total_words: issue.maximum_total_words,
+      },
+    )));
+  });
+  return diagnostics;
 }
 
 function resolutionInvariantDiagnostics(
@@ -763,20 +854,49 @@ export async function runCreativeGateway(
   }
   transition(context, 'PLANNED', 'planning.accepted');
   const creativePlan = planned.planning.creative_plan;
+  const readingBudgetResult = options.reading_policy
+    ? deriveCreativeReadingBudgets({
+        plan: creativePlan,
+        planning_report: planned.planning.report,
+        content_slots: planned.planning.content_slots,
+        policy: options.reading_policy,
+      })
+    : null;
+  if (readingBudgetResult && !readingBudgetResult.ok) {
+    context.diagnostics.push(...readingBudgetResult.diagnostics, diagnostic(
+      'gateway.reading_budget_unavailable', 'error', '$.resolution_context',
+      'Les budgets de lecture certifiés ne peuvent pas être dérivés avant Stage B.',
+      'Corriger la configuration P2.3/P1 sans demander au provider de modifier le contenu.',
+    ));
+    context.failure = 'semantic_invalid';
+    return failedResult(context, provider, requestHash, planned.planner_input, planned.planning);
+  }
   const resolutionContext = buildProviderResolutionContext(
     creativePlan.plan_id,
     planned.planning.content_slots,
     planned.planning.report,
     creativePlan.asset_intents,
+    readingBudgetResult?.budgets ?? [],
   );
   const resolutionStage = await runStage<ResolutionGenerationOutput>({
     stage: 'resolution', context, provider: options.provider, request, maxRepairs, timeoutMs,
     ...(options.signal === undefined ? {} : { externalSignal: options.signal }),
     resolutionContext,
-    semantic: (output) => resolutionSemantics(
-      request, output, provider, creativePlan.plan_id, planned.planning.content_slots, creativePlan.asset_intents,
-      resolutionContext,
-    ),
+    semantic: (output) => {
+      const diagnostics = resolutionSemantics(
+        request, output, provider, creativePlan.plan_id, planned.planning.content_slots, creativePlan.asset_intents,
+        resolutionContext,
+      );
+      if (!diagnostics.some((entry) => entry.severity === 'error') && options.reading_policy) diagnostics.push(...readingSemantics(
+        output,
+        creativePlan,
+        planned.planning.report!,
+        planned.planning.content_slots,
+        resolutionContext,
+        options.reading_policy,
+      ));
+      return diagnostics;
+    },
   });
   if (!resolutionStage.ok || !resolutionStage.output) {
     context.failure = resolutionStage.failure;
@@ -911,11 +1031,28 @@ export function replayCreativeGateway(
     return failedResult(context, snapshot.provider, snapshot.hashes.request, planned.planner_input, planned.planning);
   }
   transition(context, 'PLANNED', 'replay.planned');
+  const readingBudgetResult = options.reading_policy
+    ? deriveCreativeReadingBudgets({
+        plan: planned.planning.creative_plan,
+        planning_report: planned.planning.report,
+        content_slots: planned.planning.content_slots,
+        policy: options.reading_policy,
+      })
+    : null;
+  if (readingBudgetResult && !readingBudgetResult.ok) {
+    context.diagnostics.push(...readingBudgetResult.diagnostics, diagnostic(
+      'gateway.reading_budget_unavailable', 'error', '$.resolution_context',
+      'Les budgets de lecture certifiés ne peuvent pas être reconstruits pendant le replay.',
+    ));
+    context.failure = 'semantic_invalid';
+    return failedResult(context, snapshot.provider, snapshot.hashes.request, planned.planner_input, planned.planning);
+  }
   const resolutionContext = buildProviderResolutionContext(
     planned.planning.creative_plan.plan_id,
     planned.planning.content_slots,
     planned.planning.report,
     planned.planning.creative_plan.asset_intents,
+    readingBudgetResult?.budgets ?? [],
   );
   context.diagnostics.push(...resolutionSemantics(
     snapshot.request,
@@ -925,6 +1062,14 @@ export function replayCreativeGateway(
     planned.planning.content_slots,
     planned.planning.creative_plan.asset_intents,
     resolutionContext,
+  ));
+  if (!context.diagnostics.some((entry) => entry.severity === 'error') && options.reading_policy) context.diagnostics.push(...readingSemantics(
+    snapshot.resolution_output,
+    planned.planning.creative_plan,
+    planned.planning.report,
+    planned.planning.content_slots,
+    resolutionContext,
+    options.reading_policy,
   ));
   const validatedBindings = validateBindings(
     snapshot.asset_bindings,

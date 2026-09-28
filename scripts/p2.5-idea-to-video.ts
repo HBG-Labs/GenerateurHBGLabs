@@ -184,10 +184,16 @@ async function main(): Promise<void> {
   });
 
   const assetFallbacks: AssetFallback[] = [];
+  const readingPolicy = {
+    profile: SHORT_FORM_DEFAULT_PROFILE,
+    resolved_style: p23Style('signal'),
+    pattern: pattern(),
+  };
   const gateway = await runCreativeGateway(request, {
     provider,
     max_repair_attempts: 1,
     timeout_ms: provider.config.timeout_ms,
+    reading_policy: readingPolicy,
     resolve_asset_bindings: ({ asset_intents, descriptions }) => asset_intents.map((asset) => {
       const description = descriptions.find((entry) => entry.asset_slot === asset.slot)?.description ?? asset.purpose;
       assetFallbacks.push({
@@ -210,7 +216,7 @@ async function main(): Promise<void> {
 
   const direct = prepareP1(gateway);
   const replayCallsBefore = provider.callCount;
-  const replayedGateway = replayCreativeGateway(gateway.snapshot);
+  const replayedGateway = replayCreativeGateway(gateway.snapshot, { reading_policy: readingPolicy });
   assertGatewayReady(replayedGateway);
   const replayed = prepareP1(replayedGateway);
   const replayP1 = compilePipeline(replayed.compileInput);

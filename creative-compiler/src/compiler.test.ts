@@ -4,6 +4,7 @@ import { hashDocument, validateSpec } from '@motion-engine/core';
 
 import { compileCreativePlan } from './compiler.ts';
 import { SHORT_FORM_DEFAULT_PROFILE } from './profile.ts';
+import { deriveCreativeReadingBudgets, inspectCreativeReadingFeasibility } from './reading-budget.ts';
 import { buildCreativeResolution } from './resolution.ts';
 import { genericPattern, hypotheticalFixture, nocturneStyle, plannerFixture, signalStyle } from './test-support.ts';
 
@@ -34,6 +35,66 @@ describe('Creative Compiler P2.3', () => {
     expect(validateSpec(result.motion_spec, style, {
       assetRefs: new Set(['neutral_landscape']),
     }).ok).toBe(true);
+  });
+
+  it('dérive et vérifie les budgets de lecture avec la politique temporelle P1', () => {
+    const fixture = hypotheticalFixture();
+    const plan = fixture.planning.creative_plan!;
+    const policy = {
+      profile: SHORT_FORM_DEFAULT_PROFILE,
+      resolved_style: signalStyle(),
+      pattern: genericPattern(),
+    };
+    const derived = deriveCreativeReadingBudgets({
+      plan,
+      planning_report: fixture.planning.report!,
+      content_slots: fixture.planning.content_slots,
+      policy,
+    });
+    expect(derived.ok, JSON.stringify(derived.diagnostics)).toBe(true);
+    expect(derived.budgets).toHaveLength(plan.scenes.length);
+    expect(derived.budgets.every((budget) => budget.available_ms > 0 && budget.maximum_total_words > 0)).toBe(true);
+
+    const content = fixture.resolution.content_slots.flatMap((slot, index) => slot.status === 'resolved'
+      ? [{
+          slot_id: slot.slot_id,
+          scene_id: slot.scene_id,
+          text: index === 0 ? Array.from({ length: 24 }, () => 'mot').join(' ') : slot.text,
+          ...(slot.source_slot === undefined ? {} : { source_slot: slot.source_slot }),
+        }]
+      : []);
+    const inspected = inspectCreativeReadingFeasibility({
+      plan,
+      planning_report: fixture.planning.report!,
+      content_slots: fixture.planning.content_slots,
+      content,
+      policy,
+    });
+    expect(inspected.ok).toBe(false);
+    expect(inspected.issues.length).toBeGreaterThan(0);
+    expect(inspected.issues.every((issue) => issue.required_ms > issue.available_ms)).toBe(true);
+  });
+
+  it('refuse Stage B lorsque même le contenu minimal ne tient pas dans la fenêtre P1', () => {
+    const fixture = hypotheticalFixture();
+    const style = structuredClone(signalStyle());
+    style.style.rhythm_personality.reading.min_hold_ms = 60_000;
+    const derived = deriveCreativeReadingBudgets({
+      plan: fixture.planning.creative_plan!,
+      planning_report: fixture.planning.report!,
+      content_slots: fixture.planning.content_slots,
+      policy: {
+        profile: SHORT_FORM_DEFAULT_PROFILE,
+        resolved_style: style,
+        pattern: genericPattern(),
+      },
+    });
+
+    expect(derived.ok).toBe(false);
+    expect(derived.budgets).toEqual([]);
+    expect(derived.diagnostics.some((entry) => (
+      entry.code === 'creative_reading.temporal.impossible_reading'
+    ))).toBe(true);
   });
 
   it('garde le même CreativePlan mais lie explicitement Signal ou Nocturne', () => {

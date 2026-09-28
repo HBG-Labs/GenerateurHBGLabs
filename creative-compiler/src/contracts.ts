@@ -16,6 +16,7 @@ import {
 export const CREATIVE_COMPILER_VERSION = '0.1.0' as const;
 export const CREATIVE_RESOLUTION_VERSION = '0.1.0' as const;
 export const CREATIVE_COMPILE_REPORT_VERSION = '0.1.0' as const;
+export const CREATIVE_TEXT_RUN_MAX_CHARACTERS = 160 as const;
 export const MOTION_SPEC_TARGET_VERSION = MOTION_SPEC_VERSION;
 
 const ContentResolutionBase = {

@@ -2,6 +2,7 @@ import {
   CreativeCompileProvenanceSchema,
   CreativeCompileReportSchema,
   CreativeResolutionSchema,
+  CREATIVE_TEXT_RUN_MAX_CHARACTERS,
   MOTION_SPEC_TARGET_VERSION,
   type CompilationProfile,
   type CreativeCompileProvenance,
@@ -73,7 +74,6 @@ interface CompileState {
   readonly provenanceLayers: Array<CreativeCompileProvenance['layers'][number]>;
 }
 
-const MAX_TEXT_RUN = 160;
 const MAX_VOICE_SEGMENT = 400;
 
 function diagnostic(input: CreativeDiagnostic): CreativeDiagnostic {
@@ -171,7 +171,7 @@ function textRuns(scene: SceneIntent, slots: readonly ResolvedContentSlot[], dia
   const runs: TextRun[] = [];
   const sourceIds: string[] = [];
   for (const entry of entries) {
-    const chunks = splitAtWords(entry.text, MAX_TEXT_RUN);
+    const chunks = splitAtWords(entry.text, CREATIVE_TEXT_RUN_MAX_CHARACTERS);
     if (chunks.length + runs.length > 24) {
       diagnostics.push(diagnostic({
         code: 'creative_compile.text_runs_exceeded', severity: 'error', path: `$.scenes.${scene.id}.content.on_screen`,
