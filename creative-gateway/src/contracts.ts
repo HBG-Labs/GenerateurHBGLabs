@@ -190,8 +190,15 @@ export const GatewayTransitionSchema = z.strictObject({
 export type GatewayTransition = z.infer<typeof GatewayTransitionSchema>;
 
 export const GatewayFailureKindSchema = z.enum([
+  'provider_auth_missing',
+  'provider_auth_invalid',
+  'provider_rate_limited',
   'provider_unavailable',
+  'provider_network_error',
   'provider_timeout',
+  'provider_safety_refusal',
+  'provider_output_incomplete',
+  'provider_call_limit_exceeded',
   'provider_malformed_response',
   'schema_invalid',
   'semantic_invalid',
