@@ -10,6 +10,7 @@ function visit(node: PlanNode, result: Set<RenderCapability>): void {
   if (node.tracks.some((track) => track.property.startsWith('clip_'))) result.add('CLIP');
   if (node.tracks.some((track) => track.property === 'path_progress')) result.add('PATH_PROGRESS');
   if (node.tracks.some((track) => track.property === 'color')) result.add('COLOR');
+  if (node.tracks.some((track) => track.property === 'tracking_px' || track.property.startsWith('font_axis.'))) result.add('DYNAMIC_TYPOGRAPHY');
   if (node.type === 'group' || node.type === 'mask') node.children.forEach((child) => visit(child, result));
 }
 

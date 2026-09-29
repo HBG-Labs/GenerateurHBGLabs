@@ -14,7 +14,7 @@ import { PATTERN_DEFINITION_SCHEMA, PATTERN_DEFINITION_VERSION, PatternDefinitio
 import type { PatternDefinition } from '../contracts/pattern.ts';
 import { PLATFORM_PRESETS_SCHEMA, PLATFORM_PRESETS_VERSION, PlatformPresetsSchema } from '../contracts/platform.ts';
 import type { PlatformPresets } from '../contracts/platform.ts';
-import { RENDER_PLAN_SCHEMA, RENDER_PLAN_VERSION, RenderPlanSchema } from '../contracts/render-plan.ts';
+import { RENDER_PLAN_LEGACY_VERSION, RENDER_PLAN_SCHEMA, RENDER_PLAN_VERSION, RenderPlanSchema } from '../contracts/render-plan.ts';
 import type { RenderPlan } from '../contracts/render-plan.ts';
 import { AUDIO_PLAN_VERSION, AudioPlanSchema, SUBTITLE_PLAN_VERSION, SubtitlePlanSchema } from '../contracts/render-plan.ts';
 import type { AudioPlan, SubtitlePlan } from '../contracts/render-plan.ts';
@@ -94,7 +94,16 @@ const REGISTRY: { [K in DocumentKind]: KindEntry<DocumentKinds[K]> } = {
   },
   [PATTERN_DEFINITION_SCHEMA]: { current: PATTERN_DEFINITION_VERSION, schema: PatternDefinitionSchema, migrations: {} },
   [BEHAVIOR_DEFINITION_SCHEMA]: { current: BEHAVIOR_DEFINITION_VERSION, schema: BehaviorDefinitionSchema, migrations: {} },
-  [RENDER_PLAN_SCHEMA]: { current: RENDER_PLAN_VERSION, schema: RenderPlanSchema, migrations: {} },
+  [RENDER_PLAN_SCHEMA]: {
+    current: RENDER_PLAN_VERSION,
+    schema: RenderPlanSchema,
+    migrations: {
+      [RENDER_PLAN_LEGACY_VERSION]: {
+        to: RENDER_PLAN_VERSION,
+        migrate: (doc) => ({ ...doc, schema_version: RENDER_PLAN_VERSION }),
+      },
+    },
+  },
   [MANIFEST_SCHEMA]: { current: MANIFEST_VERSION, schema: ReproducibilityManifestSchema, migrations: {} },
   'audio-plan': { current: AUDIO_PLAN_VERSION, schema: AudioPlanSchema, migrations: {} },
   'subtitle-plan': { current: SUBTITLE_PLAN_VERSION, schema: SubtitlePlanSchema, migrations: {} },

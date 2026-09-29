@@ -11,11 +11,12 @@ import { assertRenderGate } from '@motion-engine/core';
 import type { MotionRenderer, RenderFrameRequest, RenderFrameResult, RenderPlan, RenderVideoRequest, RenderVideoResult } from '@motion-engine/core';
 
 import { assertP15Plan } from './interpreter.tsx';
-import { REMOTION_CAPABILITIES } from './capabilities.ts';
-import { REMOTION_RENDERER_VERSION, REMOTION_VERSION } from './version.ts';
+import { REMOTION_CAPABILITIES, REMOTION_P17_CAPABILITIES } from './capabilities.ts';
+import { REMOTION_P17_RENDERER_VERSION, REMOTION_RENDERER_VERSION, REMOTION_VERSION } from './version.ts';
 
 export interface RemotionMotionRendererOptions {
   browserExecutable?: string;
+  dynamicTypography?: boolean;
 }
 
 function temporaryOutput(finalFile: string): string {
@@ -79,15 +80,18 @@ function prepareResources(plan: RenderPlan, root: string): { fontUrls: Record<st
 }
 
 export class RemotionMotionRenderer implements MotionRenderer {
-  readonly descriptor = Object.freeze({
-    name: '@motion-engine/renderer-remotion', version: REMOTION_RENDERER_VERSION, capabilities: REMOTION_CAPABILITIES,
-  });
+  readonly descriptor;
   readonly #browserExecutable: string | undefined;
   #serveUrl: string | null = null;
   #bundlePromise: Promise<{ serveUrl: string; bundleMs: number }> | null = null;
 
   constructor(options: RemotionMotionRendererOptions = {}) {
     this.#browserExecutable = options.browserExecutable;
+    this.descriptor = Object.freeze({
+      name: '@motion-engine/renderer-remotion',
+      version: options.dynamicTypography ? REMOTION_P17_RENDERER_VERSION : REMOTION_RENDERER_VERSION,
+      capabilities: options.dynamicTypography ? REMOTION_P17_CAPABILITIES : REMOTION_CAPABILITIES,
+    });
   }
 
   async #ensureBundle(): Promise<{ serveUrl: string; bundleMs: number; reused: boolean }> {
@@ -134,7 +138,7 @@ export class RemotionMotionRenderer implements MotionRenderer {
       bundle_reused: bundled.reused,
       render_ms: performance.now() - renderStarted,
       max_rss_bytes: process.resourceUsage().maxRSS * 1024,
-      renderer: { name: '@motion-engine/renderer-remotion', version: REMOTION_RENDERER_VERSION },
+      renderer: { name: this.descriptor.name, version: this.descriptor.version },
       browser: this.#browserExecutable ?? null,
     };
   }
@@ -160,7 +164,7 @@ export class RemotionMotionRenderer implements MotionRenderer {
       bundle_reused: bundled.reused,
       render_ms: performance.now() - renderStarted,
       max_rss_bytes: process.resourceUsage().maxRSS * 1024,
-      renderer: { name: '@motion-engine/renderer-remotion', version: REMOTION_RENDERER_VERSION },
+      renderer: { name: this.descriptor.name, version: this.descriptor.version },
       browser: this.#browserExecutable ?? null,
       codec: 'h264',
       frames: request.plan.canvas.duration_frames,

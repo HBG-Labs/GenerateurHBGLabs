@@ -5,6 +5,7 @@ import type { ValidationIssue } from './issues.ts';
 export function validateRenderPlanSemantics(plan: RenderPlan): ValidationIssue[] {
   const c = new IssueCollector();
   const fonts = new Set(plan.fonts.map((f) => f.id));
+  const fontsById = new Map(plan.fonts.map((font) => [font.id, font]));
   const assets = new Set(plan.assets.map((a) => a.ref));
   const ids = new Set<string>();
 
@@ -51,6 +52,25 @@ export function validateRenderPlanSemantics(plan: RenderPlan): ValidationIssue[]
         }
       });
       if (node.type === 'text') {
+        const runs = new Map(node.lines.flatMap((line) => line.runs).map((run) => [run.source_run, run]));
+        node.tracks.forEach((track, trackIndex) => {
+          if (track.property !== 'tracking_px' && !track.property.startsWith('font_axis.')) return;
+          const tpath = `${path}.tracks[${trackIndex}]`;
+          const run = track.target?.run ? runs.get(track.target.run) : undefined;
+          if (!run) {
+            c.error('typography.dynamic_target_missing', tpath, 'track typographique sans run cible valide');
+            return;
+          }
+          if (track.property === 'tracking_px') {
+            for (const key of track.keys) if (typeof key.value === 'number' && (key.value < -0.2 * run.size || key.value > 0.5 * run.size)) c.error('text.tracking_out_of_range', tpath, `tracking ${key.value} hors limites pour ${run.size}px`);
+            return;
+          }
+          const axis = track.property.slice('font_axis.'.length);
+          const font = fontsById.get(run.font);
+          const supported = font?.supported_axes[axis];
+          if (!supported) c.error('font.axis_unsupported', tpath, `axe ${axis} absent de ${run.font}`);
+          else for (const key of track.keys) if (typeof key.value === 'number' && (key.value < supported.min || key.value > supported.max)) c.error('font.axis_out_of_range', tpath, `${axis}=${key.value} hors [${supported.min}, ${supported.max}]`);
+        });
         node.lines.forEach((line) =>
           line.runs.forEach((run) => {
             if (!fonts.has(run.font)) c.error('plan.unknown_font', path, `police « ${run.font} » non déclarée`);

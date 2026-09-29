@@ -80,6 +80,11 @@ function assertSfntFont(data: Uint8Array): void {
 
 export class HarfBuzzTextEngine {
   readonly #cache = new Map<string, LoadedFont>();
+  readonly #shapeCache = new Map<string, TextMetrics>();
+  #shapeCacheHits = 0;
+  #shapeCacheMisses = 0;
+  static readonly MAX_SHAPED_STATES = 2_048;
+  static readonly MAX_LOADED_FONT_STATES = 512;
 
   readonly descriptor = Object.freeze({
     name: TEXT_ENGINE_NAME,
@@ -115,6 +120,10 @@ export class HarfBuzzTextEngine {
       font.setScale(face.upem, face.upem);
       font.setVariations(Object.entries(axes).map(([tag, value]) => new hb.Variation(tag, value)));
       const loaded = { face, font, supportedAxes };
+      if (this.#cache.size >= HarfBuzzTextEngine.MAX_LOADED_FONT_STATES) {
+        const oldest = this.#cache.keys().next().value;
+        if (oldest !== undefined) this.#cache.delete(oldest);
+      }
       this.#cache.set(key, loaded);
       return loaded;
     } catch (error) {
@@ -131,6 +140,14 @@ export class HarfBuzzTextEngine {
   }
 
   shape(text: string, size: number, trackingPx: number, binary: FontBinary, locale: string): TextMetrics {
+    const axesKey = Object.entries(binary.axes ?? {}).sort(([a], [b]) => a.localeCompare(b)).map(([tag, value]) => `${tag}=${value}`).join(',');
+    const shapeKey = `${binary.sha256}:${axesKey}:${locale}:${size}:${trackingPx}:${text}`;
+    const cachedMetrics = this.#shapeCache.get(shapeKey);
+    if (cachedMetrics) {
+      this.#shapeCacheHits += 1;
+      return cachedMetrics;
+    }
+    this.#shapeCacheMisses += 1;
     const loaded = this.load(binary);
     const buffer = new hb.Buffer();
     buffer.addText(text);
@@ -167,12 +184,29 @@ export class HarfBuzzTextEngine {
       return result;
     });
     const extents = loaded.font.hExtents();
-    return {
+    const result = {
       width: round(cursorX),
       ascent: round(Math.max(0, extents.ascender * factor)),
       descent: round(Math.max(0, -extents.descender * factor)),
       line_gap: round(Math.max(0, extents.lineGap * factor)),
       glyphs,
     };
+    if (this.#shapeCache.size >= HarfBuzzTextEngine.MAX_SHAPED_STATES) {
+      const oldest = this.#shapeCache.keys().next().value;
+      if (oldest !== undefined) this.#shapeCache.delete(oldest);
+    }
+    this.#shapeCache.set(shapeKey, result);
+    return result;
+  }
+
+  cacheStats(): Readonly<{ fonts: number; shaped_states: number; hits: number; misses: number; maximum_loaded_font_states: number; maximum_shaped_states: number }> {
+    return Object.freeze({
+      fonts: this.#cache.size,
+      shaped_states: this.#shapeCache.size,
+      hits: this.#shapeCacheHits,
+      misses: this.#shapeCacheMisses,
+      maximum_loaded_font_states: HarfBuzzTextEngine.MAX_LOADED_FONT_STATES,
+      maximum_shaped_states: HarfBuzzTextEngine.MAX_SHAPED_STATES,
+    });
   }
 }

@@ -58,8 +58,12 @@ export {
   P14_BEHAVIOR_DEFINITIONS,
   P14_BEHAVIOR_REGISTRY,
   P14_VISUAL_BEHAVIOR_DEFINITIONS,
+  P17_BEHAVIOR_DEFINITIONS,
+  P17_BEHAVIOR_REGISTRY,
+  P17_DYNAMIC_TYPOGRAPHY_BEHAVIOR_DEFINITIONS,
 } from './motion/behavior-registry.ts';
 export { assertNoTrackConflicts, compileLayerTracks, MotionTrackError } from './motion/compile-tracks.ts';
+export { boundedCriticalFrames, cubicBezierProgress, resolvedNumericTrackValue } from './motion/track-value.ts';
 export {
   analyzeTemporalPlan,
   anchorKind,

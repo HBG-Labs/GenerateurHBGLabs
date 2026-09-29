@@ -171,6 +171,39 @@ export const P14_BEHAVIOR_DEFINITIONS: readonly BehaviorDefinition[] = Object.fr
   ...P14_VISUAL_BEHAVIOR_DEFINITIONS,
 ]);
 
+export const P17_DYNAMIC_TYPOGRAPHY_BEHAVIOR_DEFINITIONS: readonly BehaviorDefinition[] = Object.freeze([
+  definition({
+    schema: 'behavior-definition', schema_version: '0.1.0', id: 'TYPE_TRACKING', version: '1.0.0',
+    intent: 'Animer le tracking d’un run façonné sans modifier son contenu.', compatible_primitives: ['text'], variants: [],
+    parameters: {
+      from_em: { type: 'number', required: true, min: -0.2, max: 0.5 },
+      to_em: { type: 'number', required: true, min: -0.2, max: 0.5 },
+    },
+    animatable_properties: ['tracking_px'], accepted_anchors: ['SCENE_START', 'AFTER_PREVIOUS', 'WITH_LAYER', 'AFTER_LAYER'],
+    constraints: { target: 'required_run', max_instances_per_layer: 4 }, incompatibilities: ['CUT'],
+    duration_budget: { min_ms: 100, default_beats: 1, max_ms: 5_000 },
+    reduced_motion: { strategy: 'instant' }, render_cost: { compute: 2, attention: 2 },
+  }),
+  definition({
+    schema: 'behavior-definition', schema_version: '0.1.0', id: 'TYPE_AXIS', version: '1.0.0',
+    intent: 'Animer un axe de fonte variable explicitement supporté et borné.', compatible_primitives: ['text'], variants: [],
+    parameters: {
+      axis: { type: 'enum', required: true, values: ['wght', 'wdth'] },
+      from: { type: 'number', required: true, min: 1, max: 2_000 },
+      to: { type: 'number', required: true, min: 1, max: 2_000 },
+    },
+    animatable_properties: ['font_axis.wght', 'font_axis.wdth'], accepted_anchors: ['SCENE_START', 'AFTER_PREVIOUS', 'WITH_LAYER', 'AFTER_LAYER'],
+    constraints: { target: 'required_run', max_instances_per_layer: 4 }, incompatibilities: ['CUT'],
+    duration_budget: { min_ms: 100, default_beats: 1, max_ms: 5_000 },
+    reduced_motion: { strategy: 'instant' }, render_cost: { compute: 3, attention: 2 },
+  }),
+]);
+
+export const P17_BEHAVIOR_DEFINITIONS: readonly BehaviorDefinition[] = Object.freeze([
+  ...P14_BEHAVIOR_DEFINITIONS,
+  ...P17_DYNAMIC_TYPOGRAPHY_BEHAVIOR_DEFINITIONS,
+]);
+
 export class BehaviorRegistry implements SemanticRegistry {
   readonly #definitions: Map<string, BehaviorDefinition>;
 
@@ -210,6 +243,7 @@ export class BehaviorRegistry implements SemanticRegistry {
 
 export const P13_BEHAVIOR_REGISTRY = new BehaviorRegistry(P13_BEHAVIOR_DEFINITIONS);
 export const P14_BEHAVIOR_REGISTRY = new BehaviorRegistry(P14_BEHAVIOR_DEFINITIONS);
+export const P17_BEHAVIOR_REGISTRY = new BehaviorRegistry(P17_BEHAVIOR_DEFINITIONS);
 
 export function behaviorRegistryFingerprint(registry: BehaviorRegistry): string {
   return hashDocument(registry.definitions());

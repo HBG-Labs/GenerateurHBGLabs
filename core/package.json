@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Moteur de motion design programmable, indépendant de toute marque, de tout sujet et de tout style.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./track-value": "./src/motion/track-value.ts"
   },
   "engines": {
     "node": ">=22.12.0"

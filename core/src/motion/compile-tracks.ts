@@ -41,6 +41,11 @@ function targetOf(instance: BehaviorInstance): Track['target'] {
 
 export interface VisualTrackContext {
   focus?: { translate_x: number; translate_y: number; scale: number };
+  typography?: {
+    size: number;
+    axes: Readonly<Record<string, number>>;
+    supported_axes: Readonly<Record<string, { min: number; default: number; max: number }>>;
+  };
 }
 
 type TrackDraft = Omit<Track, 'id'>;
@@ -127,6 +132,26 @@ export function compileLayerTracks(
           ? [{ frame: Math.min(timing.to_frame - 1, frameAt(start, fps)), value: 0 }]
           : keys(start, baseEnd, fps, timing.to_frame, 1, 0, easing(style, 'enter')),
       });
+    } else if (resolved.behavior === 'TYPE_TRACKING') {
+      if (layer.primitive !== 'text' || !visual.typography || !instance.target?.run) throw new MotionTrackError([{ code: 'typography.dynamic_target_invalid', path: `layers.${layer.id}.behaviors.${instance.id}`, message: 'TYPE_TRACKING requiert un run textuel et un contexte typographique.' }]);
+      const fromEm = instance.params?.['from_em'];
+      const toEm = instance.params?.['to_em'];
+      if (typeof fromEm !== 'number' || typeof toEm !== 'number') throw new MotionTrackError([{ code: 'typography.tracking_invalid', path: `layers.${layer.id}.behaviors.${instance.id}`, message: 'from_em/to_em finis requis.' }]);
+      const target = targetOf(instance);
+      const from = fromEm * visual.typography.size;
+      const to = toEm * visual.typography.size;
+      tracks.push({ property: 'tracking_px', ...(target ? { target } : {}), source: instance.id, keys: resolved.reduced_motion ? [{ frame: Math.min(timing.to_frame - 1, frameAt(start, fps)), value: to }] : keys(start, baseEnd, fps, timing.to_frame, from, to, easing(style, 'inout')) });
+    } else if (resolved.behavior === 'TYPE_AXIS') {
+      if (layer.primitive !== 'text' || !visual.typography || !instance.target?.run) throw new MotionTrackError([{ code: 'typography.dynamic_target_invalid', path: `layers.${layer.id}.behaviors.${instance.id}`, message: 'TYPE_AXIS requiert un run textuel et un contexte typographique.' }]);
+      const axis = instance.params?.['axis'];
+      const startValue = instance.params?.from;
+      const endValue = instance.params?.to;
+      if ((axis !== 'wght' && axis !== 'wdth') || typeof startValue !== 'number' || typeof endValue !== 'number') throw new MotionTrackError([{ code: 'font.axis_invalid', path: `layers.${layer.id}.behaviors.${instance.id}`, message: 'Axe allowlisté et bornes numériques requis.' }]);
+      const supported = visual.typography.supported_axes[axis];
+      if (!supported) throw new MotionTrackError([{ code: 'font.axis_unsupported', path: `layers.${layer.id}.behaviors.${instance.id}`, message: `Axe ${axis} absent de la fonte active.` }]);
+      if (startValue < supported.min || startValue > supported.max || endValue < supported.min || endValue > supported.max) throw new MotionTrackError([{ code: 'font.axis_out_of_range', path: `layers.${layer.id}.behaviors.${instance.id}`, message: `${axis} doit rester dans [${supported.min}, ${supported.max}].` }]);
+      const target = targetOf(instance);
+      tracks.push({ property: `font_axis.${axis}`, ...(target ? { target } : {}), source: instance.id, keys: resolved.reduced_motion ? [{ frame: Math.min(timing.to_frame - 1, frameAt(start, fps)), value: endValue }] : keys(start, baseEnd, fps, timing.to_frame, startValue, endValue, easing(style, 'inout')) });
     }
   }
   assertNoTrackConflicts(layer.id, tracks);

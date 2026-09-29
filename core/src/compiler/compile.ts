@@ -1,8 +1,8 @@
 import type { GroupLayer, ImageLayer, Layer, MaskLayer, PathLayer, ShapeLayer, TextLayer } from '../contracts/motion-spec.ts';
 import type { PatternDefinition, PatternSlot } from '../contracts/pattern.ts';
 import type { PlatformPresets } from '../contracts/platform.ts';
-import { RENDER_PLAN_VERSION, RenderPlanSchema } from '../contracts/render-plan.ts';
-import type { Box, PlanImageNode, PlanNode, PlanPathNode, PlanRun, PlanTextNode, RenderPlan } from '../contracts/render-plan.ts';
+import { RENDER_PLAN_LEGACY_VERSION, RENDER_PLAN_VERSION, RenderPlanSchema } from '../contracts/render-plan.ts';
+import type { Box, PlanImageNode, PlanLine, PlanNode, PlanPathNode, PlanRun, PlanTextNode, RenderPlan, Track } from '../contracts/render-plan.ts';
 import type { ResolvedStyle } from '../contracts/resolved-style.ts';
 import type { TypeStyle } from '../contracts/style-profile.ts';
 import type { QualityIssue } from '../contracts/visual.ts';
@@ -18,7 +18,7 @@ import { resolveTemporalPlan } from '../temporal/resolve.ts';
 import type { ResolvedSceneTiming } from '../temporal/resolve.ts';
 import { fitText } from '../typography/fit-text.ts';
 import { formatTypography } from '../typography/formatter.ts';
-import { HarfBuzzTextEngine } from '../typography/harfbuzz-text-engine.ts';
+import { HarfBuzzTextEngine, TypographyEngineError } from '../typography/harfbuzz-text-engine.ts';
 import { placeImage, validateImageResource } from '../visual/assets.ts';
 import type { ImageResource } from '../visual/assets.ts';
 import { gridPlacementBox, intersectBoxes, normalizedRegionBox } from '../visual/layout.ts';
@@ -37,8 +37,10 @@ import type { ManifestInput } from '../integrity/manifest.ts';
 import type { ReproducibilityManifest } from '../contracts/manifest.ts';
 import { validatePatternDefinition, validatePlatformPresets, validateRenderPlan, validateSpec } from '../validation/validate.ts';
 import type { MotionSceneSpec } from '../contracts/motion-spec.ts';
+import { boundedCriticalFrames, resolvedNumericTrackValue } from '../motion/track-value.ts';
 
 export const COMPILER_VERSION = '0.5.0';
+export const DYNAMIC_TYPOGRAPHY_COMPILER_VERSION = '0.6.0';
 
 export interface FontResource {
   file: string;
@@ -201,7 +203,96 @@ interface CompileContext {
   fps: number;
   minimumReadableSize: number;
   textEngine: HarfBuzzTextEngine;
+  limits: EngineLimits;
   profiler?: CompileProfiler;
+}
+
+const DYNAMIC_TRACKING_MIN_EM = -0.2;
+const DYNAMIC_TRACKING_MAX_EM = 0.5;
+
+function dynamicTrackFor(tracks: readonly Track[], property: Track['property'], sourceRun: string): Track | undefined {
+  return tracks.find((track) => track.property === property && track.target?.run === sourceRun);
+}
+
+function dynamicTypographyTracks(tracks: readonly Track[]): Track[] {
+  return tracks.filter((track) => track.property === 'tracking_px' || track.property.startsWith('font_axis.'));
+}
+
+function nodeHasDynamicTypography(node: PlanNode): boolean {
+  if (dynamicTypographyTracks(node.tracks).length > 0) return true;
+  return (node.type === 'group' || node.type === 'mask') && node.children.some(nodeHasDynamicTypography);
+}
+
+function dynamicTypographyError(code: string, layer: TextLayer, sceneId: string, message: string, context?: Record<string, string | number>): CompileError {
+  return new CompileError(message, [{ code, severity: 'error', path: `layers.${layer.id}`, node_id: layer.id, scene_id: sceneId, message, ...(context ? { context } : {}) }]);
+}
+
+function analyzeDynamicTypography(
+  layer: TextLayer,
+  lines: PlanLine[],
+  tracks: readonly Track[],
+  box: Box,
+  context: CompileContext,
+  resource: FontResource,
+  baseAxes: Readonly<Record<string, number>>,
+): PlanLine[] {
+  const dynamic = dynamicTypographyTracks(tracks);
+  if (dynamic.length === 0) return lines;
+  if (dynamic.length > context.limits.max_dynamic_typography_tracks) throw dynamicTypographyError('limits.dynamic_typography_tracks', layer, context.timing.scene_id, `${dynamic.length} tracks typographiques dépassent ${context.limits.max_dynamic_typography_tracks}.`);
+  let frames: number[];
+  try {
+    frames = boundedCriticalFrames(dynamic, context.limits.max_dynamic_typography_critical_states);
+  } catch (error) {
+    throw dynamicTypographyError('limits.dynamic_typography_critical_states', layer, context.timing.scene_id, error instanceof Error ? error.message : 'Trop d’états critiques typographiques.');
+  }
+  const maximumByRun = new Map<string, number>();
+  const lineMaximums = lines.map(() => 0);
+  for (const frame of frames) {
+    let totalHeight = 0;
+    for (const [lineIndex, line] of lines.entries()) {
+      let width = 0;
+      let lineHeight = 0;
+      for (const run of line.runs) {
+        const tracking = resolvedNumericTrackValue(dynamicTrackFor(dynamic, 'tracking_px', run.source_run), frame, run.tracking_px, context.fps);
+        const minTracking = DYNAMIC_TRACKING_MIN_EM * run.size;
+        const maxTracking = DYNAMIC_TRACKING_MAX_EM * run.size;
+        if (!Number.isFinite(tracking) || tracking < minTracking || tracking > maxTracking) throw dynamicTypographyError('text.tracking_out_of_range', layer, context.timing.scene_id, `Tracking ${tracking} hors [${minTracking}, ${maxTracking}] à la frame ${frame}.`, { frame, tracking_px: tracking });
+        const axes: Record<string, number> = { ...baseAxes };
+        for (const axis of ['wght', 'wdth'] as const) {
+          const axisTrack = dynamicTrackFor(dynamic, `font_axis.${axis}`, run.source_run);
+          if (!axisTrack) continue;
+          const supported = context.textEngine.supportedAxes({ sha256: resource.sha256, data: resource.data, axes: baseAxes })[axis];
+          if (!supported) throw dynamicTypographyError('font.axis_unsupported', layer, context.timing.scene_id, `Axe ${axis} absent de la fonte active.`);
+          const value = resolvedNumericTrackValue(axisTrack, frame, axes[axis] ?? supported.default, context.fps);
+          if (!Number.isFinite(value) || value < supported.min || value > supported.max) throw dynamicTypographyError('font.axis_out_of_range', layer, context.timing.scene_id, `${axis}=${value} hors [${supported.min}, ${supported.max}] à la frame ${frame}.`, { frame, axis, value });
+          axes[axis] = value;
+        }
+        let metrics;
+        try {
+          metrics = context.textEngine.shape(run.text, run.size, tracking, { sha256: resource.sha256, data: resource.data, axes }, context.spec.locale);
+        } catch (error) {
+          if (error instanceof TypographyEngineError) throw dynamicTypographyError(error.diagnostic.code, layer, context.timing.scene_id, error.message, { frame });
+          throw error;
+        }
+        width += metrics.width;
+        lineHeight = Math.max(lineHeight, metrics.ascent + metrics.descent + metrics.line_gap);
+        maximumByRun.set(run.id, Math.max(maximumByRun.get(run.id) ?? run.measured_width, metrics.width));
+      }
+      lineMaximums[lineIndex] = Math.max(lineMaximums[lineIndex] ?? 0, width);
+      if (width > box.w + 1e-6) throw dynamicTypographyError('text.dynamic_overflow', layer, context.timing.scene_id, `Overflow typographique dynamique à la frame ${frame}: ${width.toFixed(3)} > ${box.w.toFixed(3)}.`, { frame, required_width: width, available_width: box.w });
+      totalHeight += Math.max(line.height, lineHeight);
+    }
+    if (totalHeight > box.h + 1e-6) throw dynamicTypographyError('text.dynamic_overflow', layer, context.timing.scene_id, `Overflow vertical typographique dynamique à la frame ${frame}: ${totalHeight.toFixed(3)} > ${box.h.toFixed(3)}.`, { frame, required_height: totalHeight, available_height: box.h });
+  }
+  return lines.map((line, lineIndex) => ({
+    ...line,
+    measured_width: Math.max(line.measured_width, lineMaximums[lineIndex] ?? 0),
+    runs: line.runs.map((run) => ({
+      ...run,
+      measured_width: maximumByRun.get(run.id) ?? run.measured_width,
+      dynamic_typography: { policy: 'bounded_frame_sampling_v1' as const, critical_frames: frames, max_measured_width: maximumByRun.get(run.id) ?? run.measured_width },
+    })),
+  }));
 }
 
 function nodeBase(layer: Layer, box: Box, tracks: PlanNode['tracks']): Pick<PlanNode, 'id' | 'box' | 'origin' | 'opacity' | 'transform' | 'must_be_safe' | 'tracks'> {
@@ -269,7 +360,7 @@ function compileText(layer: TextLayer, box: Box, context: CompileContext): PlanT
     throw new CompileError(diagnostics[0]!.message, diagnostics);
   }
   let top = 0;
-  const lines = fitted.lines.map((line) => {
+  let lines = fitted.lines.map((line): PlanLine => {
     const result = {
       runs: line.fragments.map((fragment): PlanRun => ({
         id: fragment.fragment_id,
@@ -298,7 +389,8 @@ function compileText(layer: TextLayer, box: Box, context: CompileContext): PlanT
     return result;
   });
   context.profiler?.finish('resolve_typography', started);
-  const tracks = measured(context.profiler, 'compile_behaviors', () => compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY));
+  const tracks = measured(context.profiler, 'compile_behaviors', () => compileLayerTracks(layer, context.timing, context.style, context.fps, context.scaleY, { typography: { size: fitted.size, axes, supported_axes: supportedAxes } }));
+  lines = analyzeDynamicTypography(layer, lines, tracks, box, context, resource, axes);
   return { ...nodeBase(layer, box, tracks), type: 'text', align: layer.style.align ?? 'start', lines };
 }
 
@@ -569,7 +661,7 @@ function compileRenderPlan(input: CompileInput, profiler?: CompileProfiler): Ren
       scaleX: canvas.width / input.resolvedStyle.style.reference_canvas.width,
       scaleY: canvas.height / input.resolvedStyle.style.reference_canvas.height,
       fonts, assets, fontResources: input.fontResources, assetResources: input.assetResources ?? {}, timing, fps: input.config.fps,
-      minimumReadableSize: input.config.minimum_readable_size ?? Math.max(14, 28 * renderScale), textEngine,
+      minimumReadableSize: input.config.minimum_readable_size ?? Math.max(14, 28 * renderScale), textEngine, limits,
       ...(profiler ? { profiler } : {}),
     };
     const nodes = scene.layers.map((layer) => {
@@ -584,12 +676,14 @@ function compileRenderPlan(input: CompileInput, profiler?: CompileProfiler): Ren
   });
   const resolvedFonts = [...fonts.values()].sort((a, b) => a.id.localeCompare(b.id));
   const resolvedAssets = [...assets.values()].sort((a, b) => a.ref.localeCompare(b.ref));
+  const hasDynamicTypography = scenes.some((scene) => scene.nodes.some(nodeHasDynamicTypography));
+  const renderPlanVersion: RenderPlan['schema_version'] = hasDynamicTypography ? RENDER_PLAN_VERSION : RENDER_PLAN_LEGACY_VERSION;
   const baseWithoutRequirements = {
     schema: 'render-plan' as const,
-    schema_version: RENDER_PLAN_VERSION,
+    schema_version: renderPlanVersion,
     spec: { spec_id: input.spec.spec_id, revision: input.spec.revision, sha256: hashDocument(input.spec) },
     style: { mode: input.resolvedStyle.mode, sha256: input.resolvedStyle.sha256 },
-    compiler_version: COMPILER_VERSION,
+    compiler_version: hasDynamicTypography ? DYNAMIC_TYPOGRAPHY_COMPILER_VERSION : COMPILER_VERSION,
     canvas: { width: canvas.width, height: canvas.height, fps: input.config.fps, duration_frames: temporal.duration_frames },
     safe_zone: safe,
     provenance: { timing_source: temporal.timing_source, behavior_registry_fingerprint: behaviorRegistryFingerprint(registry), text_engine: textEngine.descriptor },

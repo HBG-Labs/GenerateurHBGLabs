@@ -17,6 +17,9 @@ export const P13_ANIMATABLE_PROPERTIES = [
   'clip_left',
   'path_progress',
   'color',
+  'tracking_px',
+  'font_axis.wght',
+  'font_axis.wdth',
 ] as const;
 export const P13_ANCHOR_KINDS = [
   'SCENE_START',

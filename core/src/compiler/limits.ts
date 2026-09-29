@@ -1,4 +1,5 @@
 import type { EngineLimits } from '../contracts/limits.ts';
+import { resolveEngineLimits } from '../contracts/limits.ts';
 import type { Layer, MotionSceneSpec } from '../contracts/motion-spec.ts';
 import type { RenderPlan } from '../contracts/render-plan.ts';
 import type { AudioPlan, SubtitlePlan } from '../contracts/render-plan.ts';
@@ -40,15 +41,26 @@ export function assertInputLimits(spec: MotionSceneSpec, assets: Readonly<Record
 }
 
 export function assertPlanLimits(plan: RenderPlan, limits: EngineLimits): void {
+  const effectiveLimits = resolveEngineLimits(limits);
   const tracks = plan.scenes.flatMap((scene) => {
     const visit = (nodes: typeof scene.nodes): typeof scene.nodes[number]['tracks'] => nodes.flatMap((node) => [...node.tracks, ...((node.type === 'group' || node.type === 'mask') ? visit(node.children) : [])]);
     return visit(scene.nodes);
   });
   const keyframes = tracks.reduce((sum, track) => sum + track.keys.length, 0);
+  const dynamicTypographyTracks = tracks.filter((track) => track.property === 'tracking_px' || track.property.startsWith('font_axis.'));
   const failures: QualityIssue[] = [];
-  if (plan.canvas.duration_frames > limits.max_duration_frames) failures.push({ code: 'limits.duration', severity: 'error', path: 'canvas.duration_frames', message: `${plan.canvas.duration_frames} dépasse ${limits.max_duration_frames}`, context: { actual: plan.canvas.duration_frames, limit: limits.max_duration_frames } });
-  if (keyframes > limits.max_keyframes) failures.push({ code: 'limits.keyframes', severity: 'error', path: 'scenes', message: `${keyframes} dépasse ${limits.max_keyframes}`, context: { actual: keyframes, limit: limits.max_keyframes } });
-  if (plan.fonts.length > limits.max_fonts) failures.push({ code: 'limits.fonts', severity: 'error', path: 'fonts', message: `${plan.fonts.length} dépasse ${limits.max_fonts}`, context: { actual: plan.fonts.length, limit: limits.max_fonts } });
+  if (plan.canvas.duration_frames > effectiveLimits.max_duration_frames) failures.push({ code: 'limits.duration', severity: 'error', path: 'canvas.duration_frames', message: `${plan.canvas.duration_frames} dépasse ${effectiveLimits.max_duration_frames}`, context: { actual: plan.canvas.duration_frames, limit: effectiveLimits.max_duration_frames } });
+  if (keyframes > effectiveLimits.max_keyframes) failures.push({ code: 'limits.keyframes', severity: 'error', path: 'scenes', message: `${keyframes} dépasse ${effectiveLimits.max_keyframes}`, context: { actual: keyframes, limit: effectiveLimits.max_keyframes } });
+  if (plan.fonts.length > effectiveLimits.max_fonts) failures.push({ code: 'limits.fonts', severity: 'error', path: 'fonts', message: `${plan.fonts.length} dépasse ${effectiveLimits.max_fonts}`, context: { actual: plan.fonts.length, limit: effectiveLimits.max_fonts } });
+  if (dynamicTypographyTracks.length > effectiveLimits.max_dynamic_typography_tracks) failures.push({ code: 'limits.dynamic_typography_tracks', severity: 'error', path: 'scenes', message: `${dynamicTypographyTracks.length} dépasse ${effectiveLimits.max_dynamic_typography_tracks}`, context: { actual: dynamicTypographyTracks.length, limit: effectiveLimits.max_dynamic_typography_tracks } });
+  const axesByRun = new Map<string, Set<string>>();
+  for (const track of dynamicTypographyTracks.filter((candidate) => candidate.property.startsWith('font_axis.'))) {
+    const run = track.target?.run ?? '';
+    const axes = axesByRun.get(run) ?? new Set<string>();
+    axes.add(track.property);
+    axesByRun.set(run, axes);
+  }
+  for (const [run, axes] of axesByRun) if (axes.size > effectiveLimits.max_dynamic_axes_per_run) failures.push({ code: 'limits.dynamic_axes_per_run', severity: 'error', path: `scenes.${run}`, message: `${axes.size} axes dépassent ${effectiveLimits.max_dynamic_axes_per_run}`, context: { actual: axes.size, limit: effectiveLimits.max_dynamic_axes_per_run } });
   if (failures.length > 0) throw new EngineLimitError(failures);
 }
 

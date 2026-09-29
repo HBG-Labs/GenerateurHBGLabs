@@ -5,13 +5,16 @@ import { EasingSchema } from './style-profile.ts';
 import { AssetProvenanceSchema, NormalizedPointSchema, QualityPreflightReportSchema, SemanticRegionSchema } from './visual.ts';
 
 export const RENDER_PLAN_SCHEMA = 'render-plan';
-export const RENDER_PLAN_VERSION = '0.3.0';
+/** P1.1-P1.6 plans remain byte-for-byte on this version. */
+export const RENDER_PLAN_LEGACY_VERSION = '0.3.0';
+/** P1.7 adds only validated dynamic-typography tracks. */
+export const RENDER_PLAN_VERSION = '0.4.0';
 export const AUDIO_PLAN_VERSION = '0.2.0';
 export const SUBTITLE_PLAN_VERSION = '0.2.0';
 
 export const RENDER_CAPABILITIES = [
   'TEXT', 'SHAPE', 'IMAGE', 'PATH', 'MASK', 'GROUP', 'TRANSFORM', 'OPACITY', 'CLIP',
-  'PATH_PROGRESS', 'COLOR', 'VARIABLE_FONT', 'CUT',
+  'PATH_PROGRESS', 'COLOR', 'VARIABLE_FONT', 'DYNAMIC_TYPOGRAPHY', 'CUT',
 ] as const;
 export const RenderCapabilitySchema = z.enum(RENDER_CAPABILITIES);
 export type RenderCapability = z.infer<typeof RenderCapabilitySchema>;
@@ -42,6 +45,9 @@ export const TRACK_PROPERTIES = [
   'clip_left',
   'path_progress',
   'color',
+  'tracking_px',
+  'font_axis.wght',
+  'font_axis.wdth',
 ] as const;
 export const TrackPropertySchema = z.enum(TRACK_PROPERTIES);
 export type TrackProperty = z.infer<typeof TrackPropertySchema>;
@@ -89,6 +95,13 @@ export const PlanRunSchema = z.strictObject({
       y_offset: Px,
     }),
   ),
+  dynamic_typography: z
+    .strictObject({
+      policy: z.literal('bounded_frame_sampling_v1'),
+      critical_frames: z.array(Frame).min(1).max(128),
+      max_measured_width: z.number().finite().min(0),
+    })
+    .optional(),
 });
 export type PlanRun = z.infer<typeof PlanRunSchema>;
 
@@ -262,7 +275,7 @@ export type PlanScene = z.infer<typeof PlanSceneSchema>;
 
 export const RenderPlanSchema = z.strictObject({
   schema: z.literal(RENDER_PLAN_SCHEMA),
-  schema_version: SemVerSchema,
+  schema_version: z.enum([RENDER_PLAN_LEGACY_VERSION, RENDER_PLAN_VERSION]),
   spec: z.strictObject({ spec_id: IdSchema, revision: z.number().int().min(1), sha256: Sha256Schema }),
   /** Style résolu utilisé : empreinte du ResolvedStyle et mode. */
   style: z.strictObject({ mode: z.enum(['creative', 'brand', 'series']), sha256: Sha256Schema }),
@@ -321,6 +334,17 @@ export const RenderPlanSchema = z.strictObject({
   ),
   scenes: z.array(PlanSceneSchema).min(1),
   preflight: QualityPreflightReportSchema,
+}).superRefine((plan, context) => {
+  if (plan.schema_version !== RENDER_PLAN_LEGACY_VERSION) return;
+  const visit = (node: PlanNode): void => {
+    for (const [index, track] of node.tracks.entries()) {
+      if (track.property === 'tracking_px' || track.property.startsWith('font_axis.')) {
+        context.addIssue({ code: 'custom', path: ['scenes', node.id, 'tracks', index], message: 'dynamic typography requiert RenderPlan 0.4.0' });
+      }
+    }
+    if (node.type === 'group' || node.type === 'mask') node.children.forEach(visit);
+  };
+  plan.scenes.forEach((scene) => scene.nodes.forEach(visit));
 });
 export type RenderPlan = z.infer<typeof RenderPlanSchema>;
 

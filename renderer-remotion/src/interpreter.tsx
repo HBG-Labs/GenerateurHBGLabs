@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { AbsoluteFill, continueRender, delayRender, Easing as RemotionEasing, useCurrentFrame } from 'remotion';
 
 import type { PlanImageNode, PlanNode, RenderPlan, Track } from '@motion-engine/core';
+import { resolvedNumericTrackValue } from '@motion-engine/core/track-value';
 
 export interface GenericCompositionProps extends Record<string, unknown> {
   plan: RenderPlan;
@@ -10,7 +11,7 @@ export interface GenericCompositionProps extends Record<string, unknown> {
   assetUrls: Record<string, string>;
 }
 
-const TRACKS = new Set(['opacity', 'translate_x', 'translate_y', 'scale', 'rotate', 'clip_top', 'clip_right', 'clip_bottom', 'clip_left', 'path_progress', 'color']);
+const TRACKS = new Set(['opacity', 'translate_x', 'translate_y', 'scale', 'rotate', 'clip_top', 'clip_right', 'clip_bottom', 'clip_left', 'path_progress', 'color', 'tracking_px', 'font_axis.wght', 'font_axis.wdth']);
 
 export class RendererPlanValidationError extends Error {
   readonly diagnostics: readonly { code: string; path: string; message: string }[];
@@ -29,15 +30,18 @@ export function assertP15Plan(input: unknown): asserts input is RenderPlan {
   if (plan.schema !== 'render-plan') throw new RendererPlanValidationError([{
     code: 'render_plan.invalid', path: 'schema', message: 'Document render-plan attendu.',
   }]);
-  if (plan.schema_version !== '0.3.0') throw new RendererPlanValidationError([{
+  if (plan.schema_version !== '0.3.0' && plan.schema_version !== '0.4.0') throw new RendererPlanValidationError([{
     code: 'render_plan.version_unsupported', path: 'schema_version',
-    message: `RenderPlan 0.3.0 attendu, reçu ${String(plan.schema_version)}. Recompilation requise.`,
+    message: `RenderPlan 0.3.0 ou 0.4.0 attendu, reçu ${String(plan.schema_version)}. Recompilation requise.`,
   }]);
   if (!plan.canvas || !Array.isArray(plan.scenes) || !Array.isArray(plan.fonts) || !Array.isArray(plan.assets) || !plan.requirements || !plan.preflight) throw new RendererPlanValidationError([{
     code: 'render_plan.invalid', path: '', message: 'RenderPlan résolu incomplet. Recompilation requise.',
   }]);
   const visit = (node: PlanNode): void => {
-    for (const track of node.tracks) if (!TRACKS.has(track.property)) throw new Error(`Track « ${track.property} » inconnu du renderer générique.`);
+    for (const track of node.tracks) {
+      if (!TRACKS.has(track.property)) throw new Error(`Track « ${track.property} » inconnu du renderer générique.`);
+      if (plan.schema_version === '0.3.0' && (track.property === 'tracking_px' || track.property.startsWith('font_axis.'))) throw new RendererPlanValidationError([{ code: 'render_plan.dynamic_typography_version', path: `nodes.${node.id}.tracks.${track.id}`, message: 'Une track typographique dynamique requiert RenderPlan 0.4.0.' }]);
+    }
     if (node.type === 'group' || node.type === 'mask') node.children.forEach(visit);
   };
   plan.scenes.forEach((scene) => scene.nodes.forEach(visit));
@@ -46,6 +50,7 @@ export function assertP15Plan(input: unknown): asserts input is RenderPlan {
 export const assertP14Plan = assertP15Plan;
 export const assertP13Plan = assertP15Plan;
 export const assertP12Plan = assertP15Plan;
+export const assertP17Plan = assertP15Plan;
 
 function genericSpring(progress: number, durationFrames: number, fps: number, ease: Extract<Track['keys'][number]['ease'], { type: 'spring' }>): number {
   const duration = durationFrames / fps;
@@ -197,9 +202,16 @@ function RenderNode({ node, plan, frame, assetUrls }: { node: PlanNode; plan: Re
           {line.runs.map((run) => {
             const font = plan.fonts.find((candidate) => candidate.id === run.font);
             if (!font) throw new Error(`Police « ${run.font} » absente du RenderPlan.`);
-            const variation = Object.entries(font.axes).map(([tag, value]) => `"${tag}" ${value}`).join(', ');
+            const runTarget = { run: run.source_run };
+            const tracking = resolvedNumericTrackValue(track(node, 'tracking_px', runTarget), frame, run.tracking_px, fps);
+            const axes = { ...font.axes };
+            for (const axis of ['wght', 'wdth'] as const) {
+              const axisTrack = track(node, `font_axis.${axis}`, runTarget);
+              if (axisTrack) axes[axis] = resolvedNumericTrackValue(axisTrack, frame, axes[axis] ?? font.supported_axes[axis]?.default ?? 0, fps);
+            }
+            const variation = Object.entries(axes).sort(([left], [right]) => left.localeCompare(right)).map(([tag, value]) => `"${tag}" ${value}`).join(', ');
             return (
-              <span key={run.id} data-source-run={run.source_run} style={{ color: run.color, fontFamily: font.css_name, fontSize: run.size, fontWeight: run.weight, fontVariationSettings: variation || undefined, letterSpacing: run.tracking_px, lineHeight: `${line.height}px`, width: run.measured_width, flex: '0 0 auto', whiteSpace: 'pre', display: 'inline-block', ...targetStyle(node, frame, fps, { run: run.source_run }) }}>{run.text}</span>
+              <span key={run.id} data-source-run={run.source_run} style={{ color: run.color, fontFamily: font.css_name, fontSize: run.size, fontWeight: run.weight, fontVariationSettings: variation || undefined, letterSpacing: tracking, lineHeight: `${line.height}px`, width: run.measured_width, flex: '0 0 auto', whiteSpace: 'pre', display: 'inline-block', ...targetStyle(node, frame, fps, runTarget) }}>{run.text}</span>
             );
           })}
         </div>

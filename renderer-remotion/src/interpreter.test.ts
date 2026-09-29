@@ -153,4 +153,16 @@ describe('interpréteur Remotion P1.3', () => {
     ];
     expect(() => assertP12Plan(invalid)).not.toThrow();
   });
+
+  it('accepte les tracks typographiques uniquement en RenderPlan 0.4.0', () => {
+    const dynamic = plan();
+    const group = dynamic.scenes[0]!.nodes[0]!;
+    if (group.type !== 'group') throw new Error('group attendu');
+    const text = group.children.find((node) => node.type === 'text');
+    if (!text || text.type !== 'text') throw new Error('text attendu');
+    text.tracks = [{ id: 'track_dynamic', property: 'font_axis.wght', target: { run: 'run' }, source: 'axis_behavior', keys: [{ frame: 0, value: 400 }, { frame: 20, value: 800 }] }];
+    expect(() => assertP12Plan(dynamic)).toThrow(/0\.4\.0/);
+    dynamic.schema_version = '0.4.0';
+    expect(() => assertP12Plan(dynamic)).not.toThrow();
+  });
 });

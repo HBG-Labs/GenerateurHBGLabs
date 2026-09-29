@@ -6,7 +6,7 @@ import type { RenderPlan } from '../contracts/render-plan.ts';
 import type { AudioPlan, SubtitlePlan } from '../contracts/render-plan.ts';
 import type { DependencyGraph } from '../contracts/dependency-graph.ts';
 import type { EngineLimits } from '../contracts/limits.ts';
-import { DEFAULT_ENGINE_LIMITS } from '../contracts/limits.ts';
+import { resolveEngineLimits } from '../contracts/limits.ts';
 import type { ResolvedStyle } from '../contracts/resolved-style.ts';
 import { bindingMatches, describeResolved } from '../style/binding.ts';
 import { hashDocument } from './canonical.ts';
@@ -38,6 +38,23 @@ export interface ManifestInput {
 }
 
 type ManifestBody = Omit<ReproducibilityManifest, 'created_at' | 'manifest_sha256'>;
+
+function limitsForManifest(plan: RenderPlan, limits: EngineLimits): Readonly<Record<string, number>> {
+  if (plan.schema_version !== '0.3.0') return limits;
+  return {
+    max_duration_frames: limits.max_duration_frames,
+    max_scenes: limits.max_scenes,
+    max_layers: limits.max_layers,
+    max_text_length: limits.max_text_length,
+    max_keyframes: limits.max_keyframes,
+    max_asset_dimensions: limits.max_asset_dimensions,
+    max_asset_bytes: limits.max_asset_bytes,
+    max_assets: limits.max_assets,
+    max_fonts: limits.max_fonts,
+    max_audio_cues: limits.max_audio_cues,
+    max_subtitle_segments: limits.max_subtitle_segments,
+  };
+}
 
 export class ManifestError extends Error {
   constructor(message: string) {
@@ -101,7 +118,7 @@ export function buildReproducibilityManifest(input: ManifestInput): Reproducibil
   const requestedEligibility = input.engine.reference_eligible;
   const eligible = (requestedEligibility ?? true) && eligibility.eligible;
   if (requestedEligibility === true && !eligibility.eligible) throw new ManifestError(`Référence demandée mais inéligible : ${eligibility.reasons.join(', ')}`);
-  const limits = input.engineLimits ?? DEFAULT_ENGINE_LIMITS;
+  const limits = resolveEngineLimits(input.engineLimits ?? {});
   const renderer = input.rendererDescriptor ? { name: input.rendererDescriptor.name, version: input.rendererDescriptor.version } : input.renderer ?? null;
   const body: ManifestBody = {
     schema: MANIFEST_SCHEMA,
@@ -175,7 +192,7 @@ export function buildReproducibilityManifest(input: ManifestInput): Reproducibil
       os: input.toolchain.os ?? process.platform,
       arch: input.toolchain.arch ?? process.arch,
     },
-    configuration: { engine_limits_sha256: hashDocument(limits), network_required: false },
+    configuration: { engine_limits_sha256: hashDocument(limitsForManifest(plan, limits)), network_required: false },
     render_config: input.renderConfig,
   };
   return ReproducibilityManifestSchema.parse({

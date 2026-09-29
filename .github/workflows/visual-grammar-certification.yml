@@ -34,6 +34,12 @@ jobs:
       - name: Full offline P1/P2/P3.1 quality gate
         run: npm run check
 
+      - name: Offline P1.7 dynamic typography evidence
+        run: npm run certify:p1.7
+
+      - name: Real Linux P1.7 dynamic typography render
+        run: npm run render:p1.7
+
       - name: Offline P3.1 evidence
         run: npm run certify:p3.1
 
@@ -52,6 +58,12 @@ jobs:
           test -s out/p3.1/reference/visual-diversity-report.json
           test -s out/p3.1/reference/manifest.json
           test -s out/p3.1/reference/artifact-integrity.json
+          test -s out/p1.7/reference/p1-7-dynamic-typography.mp4
+          test -s out/p1.7/reference/p1-7-contact-sheet.png
+          test -s out/p1.7/reference/render-plan.json
+          test -s out/p1.7/reference/preflight.json
+          test -s out/p1.7/reference/manifest.json
+          test -s out/p1.7/reference/artifact-integrity.json
 
       - name: Upload P3.1 human review package
         if: ${{ always() }}
@@ -61,5 +73,7 @@ jobs:
           path: |
             out/p3.1/reference/
             out/p3.1/certification/
+            out/p1.7/reference/
+            out/p1.7/certification/
           if-no-files-found: error
           retention-days: 30

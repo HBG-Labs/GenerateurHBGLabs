@@ -12,10 +12,13 @@ export const EngineLimitsSchema = z.strictObject({
   max_fonts: z.number().int().positive(),
   max_audio_cues: z.number().int().positive(),
   max_subtitle_segments: z.number().int().positive(),
+  max_dynamic_typography_tracks: z.number().int().positive(),
+  max_dynamic_axes_per_run: z.number().int().positive().max(2),
+  max_dynamic_typography_critical_states: z.number().int().positive().max(128),
 });
 export type EngineLimits = z.infer<typeof EngineLimitsSchema>;
 
-/** Central P1.5 denial-of-service budget. Callers may only tighten/relax it explicitly. */
+/** Central P1.5 denial-of-service budget. Its enumerable shape is historically certified. */
 export const DEFAULT_ENGINE_LIMITS: Readonly<EngineLimits> = Object.freeze({
   max_duration_frames: 18_000,
   max_scenes: 64,
@@ -28,8 +31,15 @@ export const DEFAULT_ENGINE_LIMITS: Readonly<EngineLimits> = Object.freeze({
   max_fonts: 64,
   max_audio_cues: 1_024,
   max_subtitle_segments: 1_024,
+} as EngineLimits);
+
+/** Additive P1.7 budgets kept separate so DEFAULT_ENGINE_LIMITS remains byte-for-byte compatible. */
+export const P17_DYNAMIC_TYPOGRAPHY_LIMITS = Object.freeze({
+  max_dynamic_typography_tracks: 128,
+  max_dynamic_axes_per_run: 2,
+  max_dynamic_typography_critical_states: 96,
 });
 
 export function resolveEngineLimits(overrides: Partial<EngineLimits> = {}): EngineLimits {
-  return EngineLimitsSchema.parse({ ...DEFAULT_ENGINE_LIMITS, ...overrides });
+  return EngineLimitsSchema.parse({ ...DEFAULT_ENGINE_LIMITS, ...P17_DYNAMIC_TYPOGRAPHY_LIMITS, ...overrides });
 }
