@@ -128,13 +128,13 @@ describe('P3.2 — film de référence Premium Motion Vocabulary', () => {
     try {
       renderResult = await renderer.renderVideo({ plan: pipeline.p1.render_plan, output_file: video, resource_root: WORKSPACE });
       for (const point of controlFrames(900)) {
-        const name = `${point.phase.toLowerCase()}.png`;
-        const candidate = path.join(framesDirectory, name);
+        const name = point.phase.toLowerCase();
+        const candidate = path.join(framesDirectory, `${name}.png`);
         const frame = await renderer.renderFrame({ plan: pipeline.p1.render_plan, output_file: candidate, frame: point.frame, resource_root: WORKSPACE });
-        const golden = path.join(goldenDirectory, name);
+        const golden = path.join(goldenDirectory, `${name}.png`);
         if (updateGoldens) copyFileSync(candidate, golden);
         if (!existsSync(golden)) throw new Error(`Référence visuelle P3.2 absente : ${golden}. Utiliser explicitement UPDATE_P32_VISUAL_GOLDENS=1.`);
-        comparisons[name] = comparePngFiles(golden, candidate, CROSS_ENVIRONMENT_TOLERANCE);
+        comparisons[`${name}.png`] = comparePngFiles(golden, candidate, CROSS_ENVIRONMENT_TOLERANCE);
         frameMetrics.push({ name, frame: point.frame, render_ms: frame.render_ms, bytes: frame.bytes });
         p32ControlFrames.push(candidate);
       }
