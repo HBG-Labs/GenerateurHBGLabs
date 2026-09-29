@@ -17,6 +17,7 @@ describe('P3.2 — Premium Motion Vocabulary', () => {
     expect(result.visual_plan).toMatchObject({ schema_version: '0.2.0', grammar: { version: '0.2.0' } });
     expect(result.visual_plan.grammar.fingerprints.grammar).toBe(P32_VISUAL_GRAMMAR.fingerprint);
     expect(result.visual_compile.preflight.summary.errors).toBe(0);
+    expect(result.visual_compile.preflight.diagnostics.map((entry) => entry.code)).not.toContain('visual.complexity.effect_soup');
     expect(result.p1.preflight.summary?.errors ?? 0).toBe(0);
     expect(result.p1.render_plan.canvas).toMatchObject({ width: 540, height: 960, fps: 30, duration_frames: 900 });
     expect(result.p1.render_plan.requirements.capabilities).toContain('DYNAMIC_TYPOGRAPHY');

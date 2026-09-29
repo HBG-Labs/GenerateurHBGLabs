@@ -121,8 +121,8 @@ function p32Scene(scene: VisualScene, index: number): unknown {
     motion_phrases: [
       ...scene.motion_phrases,
       phrase('spectrum_phrase_dynamic', 'TYPE_TRACKING_IMPACT', ['spectrum_blue'], 'HIGH', 'right'),
-      phrase('spectrum_phrase_axis', 'TYPE_AXIS_PULSE', ['spectrum_blue'], 'HIGH', 'none'),
-      phrase('spectrum_phrase_mask', 'WORD_MASK_BRIDGE', ['spectrum_blue'], 'HIGH', 'right'),
+      phrase('spectrum_phrase_axis', 'TYPE_AXIS_PULSE', ['spectrum_blue'], 'MEDIUM', 'none'),
+      phrase('spectrum_phrase_mask', 'WORD_MASK_BRIDGE', ['spectrum_blue'], 'MEDIUM', 'right'),
     ],
     morph_chains: [{ id: 'spectrum_type_chain', entity_id: 'spectrum_blue', kind: 'semantic', steps: [
       { id: 'spectrum_step_type', representation: 'type', phase: 'ACCENT', scale: 1 },
