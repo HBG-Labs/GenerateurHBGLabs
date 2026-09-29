@@ -1,5 +1,5 @@
 import { hashVisualDocument } from './canonical.ts';
-import { VISUAL_GRAMMAR_VERSION } from './contracts.ts';
+import { P32_VISUAL_GRAMMAR_VERSION, VISUAL_GRAMMAR_VERSION } from './contracts.ts';
 import type { VisualCapability, VisualEntityKind } from './contracts.ts';
 import { DEFAULT_VISUAL_LIMITS } from './limits.ts';
 
@@ -100,6 +100,47 @@ export const SCENE_BRIDGE_DEFINITIONS: readonly SceneBridgeDefinition[] = Object
   { id: 'TYPE_CONTINUE', version: '1.0.0', support: 'compatible_simplified', continuity_properties: ['type', 'scale'], required_capabilities: ['TEXT', 'TRANSFORM'], resolver: 'p1.matched_type_boundary', fallback_order: ['MATCH_SCALE', 'explicit_cut'] },
 ]);
 
+export const P32_VISUAL_PATTERN_DEFINITIONS: readonly VisualPatternDefinition[] = Object.freeze([
+  ...VISUAL_PATTERN_DEFINITIONS,
+  pattern({ id: 'TYPE_TRACKING_BURST', version: '1.0.0', category: 'typography', support: 'supported', required_capabilities: ['TEXT', 'DYNAMIC_TYPOGRAPHY'], allowed_targets: ['text'], parameters: ['from_em', 'to_em'], conflicts: [], exclusive_control: ['dynamic_tracking'], complexity: 2, intensity_range: ['MEDIUM', 'HIGH'], resolver: 'p1.7.dynamic_tracking' }),
+  pattern({ id: 'TYPE_WEIGHT_PULSE', version: '1.0.0', category: 'typography', support: 'supported', required_capabilities: ['TEXT', 'VARIABLE_FONT', 'DYNAMIC_TYPOGRAPHY'], allowed_targets: ['text'], parameters: ['from', 'to'], conflicts: [], exclusive_control: ['font_axis_wght'], complexity: 2, intensity_range: ['MEDIUM', 'HIGH'], resolver: 'p1.7.dynamic_wght' }),
+  pattern({ id: 'TYPE_WIDTH_EXPANSION', version: '1.0.0', category: 'typography', support: 'supported', required_capabilities: ['TEXT', 'VARIABLE_FONT', 'DYNAMIC_TYPOGRAPHY'], allowed_targets: ['text'], parameters: ['from', 'to'], conflicts: [], exclusive_control: ['font_axis_wdth'], complexity: 2, intensity_range: ['MEDIUM', 'HIGH'], resolver: 'p1.7.dynamic_wdth' }),
+  pattern({ id: 'WORD_TO_MASK', version: '1.0.0', category: 'transition', support: 'compatible_simplified', required_capabilities: ['TEXT', 'MASK', 'CLIP', 'TRANSFORM'], allowed_targets: ['text', 'mask'], parameters: ['direction'], conflicts: [], exclusive_control: ['clip'], complexity: 3, intensity_range: ['MEDIUM', 'HIGH'], resolver: 'p1.7.type_scale_mask' }),
+  pattern({ id: 'SHAPE_TO_MASK', version: '1.0.0', category: 'transition', support: 'supported', required_capabilities: ['SHAPE', 'MASK', 'CLIP', 'TRANSFORM'], allowed_targets: ['shape', 'mask'], parameters: ['direction'], conflicts: [], exclusive_control: ['clip'], complexity: 2, intensity_range: ['MEDIUM', 'HIGH'], resolver: 'p1.semantic_shape_mask' }),
+  pattern({ id: 'CIRCLE_TO_PORTAL', version: '1.0.0', category: 'transition', support: 'compatible_simplified', required_capabilities: ['SHAPE', 'MASK', 'CLIP', 'GROUP', 'TRANSFORM'], allowed_targets: ['shape', 'mask', 'group'], parameters: ['scale'], conflicts: [], exclusive_control: ['portal'], complexity: 3, intensity_range: ['MEDIUM', 'HIGH'], resolver: 'p1.scale_mask_portal' }),
+  pattern({ id: 'FRAME_EXPANSION', version: '1.0.0', category: 'transition', support: 'supported', required_capabilities: ['GROUP', 'MASK', 'CLIP', 'TRANSFORM'], allowed_targets: ['group', 'mask', 'shape'], parameters: ['scale'], conflicts: [], exclusive_control: ['frame_transition'], complexity: 3, intensity_range: ['MEDIUM', 'HIGH'], resolver: 'p1.frame_to_full_screen' }),
+  pattern({ id: 'DOT_TO_ORBIT', version: '1.0.0', category: 'shape', support: 'supported', required_capabilities: ['SHAPE', 'PATH', 'PATH_PROGRESS', 'TRANSFORM'], allowed_targets: ['shape', 'path', 'group'], parameters: ['direction'], conflicts: [], exclusive_control: ['semantic_morph'], complexity: 2, intensity_range: ['MEDIUM', 'HIGH'], resolver: 'p1.dot_orbit_chain' }),
+  pattern({ id: 'VECTOR_ASSEMBLY', version: '1.0.0', category: 'shape', support: 'supported', required_capabilities: ['SHAPE', 'PATH', 'GROUP', 'TRANSFORM', 'OPACITY'], allowed_targets: ['shape', 'path', 'group'], parameters: ['order'], conflicts: [], exclusive_control: ['assembly'], complexity: 3, intensity_range: ['LOW', 'HIGH'], resolver: 'p1.ordered_vector_assembly' }),
+  pattern({ id: 'DIAGRAM_CAUSAL_FLOW', version: '1.0.0', category: 'path', support: 'supported', required_capabilities: ['PATH', 'PATH_PROGRESS', 'SHAPE', 'TRANSFORM'], allowed_targets: ['path', 'shape', 'group'], parameters: ['order'], conflicts: [], exclusive_control: ['causal_flow'], complexity: 2, intensity_range: ['LOW', 'HIGH'], resolver: 'p1.draw_then_accent' }),
+]);
+
+export const P32_MOTION_PHRASE_DEFINITIONS: readonly MotionPhraseDefinition[] = Object.freeze([
+  ...MOTION_PHRASE_DEFINITIONS,
+  { id: 'TYPE_TRACKING_IMPACT', version: '1.0.0', phases: ['ENTER', 'ACCENT', 'SETTLE'], compatible_targets: ['text'], required_capabilities: ['TEXT', 'DYNAMIC_TYPOGRAPHY', 'TRANSFORM'], resolver: 'p1.7.tracking_axis_impact', max_targets: 2 },
+  { id: 'TYPE_AXIS_PULSE', version: '1.0.0', phases: ['ACCENT', 'SETTLE'], compatible_targets: ['text'], required_capabilities: ['TEXT', 'VARIABLE_FONT', 'DYNAMIC_TYPOGRAPHY'], resolver: 'p1.7.axis_pulse', max_targets: 2 },
+  { id: 'WORD_MASK_BRIDGE', version: '1.0.0', phases: ['ACCENT', 'EXIT'], compatible_targets: ['text', 'mask'], required_capabilities: ['TEXT', 'MASK', 'CLIP', 'TRANSFORM'], resolver: 'p1.type_scale_mask', max_targets: 3 },
+  { id: 'SEMANTIC_MORPH_CHAIN', version: '1.0.0', phases: ['ENTER', 'ACCENT', 'EXIT'], compatible_targets: ['shape', 'mask', 'group'], required_capabilities: ['SHAPE', 'MASK', 'TRANSFORM'], resolver: 'p1.semantic_transform_chain', max_targets: 6 },
+  { id: 'CAUSAL_PATH_IMPACT', version: '1.0.0', phases: ['ENTER', 'ACCENT', 'SETTLE'], compatible_targets: ['path', 'shape', 'group'], required_capabilities: ['PATH', 'PATH_PROGRESS', 'TRANSFORM'], resolver: 'p1.draw_impact_followthrough', max_targets: 8 },
+  { id: 'CAMERA_DEPTH_SURGE', version: '1.0.0', phases: ['ENTER', 'ACCENT', 'SETTLE'], compatible_targets: ['group', 'image', 'shape'], required_capabilities: ['GROUP', 'TRANSFORM'], resolver: 'p1.depth_scaled_camera_push', max_targets: 12 },
+  { id: 'OCCLUSION_REVEAL', version: '1.0.0', phases: ['ENTER', 'ACCENT'], compatible_targets: ['group', 'shape', 'text', 'mask'], required_capabilities: ['GROUP', 'MASK', 'CLIP'], resolver: 'p1.layer_order_mask', max_targets: 8 },
+  { id: 'FRAME_PORTAL_TRANSFORM', version: '1.0.0', phases: ['ACCENT', 'EXIT'], compatible_targets: ['group', 'mask', 'shape'], required_capabilities: ['GROUP', 'MASK', 'CLIP', 'TRANSFORM'], resolver: 'p1.frame_scale_mask', max_targets: 4 },
+  { id: 'OVERLAP_FOLLOW_THROUGH', version: '1.0.0', phases: ['ACCENT', 'SETTLE'], compatible_targets: ['group', 'shape', 'text', 'path'], required_capabilities: ['TRANSFORM', 'OPACITY'], resolver: 'p1.overlap_settle', max_targets: 8 },
+  { id: 'IMPACT_CUT', version: '1.0.0', phases: ['ACCENT', 'EXIT'], compatible_targets: ['group', 'shape', 'text', 'path', 'mask', 'image'], required_capabilities: ['CUT'], resolver: 'p1.intentional_impact_cut', max_targets: 4 },
+]);
+
+export const P32_CAMERA_DEFINITIONS: readonly CameraDefinition[] = Object.freeze([
+  ...CAMERA_DEFINITIONS,
+  { id: 'CAMERA_DEPTH_SURGE', version: '1.0.0', support: 'supported', resolver: 'p1.depth_scaled_camera_push', required_capabilities: ['GROUP', 'TRANSFORM'], allowed_targets: ['group', 'image'], safe_scale_range: [1.04, 1.12] },
+  { id: 'CAMERA_SETTLE', version: '1.0.0', support: 'supported', resolver: 'p1.camera_push_settle', required_capabilities: ['GROUP', 'TRANSFORM'], allowed_targets: ['group', 'image'], safe_scale_range: [1.01, 1.05] },
+]);
+
+export const P32_SCENE_BRIDGE_DEFINITIONS: readonly SceneBridgeDefinition[] = Object.freeze([
+  ...SCENE_BRIDGE_DEFINITIONS,
+  { id: 'FRAME_EXPANSION', version: '1.0.0', support: 'supported', continuity_properties: ['scale', 'mask', 'position'], required_capabilities: ['GROUP', 'MASK', 'CLIP', 'TRANSFORM'], resolver: 'p1.frame_mask_boundary', fallback_order: ['MASK_EXPANSION', 'MATCH_SCALE', 'explicit_cut'] },
+  { id: 'ZOOM_THROUGH', version: '1.0.0', support: 'compatible_simplified', continuity_properties: ['scale', 'position'], required_capabilities: ['GROUP', 'MASK', 'TRANSFORM'], resolver: 'p1.portal_camera_boundary', fallback_order: ['CAMERA_CONTINUE', 'MATCH_SCALE', 'explicit_cut'] },
+  { id: 'TYPE_SCALE_THROUGH', version: '1.0.0', support: 'compatible_simplified', continuity_properties: ['type', 'scale', 'mask'], required_capabilities: ['TEXT', 'MASK', 'CLIP', 'TRANSFORM'], resolver: 'p1.type_mask_boundary', fallback_order: ['TYPE_CONTINUE', 'MASK_EXPANSION', 'explicit_cut'] },
+]);
+
 export const MOTION_PHYSICS_MAPPINGS = Object.freeze({
   SNAPPY: { easing: 'enter', duration_scale: 0.75 }, ELASTIC: { easing: 'settle', duration_scale: 1 },
   HEAVY: { easing: 'inout', duration_scale: 1.25 }, FLOATING: { easing: 'inout', duration_scale: 1.4 },
@@ -139,6 +180,41 @@ export const ACTIVE_VISUAL_GRAMMAR = Object.freeze({
   cameras: CAMERA_REGISTRY,
   bridges: SCENE_BRIDGE_REGISTRY,
 });
+
+export const P32_VISUAL_PATTERN_REGISTRY = byId(P32_VISUAL_PATTERN_DEFINITIONS);
+export const P32_MOTION_PHRASE_REGISTRY = byId(P32_MOTION_PHRASE_DEFINITIONS);
+export const P32_CAMERA_REGISTRY = byId(P32_CAMERA_DEFINITIONS);
+export const P32_SCENE_BRIDGE_REGISTRY = byId(P32_SCENE_BRIDGE_DEFINITIONS);
+
+export const P32_VISUAL_REGISTRY_FINGERPRINTS = Object.freeze({
+  patterns: hashVisualDocument(P32_VISUAL_PATTERN_DEFINITIONS),
+  phrases: hashVisualDocument(P32_MOTION_PHRASE_DEFINITIONS),
+  bridges: hashVisualDocument(P32_SCENE_BRIDGE_DEFINITIONS),
+  cameras: hashVisualDocument(P32_CAMERA_DEFINITIONS),
+});
+
+export const P32_VISUAL_GRAMMAR_FINGERPRINT = hashVisualDocument({
+  version: P32_VISUAL_GRAMMAR_VERSION,
+  registries: P32_VISUAL_REGISTRY_FINGERPRINTS,
+  physics: MOTION_PHYSICS_MAPPINGS,
+  limits: DEFAULT_VISUAL_LIMITS,
+});
+
+export const P32_VISUAL_GRAMMAR = Object.freeze({
+  version: P32_VISUAL_GRAMMAR_VERSION,
+  fingerprint: P32_VISUAL_GRAMMAR_FINGERPRINT,
+  registry_fingerprints: P32_VISUAL_REGISTRY_FINGERPRINTS,
+  patterns: P32_VISUAL_PATTERN_REGISTRY,
+  phrases: P32_MOTION_PHRASE_REGISTRY,
+  cameras: P32_CAMERA_REGISTRY,
+  bridges: P32_SCENE_BRIDGE_REGISTRY,
+});
+
+export function visualGrammarForVersion(version: string): typeof ACTIVE_VISUAL_GRAMMAR | typeof P32_VISUAL_GRAMMAR | null {
+  if (version === ACTIVE_VISUAL_GRAMMAR.version) return ACTIVE_VISUAL_GRAMMAR;
+  if (version === P32_VISUAL_GRAMMAR.version) return P32_VISUAL_GRAMMAR;
+  return null;
+}
 
 export function assertRegistryVersionPolicy<T extends { id: string; version: string }>(
   current: readonly T[],

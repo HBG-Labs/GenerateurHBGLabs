@@ -9,11 +9,14 @@ import {
 export const VISUAL_PLAN_SCHEMA = 'visual-plan';
 export const VISUAL_PLAN_VERSION = '0.1.0';
 export const VISUAL_GRAMMAR_VERSION = '0.1.0';
+export const P32_VISUAL_PLAN_VERSION = '0.2.0';
+export const P32_VISUAL_GRAMMAR_VERSION = '0.2.0';
 
 export const RegistryIdSchema = z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/);
 export const VisualCapabilitySchema = z.enum([
   'TEXT', 'SHAPE', 'IMAGE', 'PATH', 'MASK', 'GROUP', 'TRANSFORM', 'OPACITY',
   'CLIP', 'PATH_PROGRESS', 'COLOR', 'VARIABLE_FONT', 'CUT',
+  'DYNAMIC_TYPOGRAPHY',
   'FUTURE_ARBITRARY_MORPH', 'FUTURE_PATH_FOLLOW', 'FUTURE_TRUE_3D',
   'FUTURE_VARIABLE_FONT_ANIMATION', 'FUTURE_CROSS_SCENE_COMPOSITOR',
 ]);
@@ -143,6 +146,56 @@ export const DepthLayerSchema = z.strictObject({
 });
 export type DepthLayer = z.infer<typeof DepthLayerSchema>;
 
+export const MorphStepSchema = z.strictObject({
+  id: StableIdSchema,
+  representation: z.enum(['dot', 'line', 'path', 'ellipse', 'rect', 'frame', 'mask', 'color_field', 'type', 'portal']),
+  phase: VisualPhaseSchema,
+  scale: z.number().finite().min(0.05).max(8),
+});
+
+export const MorphChainSchema = z.strictObject({
+  id: StableIdSchema,
+  entity_id: StableIdSchema,
+  kind: z.enum(['parametric', 'semantic']),
+  steps: z.array(MorphStepSchema).min(2).max(8),
+});
+export type MorphChain = z.infer<typeof MorphChainSchema>;
+
+export const MotionEventSchema = z.strictObject({
+  id: StableIdSchema,
+  target_id: StableIdSchema,
+  phase: VisualPhaseSchema,
+  energy: z.enum(['left_to_right', 'right_to_left', 'inward', 'outward', 'upward', 'downward', 'rotational', 'radial', 'still']),
+  sync_anchor: z.enum(['IMPACT', 'REVEAL', 'BRIDGE_CROSS', 'PAYOFF']).nullable(),
+});
+export type MotionEvent = z.infer<typeof MotionEventSchema>;
+
+export const CausalRelationSchema = z.strictObject({
+  id: StableIdSchema,
+  source_event_id: StableIdSchema,
+  destination_event_id: StableIdSchema,
+  relation: z.enum(['TRIGGERS', 'FOLLOWS', 'OVERLAPS', 'PREPARES', 'REVEALS']),
+});
+export type CausalRelation = z.infer<typeof CausalRelationSchema>;
+
+export const LayoutTransitionSchema = z.strictObject({
+  id: StableIdSchema,
+  from: LayoutStrategySchema,
+  to: LayoutStrategySchema,
+  phase: VisualPhaseSchema,
+  target_ids: z.array(StableIdSchema).min(1).max(12),
+});
+export type LayoutTransition = z.infer<typeof LayoutTransitionSchema>;
+
+export const EffectInstanceSchema = z.strictObject({
+  id: StableIdSchema,
+  effect_id: z.enum(['CONTROLLED_BLUR', 'SOFT_GLOW', 'LIGHT_SWEEP', 'GRADIENT_MOTION']),
+  target_id: StableIdSchema,
+  intensity: z.number().finite().min(0).max(1),
+  render_cost: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+});
+export type EffectInstance = z.infer<typeof EffectInstanceSchema>;
+
 export const ReservedVisualRegionSchema = z.strictObject({
   id: StableIdSchema,
   region: VisualRegionSchema,
@@ -171,6 +224,11 @@ export const VisualSceneSchema = z.strictObject({
   depth_layers: z.array(DepthLayerSchema).max(24),
   choreography: z.array(ChoreographyEventSchema).max(32),
   reserved_regions: z.array(ReservedVisualRegionSchema).max(8),
+  morph_chains: z.array(MorphChainSchema).max(8).optional(),
+  motion_events: z.array(MotionEventSchema).max(32).optional(),
+  causal_relations: z.array(CausalRelationSchema).max(64).optional(),
+  layout_transitions: z.array(LayoutTransitionSchema).max(4).optional(),
+  effects: z.array(EffectInstanceSchema).max(8).optional(),
 });
 export type VisualScene = z.infer<typeof VisualSceneSchema>;
 
@@ -189,6 +247,18 @@ export const SceneBridgeSchema = z.strictObject({
 });
 export type SceneBridge = z.infer<typeof SceneBridgeSchema>;
 
+export const CameraContinuitySchema = z.strictObject({
+  id: StableIdSchema,
+  source_scene_id: StableIdSchema,
+  destination_scene_id: StableIdSchema,
+  source_camera_id: StableIdSchema,
+  destination_camera_id: StableIdSchema,
+  energy: z.enum(['left_to_right', 'right_to_left', 'inward', 'outward', 'upward', 'downward', 'rotational', 'radial']),
+  velocity_intent: z.enum(['carry', 'accelerate', 'decelerate', 'settle']),
+  scale_momentum: z.enum(['preserve', 'expand', 'contract']),
+});
+export type CameraContinuity = z.infer<typeof CameraContinuitySchema>;
+
 export const VisualMotifSchema = z.strictObject({
   id: StableIdSchema,
   kind: z.enum(['shape', 'line', 'color', 'path', 'type_treatment', 'visual_entity']),
@@ -206,19 +276,20 @@ export const RegistryFingerprintsSchema = z.strictObject({
 
 export const VisualPlanSchema = z.strictObject({
   schema: z.literal(VISUAL_PLAN_SCHEMA),
-  schema_version: z.literal(VISUAL_PLAN_VERSION),
+  schema_version: z.enum([VISUAL_PLAN_VERSION, P32_VISUAL_PLAN_VERSION]),
   plan_id: StableIdSchema,
   source: z.strictObject({
     creative_plan_id: StableIdSchema,
     creative_plan_sha256: Sha256Schema,
     pipeline_path: z.literal('visual_directed'),
   }),
-  grammar: z.strictObject({ version: z.literal(VISUAL_GRAMMAR_VERSION), fingerprints: RegistryFingerprintsSchema }),
+  grammar: z.strictObject({ version: z.enum([VISUAL_GRAMMAR_VERSION, P32_VISUAL_GRAMMAR_VERSION]), fingerprints: RegistryFingerprintsSchema }),
   target: z.strictObject({ format: z.literal('vertical_short_form'), duration_ms: z.number().int().min(500).max(120_000) }),
   style_id: StableIdSchema,
   scenes: z.array(VisualSceneSchema).min(1).max(16),
   bridges: z.array(SceneBridgeSchema).max(32),
   motifs: z.array(VisualMotifSchema).max(16),
+  camera_continuities: z.array(CameraContinuitySchema).max(16).optional(),
 });
 export type VisualPlan = z.infer<typeof VisualPlanSchema>;
 

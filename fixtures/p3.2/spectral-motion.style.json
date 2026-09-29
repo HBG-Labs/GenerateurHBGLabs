@@ -1,0 +1,77 @@
+{
+  "schema": "creative-style-profile",
+  "schema_version": "0.1.0",
+  "id": "spectral_motion",
+  "version": "1.0.0",
+  "name": "Spectral Motion Reference",
+  "origin": "authored",
+  "role_contract": "0.1.0",
+  "reference_canvas": { "width": 1080, "height": 1920 },
+  "palette": {
+    "surface.primary": "#020817",
+    "surface.inverse": "#FFDB6E",
+    "text.primary": "#F5F7FF",
+    "text.inverse": "#07112F",
+    "accent": "#65E2FF"
+  },
+  "typography": {
+    "families": {
+      "variable_mono": {
+        "css_name": "spectral-motion-variable",
+        "files": [
+          { "weight": 500, "style": "normal", "src": "lib:noto_sans_mono/noto-sans-mono-wdth-wght.ttf", "sha256": "2cb2adb378a8f574213e23df697050b83c54c27df465a2015552740b2769a081", "axes": { "wght": 500, "wdth": 86 } },
+          { "weight": 700, "style": "normal", "src": "lib:noto_sans_mono/noto-sans-mono-wdth-wght.ttf", "sha256": "2cb2adb378a8f574213e23df697050b83c54c27df465a2015552740b2769a081", "axes": { "wght": 700, "wdth": 86 } }
+        ]
+      }
+    },
+    "scale": {
+      "display.xl": { "family": "variable_mono", "weight": 700, "size": 126, "line_height": 1.02, "tracking_em": -0.045, "case": "upper", "min_size": 60 },
+      "display.l": { "family": "variable_mono", "weight": 700, "size": 100, "line_height": 1.05, "tracking_em": -0.035, "case": "upper", "min_size": 52 },
+      "display.m": { "family": "variable_mono", "weight": 700, "size": 76, "line_height": 1.08, "tracking_em": -0.02, "case": "upper", "min_size": 42 },
+      "headline": { "family": "variable_mono", "weight": 700, "size": 58, "line_height": 1.12, "tracking_em": -0.01, "case": "as_is", "min_size": 36 },
+      "body": { "family": "variable_mono", "weight": 500, "size": 38, "line_height": 1.28, "tracking_em": 0, "case": "as_is", "min_size": 30 },
+      "subtitle": { "family": "variable_mono", "weight": 500, "size": 40, "line_height": 1.24, "tracking_em": 0, "case": "as_is", "min_size": 30 }
+    }
+  },
+  "grid": { "columns": 6, "rows": 12, "margin": { "top": 104, "right": 64, "bottom": 140, "left": 64 }, "gutter": 16 },
+  "space": { "xs": 6, "sm": 12, "md": 24, "lg": 48, "xl": 72 },
+  "strokes": { "hairline": 3, "emphasis": 10 },
+  "motifs": { "rule": { "kind": "line", "length_cols": 6, "weight": "emphasis", "cap": "round" } },
+  "composition_personality": { "preferred_systems": [{ "id": "layered_poster", "weight": 1 }], "negative_space": "balanced", "alignment": "start", "asymmetry": 0.76 },
+  "motion_personality": {
+    "easings": {
+      "enter": { "type": "bezier", "p": [0.12, 0.88, 0.18, 1] },
+      "exit": { "type": "bezier", "p": [0.55, 0, 0.9, 0.45] },
+      "inout": { "type": "bezier", "p": [0.72, 0, 0.18, 1] },
+      "settle": { "type": "spring", "damping": 34, "stiffness": 330, "mass": 0.7, "initial_velocity": 0 }
+    },
+    "max_overshoot": 0.06,
+    "behaviors": {
+      "REVEAL_TEXT": { "allowed": true, "variants": ["mask_up", "fade_up"] },
+      "ACCENT_WORD": { "allowed": true, "variants": ["color_settle"] },
+      "SETTLE": { "allowed": true },
+      "EXIT_CLEAR": { "allowed": true },
+      "CUT": { "allowed": true },
+      "DRAW_PATH": { "allowed": true },
+      "MATCH_LINE": { "allowed": true },
+      "CAMERA_PUSH": { "allowed": true, "param_bounds": { "scale": { "min": 1, "max": 1.12 } } },
+      "FOCUS_REGION": { "allowed": true, "param_bounds": { "scale": { "min": 1, "max": 1.12 } } },
+      "HIGHLIGHT_REGION": { "allowed": true, "variants": ["outline", "accent"] },
+      "MASK_WIPE": { "allowed": true },
+      "TYPE_TRACKING": { "allowed": true },
+      "TYPE_AXIS": { "allowed": true }
+    }
+  },
+  "rhythm_personality": {
+    "tempo": { "beat_ms": { "CALM": 460, "BUILD": 340, "ACCELERATE": 250, "INTERRUPTION": 280, "REVEAL": 360, "RESOLUTION": 520 }, "breath_ms": 300 },
+    "reading": { "ms_per_word": 240, "min_hold_ms": 700 },
+    "preferred_curves": [{ "id": "intentional_contrast", "weight": 1 }]
+  },
+  "subtitle_style": { "type": "type.subtitle", "color": "color.text.inverse", "backdrop": "color.surface.inverse", "max_chars_per_line": 24, "max_lines": 2, "active_word": "underline" },
+  "sound_personality": { "event_cues": {}, "cues": {}, "max_cues_per_video": 0 },
+  "voice_personality": { "description": "Film de référence visuel silencieux P3.2." },
+  "image_treatment": { "grade": "cool", "contrast": 0.32, "grain": 0.015, "duotone": null },
+  "illustration_treatment": { "stroke": "bold", "fill": "none", "palette_roles": ["color.text.primary", "color.accent"] },
+  "transition_preferences": { "preferred": ["MASK_WIPE", "CAMERA_PUSH", "CUT"], "avoid": [] },
+  "forbidden": { "behaviors": [], "style_tags": ["system_fallback"] }
+}

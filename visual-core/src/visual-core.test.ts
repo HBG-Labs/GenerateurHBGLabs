@@ -8,6 +8,11 @@ import {
   ACTIVE_VISUAL_GRAMMAR,
   CAMERA_DEFINITIONS,
   MOTION_PHRASE_DEFINITIONS,
+  P32_CAMERA_DEFINITIONS,
+  P32_MOTION_PHRASE_DEFINITIONS,
+  P32_SCENE_BRIDGE_DEFINITIONS,
+  P32_VISUAL_GRAMMAR,
+  P32_VISUAL_PATTERN_DEFINITIONS,
   SCENE_BRIDGE_DEFINITIONS,
   VISUAL_PATTERN_DEFINITIONS,
   assertRegistryVersionPolicy,
@@ -42,6 +47,16 @@ describe('Visual Grammar 0.1.0', () => {
     const entry = VISUAL_PATTERN_DEFINITIONS[0]!;
     expect(() => assertRegistryVersionPolicy([entry], [{ id: entry.id, version: entry.version, sha256: hashVisualDocument(entry) }])).not.toThrow();
     expect(() => assertRegistryVersionPolicy([{ ...entry, resolver: 'changed' }], [{ id: entry.id, version: entry.version, sha256: hashVisualDocument(entry) }])).toThrow(/version_not_bumped/u);
+  });
+
+  it('versionne P3.2 sans altérer les registres P3.1', () => {
+    expect(P32_VISUAL_GRAMMAR).toMatchObject({ version: '0.2.0' });
+    expect(P32_VISUAL_GRAMMAR.fingerprint).toMatch(/^[0-9a-f]{64}$/u);
+    expect(P32_VISUAL_PATTERN_DEFINITIONS.length).toBeGreaterThan(VISUAL_PATTERN_DEFINITIONS.length);
+    expect(P32_MOTION_PHRASE_DEFINITIONS.length).toBeGreaterThanOrEqual(15);
+    expect(P32_SCENE_BRIDGE_DEFINITIONS.length).toBeGreaterThan(SCENE_BRIDGE_DEFINITIONS.length);
+    expect(P32_CAMERA_DEFINITIONS.length).toBeGreaterThan(CAMERA_DEFINITIONS.length);
+    expect(ACTIVE_VISUAL_GRAMMAR.version).toBe('0.1.0');
   });
 
   it('rejette un pattern, une phrase, une caméra et un bridge inconnus', () => {

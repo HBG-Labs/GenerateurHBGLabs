@@ -1,4 +1,4 @@
-name: P3.1 Professional Visual Grammar Certification
+name: P3.2 Premium Motion Vocabulary Certification
 
 on:
   push:
@@ -10,13 +10,13 @@ permissions:
   contents: read
 
 jobs:
-  certify-visual-grammar:
+  certify-premium-motion-vocabulary:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       CI: true
     steps:
-      - name: Checkout exact P3.1 ref
+      - name: Checkout exact P3.2 ref
         uses: actions/checkout@v4
 
       - name: Report exact certification SHA
@@ -31,7 +31,7 @@ jobs:
       - name: Install exact dependency graph
         run: npm ci
 
-      - name: Full offline P1/P2/P3.1 quality gate
+      - name: Full offline P1/P2/P3.1/P3.2 quality gate
         run: npm run check
 
       - name: Offline P1.7 dynamic typography evidence
@@ -43,8 +43,14 @@ jobs:
       - name: Offline P3.1 evidence
         run: npm run certify:p3.1
 
-      - name: Real Linux reference render
+      - name: Real Linux P3.1 reference reconstruction
         run: npm run render:p3.1
+
+      - name: Offline P3.2 evidence
+        run: npm run certify:p3.2
+
+      - name: Real Linux P3.2 reference render
+        run: npm run render:p3.2
 
       - name: Verify atomic reference package
         shell: bash
@@ -64,16 +70,30 @@ jobs:
           test -s out/p1.7/reference/preflight.json
           test -s out/p1.7/reference/manifest.json
           test -s out/p1.7/reference/artifact-integrity.json
+          test -s out/p3.2/reference/p3-2-blue-sky.mp4
+          test -s out/p3.2/reference/p3-2-contact-sheet.png
+          test -s out/p3.2/reference/p2-p3-1-p3-2-comparison.png
+          test -s out/p3.2/reference/p3-2-typography-strip.png
+          test -s out/p3.2/reference/p3-2-continuity-strip.png
+          test -s out/p3.2/reference/p3-2-depth-camera-strip.png
+          test -s out/p3.2/reference/visual-plan.json
+          test -s out/p3.2/reference/visual-preflight.json
+          test -s out/p3.2/reference/visual-diversity-report.json
+          test -s out/p3.2/reference/metrics.json
+          test -s out/p3.2/reference/manifest.json
+          test -s out/p3.2/reference/artifact-integrity.json
 
-      - name: Upload P3.1 human review package
+      - name: Upload P3.2 human review package
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: p3.1-professional-visual-grammar-${{ github.sha }}
+          name: p3.2-premium-motion-vocabulary-${{ github.sha }}
           path: |
             out/p3.1/reference/
             out/p3.1/certification/
             out/p1.7/reference/
             out/p1.7/certification/
+            out/p3.2/reference/
+            out/p3.2/certification/
           if-no-files-found: error
           retention-days: 30

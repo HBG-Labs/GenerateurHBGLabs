@@ -13,6 +13,12 @@ export interface VisualDiversityReport {
   readonly depth_strategies: readonly string[];
   readonly consecutive_repetitions: readonly { kind: string; value: string; scene_ids: readonly string[] }[];
   readonly declared_motifs: readonly string[];
+  readonly morphs?: readonly string[];
+  readonly camera_continuities?: readonly string[];
+  readonly causal_chains?: readonly string[];
+  readonly typography_phrases?: readonly string[];
+  readonly intentional_cuts?: number;
+  readonly degraded_transitions?: number;
 }
 function repetitions(plan: VisualPlan): VisualDiversityReport['consecutive_repetitions'] {
   const result: Array<{ kind: string; value: string; scene_ids: readonly string[] }> = [];
@@ -33,7 +39,7 @@ function repetitions(plan: VisualPlan): VisualDiversityReport['consecutive_repet
 
 export function buildVisualDiversityReport(plan: VisualPlan): VisualDiversityReport {
   const unique = (values: readonly string[]): string[] => [...new Set(values)].sort();
-  return {
+  const base: VisualDiversityReport = {
     schema: 'visual-diversity-report', schema_version: '0.1.0', visual_plan_sha256: hashVisualDocument(plan),
     layouts: unique(plan.scenes.map((scene) => scene.layout)),
     patterns: unique(plan.scenes.flatMap((scene) => scene.patterns.map((entry) => entry.pattern_id))),
@@ -43,5 +49,15 @@ export function buildVisualDiversityReport(plan: VisualPlan): VisualDiversityRep
     depth_strategies: unique(plan.scenes.flatMap((scene) => scene.depth_layers.map((entry) => entry.plane))),
     consecutive_repetitions: repetitions(plan),
     declared_motifs: unique(plan.motifs.map((entry) => entry.id)),
+  };
+  if (plan.schema_version === '0.1.0') return base;
+  return {
+    ...base,
+    morphs: unique(plan.scenes.flatMap((scene) => (scene.morph_chains ?? []).map((entry) => `${entry.kind}:${entry.steps.map((step) => step.representation).join('>')}`))),
+    camera_continuities: unique((plan.camera_continuities ?? []).map((entry) => `${entry.energy}:${entry.velocity_intent}:${entry.scale_momentum}`)),
+    causal_chains: unique(plan.scenes.flatMap((scene) => (scene.causal_relations ?? []).map((entry) => entry.relation))),
+    typography_phrases: unique(plan.scenes.flatMap((scene) => scene.motion_phrases.filter((entry) => entry.phrase_id.startsWith('TYPE_') || entry.phrase_id.includes('WORD_')).map((entry) => entry.phrase_id))),
+    intentional_cuts: plan.scenes.reduce((sum, scene) => sum + scene.motion_phrases.filter((entry) => entry.phrase_id === 'IMPACT_CUT').length, 0),
+    degraded_transitions: 0,
   };
 }

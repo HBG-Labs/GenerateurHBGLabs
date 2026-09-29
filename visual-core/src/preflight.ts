@@ -5,10 +5,7 @@ import { DEFAULT_VISUAL_LIMITS } from './limits.ts';
 import type { VisualEngineLimits } from './limits.ts';
 import {
   ACTIVE_VISUAL_GRAMMAR,
-  CAMERA_REGISTRY,
-  MOTION_PHRASE_REGISTRY,
-  SCENE_BRIDGE_REGISTRY,
-  VISUAL_PATTERN_REGISTRY,
+  visualGrammarForVersion,
 } from './registry.ts';
 import { validateVisualPlan } from './validation.ts';
 
@@ -49,6 +46,27 @@ function hasChoreographyCycle(scene: VisualScene): boolean {
   return [...edges.keys()].some(visit);
 }
 
+function hasMotionCausalityCycle(scene: VisualScene): boolean {
+  const events = new Set((scene.motion_events ?? []).map((entry) => entry.id));
+  const edges = new Map<string, string[]>();
+  for (const event of events) edges.set(event, []);
+  for (const relation of scene.causal_relations ?? []) {
+    if (events.has(relation.source_event_id) && events.has(relation.destination_event_id)) {
+      edges.get(relation.source_event_id)!.push(relation.destination_event_id);
+    }
+  }
+  const active = new Set<string>();
+  const done = new Set<string>();
+  const visit = (id: string): boolean => {
+    if (active.has(id)) return true;
+    if (done.has(id)) return false;
+    active.add(id);
+    for (const next of edges.get(id) ?? []) if (visit(next)) return true;
+    active.delete(id); done.add(id); return false;
+  };
+  return [...events].some(visit);
+}
+
 function limitDiagnostic(code: string, path: string, actual: number, limit: number): VisualDiagnostic {
   return { code, severity: 'error', path, message: `${actual} dépasse la limite ${limit}.`, context: { actual, limit }, suggested_action: 'Réduire la complexité avant compilation.' };
 }
@@ -58,10 +76,16 @@ export function buildVisualPreflight(input: unknown, limits: VisualEngineLimits 
   const diagnostics: VisualDiagnostic[] = [...validated.diagnostics];
   if (!validated.ok) return report(null, diagnostics);
   const plan = validated.value;
-  if (plan.grammar.version !== ACTIVE_VISUAL_GRAMMAR.version || plan.grammar.fingerprints.grammar !== ACTIVE_VISUAL_GRAMMAR.fingerprint) {
+  const grammar = visualGrammarForVersion(plan.grammar.version);
+  const activeGrammar = grammar ?? ACTIVE_VISUAL_GRAMMAR;
+  const patternRegistry = activeGrammar.patterns;
+  const phraseRegistry = activeGrammar.phrases;
+  const cameraRegistry = activeGrammar.cameras;
+  const bridgeRegistry = activeGrammar.bridges;
+  if (!grammar || plan.grammar.fingerprints.grammar !== activeGrammar.fingerprint) {
     diagnostics.push({ code: 'visual.grammar.fingerprint_mismatch', severity: 'error', path: '$.grammar', message: 'La version/empreinte de la grammaire active ne correspond pas au plan.', suggested_action: 'Recompiler le VisualPlan avec la grammaire active.' });
   }
-  const expected = ACTIVE_VISUAL_GRAMMAR.registry_fingerprints;
+  const expected = activeGrammar.registry_fingerprints;
   for (const key of ['patterns', 'phrases', 'bridges', 'cameras'] as const) if (plan.grammar.fingerprints[key] !== expected[key]) diagnostics.push({ code: 'visual.registry.fingerprint_mismatch', severity: 'error', path: `$.grammar.fingerprints.${key}`, message: `Empreinte du registre ${key} incohérente.`, suggested_action: 'Recompiler le VisualPlan.' });
 
   const allIds: Array<{ id: string; path: string; scene_id?: string }> = [
@@ -73,9 +97,15 @@ export function buildVisualPreflight(input: unknown, limits: VisualEngineLimits 
       ...scene.motion_phrases.map((entry, itemIndex) => ({ id: entry.id, path: `$.scenes[${index}].motion_phrases[${itemIndex}].id`, scene_id: scene.id })),
       ...scene.camera_moves.map((entry, itemIndex) => ({ id: entry.id, path: `$.scenes[${index}].camera_moves[${itemIndex}].id`, scene_id: scene.id })),
       ...scene.anchors.map((entry, itemIndex) => ({ id: entry.id, path: `$.scenes[${index}].anchors[${itemIndex}].id`, scene_id: scene.id })),
+      ...(scene.morph_chains ?? []).flatMap((entry, itemIndex) => [{ id: entry.id, path: `$.scenes[${index}].morph_chains[${itemIndex}].id`, scene_id: scene.id }, ...entry.steps.map((step, stepIndex) => ({ id: step.id, path: `$.scenes[${index}].morph_chains[${itemIndex}].steps[${stepIndex}].id`, scene_id: scene.id }))]),
+      ...(scene.motion_events ?? []).map((entry, itemIndex) => ({ id: entry.id, path: `$.scenes[${index}].motion_events[${itemIndex}].id`, scene_id: scene.id })),
+      ...(scene.causal_relations ?? []).map((entry, itemIndex) => ({ id: entry.id, path: `$.scenes[${index}].causal_relations[${itemIndex}].id`, scene_id: scene.id })),
+      ...(scene.layout_transitions ?? []).map((entry, itemIndex) => ({ id: entry.id, path: `$.scenes[${index}].layout_transitions[${itemIndex}].id`, scene_id: scene.id })),
+      ...(scene.effects ?? []).map((entry, itemIndex) => ({ id: entry.id, path: `$.scenes[${index}].effects[${itemIndex}].id`, scene_id: scene.id })),
     ]),
     ...plan.bridges.map((entry, index) => ({ id: entry.id, path: `$.bridges[${index}].id` })),
     ...plan.motifs.map((entry, index) => ({ id: entry.id, path: `$.motifs[${index}].id` })),
+    ...(plan.camera_continuities ?? []).map((entry, index) => ({ id: entry.id, path: `$.camera_continuities[${index}].id` })),
   ];
   addDuplicateDiagnostics(allIds, diagnostics);
   const totalEntities = plan.scenes.reduce((sum, scene) => sum + scene.entities.length, 0);
@@ -109,7 +139,7 @@ export function buildVisualPreflight(input: unknown, limits: VisualEngineLimits 
     if (scene.entry_anchor_id && !anchors.has(scene.entry_anchor_id)) diagnostics.push({ code: 'visual.anchor.entry_missing', severity: 'error', path: `${path}.entry_anchor_id`, scene_id: scene.id, message: 'Entry anchor absent.', suggested_action: 'Déclarer l’ancre.' });
     if (scene.exit_anchor_id && !anchors.has(scene.exit_anchor_id)) diagnostics.push({ code: 'visual.anchor.exit_missing', severity: 'error', path: `${path}.exit_anchor_id`, scene_id: scene.id, message: 'Exit anchor absent.', suggested_action: 'Déclarer l’ancre.' });
     for (const instance of scene.patterns) {
-      const definition = VISUAL_PATTERN_REGISTRY.get(instance.pattern_id);
+      const definition = patternRegistry.get(instance.pattern_id);
       if (!definition || definition.version !== instance.version) diagnostics.push({ code: 'visual.pattern.unknown', severity: 'error', path: `${path}.patterns`, scene_id: scene.id, node_id: instance.id, message: `Pattern inconnu : ${instance.pattern_id}@${instance.version}.`, suggested_action: 'Utiliser le registre actif.' });
       else {
         if (definition.support === 'future') diagnostics.push({ code: 'visual.capability.unsupported', severity: 'error', path: `${path}.patterns`, scene_id: scene.id, node_id: instance.id, message: `${instance.pattern_id} est FUTURE/UNSUPPORTED.`, suggested_action: 'Choisir un pattern supporté.' });
@@ -123,7 +153,7 @@ export function buildVisualPreflight(input: unknown, limits: VisualEngineLimits 
     }
     const controls = new Map<string, string>();
     for (const instance of scene.patterns) {
-      const definition = VISUAL_PATTERN_REGISTRY.get(instance.pattern_id);
+      const definition = patternRegistry.get(instance.pattern_id);
       if (!definition) continue;
       for (const target of instance.target_ids) for (const exclusive of definition.exclusive_control) {
         const key = `${target}:${exclusive}`;
@@ -133,7 +163,7 @@ export function buildVisualPreflight(input: unknown, limits: VisualEngineLimits 
       }
     }
     for (const phrase of scene.motion_phrases) {
-      const definition = MOTION_PHRASE_REGISTRY.get(phrase.phrase_id);
+      const definition = phraseRegistry.get(phrase.phrase_id);
       if (!definition || definition.version !== phrase.version) diagnostics.push({ code: 'visual.phrase.unknown', severity: 'error', path: `${path}.motion_phrases`, scene_id: scene.id, node_id: phrase.id, message: `MotionPhrase inconnue : ${phrase.phrase_id}.`, suggested_action: 'Utiliser le registre actif.' });
       else {
         if (phrase.target_ids.length > definition.max_targets) diagnostics.push({ code: 'visual.phrase.targets_exceeded', severity: 'error', path: `${path}.motion_phrases`, scene_id: scene.id, node_id: phrase.id, message: `Trop de targets pour ${phrase.phrase_id}.`, suggested_action: 'Réduire les targets.' });
@@ -145,7 +175,7 @@ export function buildVisualPreflight(input: unknown, limits: VisualEngineLimits 
       }
     }
     for (const camera of scene.camera_moves) {
-      const definition = CAMERA_REGISTRY.get(camera.camera_id);
+      const definition = cameraRegistry.get(camera.camera_id);
       if (!definition || definition.version !== camera.version) diagnostics.push({ code: 'visual.camera.unknown', severity: 'error', path: `${path}.camera_moves`, scene_id: scene.id, node_id: camera.id, message: `Camera move inconnu : ${camera.camera_id}.`, suggested_action: 'Utiliser le registre actif.' });
       else {
         if (definition.support === 'future') diagnostics.push({ code: 'visual.camera.unsupported', severity: 'error', path: `${path}.camera_moves`, scene_id: scene.id, node_id: camera.id, message: `${camera.camera_id} est FUTURE.`, suggested_action: 'Utiliser un mouvement supporté.' });
@@ -163,13 +193,30 @@ export function buildVisualPreflight(input: unknown, limits: VisualEngineLimits 
     const events = new Map(scene.choreography.map((entry) => [entry.id, entry]));
     for (const entry of scene.choreography) {
       if (!entities.has(entry.target_id)) diagnostics.push({ code: 'visual.choreography.target_missing', severity: 'error', path: `${path}.choreography`, scene_id: scene.id, node_id: entry.id, message: 'Événement chorégraphique sans target locale.', suggested_action: 'Cibler une entité existante.' });
-      const knownAction = MOTION_PHRASE_REGISTRY.has(entry.action_id) || VISUAL_PATTERN_REGISTRY.has(entry.action_id) || CAMERA_REGISTRY.has(entry.action_id);
+      const knownAction = phraseRegistry.has(entry.action_id) || patternRegistry.has(entry.action_id) || cameraRegistry.has(entry.action_id);
       if (!knownAction) diagnostics.push({ code: 'visual.choreography.action_unknown', severity: 'error', path: `${path}.choreography`, scene_id: scene.id, node_id: entry.id, message: `Action chorégraphique inconnue : ${entry.action_id}.`, suggested_action: 'Utiliser une action enregistrée.' });
       if (entry.trigger.relation === 'at_phase_start' && entry.trigger.event_id !== null) diagnostics.push({ code: 'visual.choreography.trigger_invalid', severity: 'error', path: `${path}.choreography`, scene_id: scene.id, node_id: entry.id, message: 'at_phase_start ne référence aucun événement.', suggested_action: 'Supprimer event_id.' });
       if (entry.trigger.relation !== 'at_phase_start' && (!entry.trigger.event_id || !events.has(entry.trigger.event_id))) diagnostics.push({ code: 'visual.choreography.trigger_missing', severity: 'error', path: `${path}.choreography`, scene_id: scene.id, node_id: entry.id, message: 'Trigger vers un événement absent.', suggested_action: 'Référencer un événement local existant.' });
     }
     if (hasChoreographyCycle(scene)) diagnostics.push({ code: 'visual.choreography.cycle', severity: 'error', path: `${path}.choreography`, scene_id: scene.id, message: 'Cycle interdit dans la causalité visuelle.', suggested_action: 'Rendre la chaîne de mouvements acyclique.' });
-    const highEffects = scene.patterns.filter((entry) => VISUAL_PATTERN_REGISTRY.get(entry.pattern_id)?.complexity === 3).length + scene.motion_phrases.filter((entry) => entry.intensity === 'HIGH').length;
+    const morphRepresentations = new Set(['dot:ellipse', 'ellipse:dot', 'ellipse:ellipse', 'rect:frame', 'frame:rect', 'rect:rect']);
+    for (const [morphIndex, morph] of (scene.morph_chains ?? []).entries()) {
+      if (!entities.has(morph.entity_id)) diagnostics.push({ code: 'visual.morph.target_missing', severity: 'error', path: `${path}.morph_chains[${morphIndex}]`, scene_id: scene.id, node_id: morph.id, message: 'MorphChain sans entité locale.', suggested_action: 'Cibler une entité existante.' });
+      if (morph.kind === 'parametric') for (let stepIndex = 1; stepIndex < morph.steps.length; stepIndex += 1) {
+        const previous = morph.steps[stepIndex - 1]!; const current = morph.steps[stepIndex]!;
+        if (!morphRepresentations.has(`${previous.representation}:${current.representation}`)) diagnostics.push({ code: 'visual.morph.incompatible', severity: 'error', path: `${path}.morph_chains[${morphIndex}].steps[${stepIndex}]`, scene_id: scene.id, node_id: morph.id, message: `Morph paramétrique ${previous.representation} → ${current.representation} non supporté.`, suggested_action: 'Utiliser une topologie compatible ou un morph sémantique explicite.' });
+      }
+    }
+    const motionEvents = new Map((scene.motion_events ?? []).map((entry) => [entry.id, entry]));
+    for (const event of motionEvents.values()) if (!entities.has(event.target_id)) diagnostics.push({ code: 'visual.motion_event.target_missing', severity: 'error', path: `${path}.motion_events`, scene_id: scene.id, node_id: event.id, message: 'MotionEvent sans target locale.', suggested_action: 'Cibler une entité existante.' });
+    for (const relation of scene.causal_relations ?? []) if (!motionEvents.has(relation.source_event_id) || !motionEvents.has(relation.destination_event_id)) diagnostics.push({ code: 'visual.causality.event_missing', severity: 'error', path: `${path}.causal_relations`, scene_id: scene.id, node_id: relation.id, message: 'Relation causale vers un MotionEvent absent.', suggested_action: 'Référencer deux événements locaux.' });
+    if (hasMotionCausalityCycle(scene)) diagnostics.push({ code: 'visual.causality.cycle', severity: 'error', path: `${path}.causal_relations`, scene_id: scene.id, message: 'Cycle interdit dans la chaîne causale de mouvements.', suggested_action: 'Conserver une causalité orientée et acyclique.' });
+    for (const transition of scene.layout_transitions ?? []) for (const target of transition.target_ids) if (!entities.has(target)) diagnostics.push({ code: 'visual.layout_transition.target_missing', severity: 'error', path: `${path}.layout_transitions`, scene_id: scene.id, node_id: transition.id, message: 'LayoutTransition vers une target absente.', suggested_action: 'Cibler une entité locale.' });
+    for (const effect of scene.effects ?? []) {
+      if (!entities.has(effect.target_id)) diagnostics.push({ code: 'visual.effect.target_missing', severity: 'error', path: `${path}.effects`, scene_id: scene.id, node_id: effect.id, message: 'Effet vers une target absente.', suggested_action: 'Cibler une entité locale.' });
+      else diagnostics.push({ code: 'visual.effect.future', severity: 'error', path: `${path}.effects`, scene_id: scene.id, node_id: effect.id, message: `${effect.effect_id} reste FUTURE/UNSUPPORTED pour la certification CPU P3.2.`, suggested_action: 'Retirer l’effet ou utiliser la composition sans effet décoratif.' });
+    }
+    const highEffects = scene.patterns.filter((entry) => patternRegistry.get(entry.pattern_id)?.complexity === 3).length + scene.motion_phrases.filter((entry) => entry.intensity === 'HIGH').length;
     if (highEffects > 3) diagnostics.push({ code: 'visual.complexity.effect_soup', severity: 'warning', path, scene_id: scene.id, message: 'Plus de trois effets HIGH simultanés.', context: { count: highEffects }, suggested_action: 'Préserver un focus visuel clair.' });
   }
 
@@ -184,10 +231,18 @@ export function buildVisualPreflight(input: unknown, limits: VisualEngineLimits 
     const destinationAnchor = destination?.anchors.find((entry) => entry.id === bridge.destination_anchor_id);
     if (!sourceAnchor || !destinationAnchor) diagnostics.push({ code: 'visual.bridge.anchor_missing', severity: 'error', path, node_id: bridge.id, message: 'Ancre source ou destination absente.', suggested_action: 'Déclarer les deux anchors.' });
     else if (sourceAnchor.visual_entity_id !== bridge.visual_entity_id || destinationAnchor.visual_entity_id !== bridge.visual_entity_id) diagnostics.push({ code: 'visual.bridge.entity_mismatch', severity: 'error', path, node_id: bridge.id, message: 'Le visual_entity_id du bridge ne correspond pas aux anchors.', suggested_action: 'Préserver une identité persistante.' });
-    const definition = SCENE_BRIDGE_REGISTRY.get(bridge.bridge_id);
+    const definition = bridgeRegistry.get(bridge.bridge_id);
     if (!definition || definition.version !== bridge.version) diagnostics.push({ code: 'visual.bridge.unknown', severity: 'error', path, node_id: bridge.id, message: `SceneBridge inconnu : ${bridge.bridge_id}.`, suggested_action: 'Utiliser le registre actif.' });
     else if (definition.support === 'future') diagnostics.push({ code: 'visual.bridge.unsupported', severity: 'error', path, node_id: bridge.id, message: `${bridge.bridge_id} est FUTURE.`, suggested_action: 'Choisir un bridge supporté.' });
     else if (definition.support === 'compatible_simplified') diagnostics.push({ code: 'visual.bridge.compatible_simplified', severity: 'warning', path, node_id: bridge.id, message: `${bridge.bridge_id} utilise un bridge simplifié et non un morph arbitraire.`, suggested_action: 'Inspecter les frames de frontière.' });
+  }
+  for (const [index, continuity] of (plan.camera_continuities ?? []).entries()) {
+    const source = plan.scenes.find((scene) => scene.id === continuity.source_scene_id);
+    const destination = plan.scenes.find((scene) => scene.id === continuity.destination_scene_id);
+    const sourceCamera = source?.camera_moves.find((entry) => entry.id === continuity.source_camera_id);
+    const destinationCamera = destination?.camera_moves.find((entry) => entry.id === continuity.destination_camera_id);
+    if (!source || !destination) diagnostics.push({ code: 'visual.camera_continuity.scene_missing', severity: 'error', path: `$.camera_continuities[${index}]`, node_id: continuity.id, message: 'CameraContinuity vers une scène absente.', suggested_action: 'Référencer deux scènes existantes.' });
+    else if (!sourceCamera || !destinationCamera) diagnostics.push({ code: 'visual.camera_continuity.move_missing', severity: 'error', path: `$.camera_continuities[${index}]`, node_id: continuity.id, message: 'CameraContinuity vers un mouvement caméra absent.', suggested_action: 'Référencer les camera_move_id canoniques.' });
   }
   const persistent = new Set(plan.scenes.flatMap((scene) => scene.entities.filter((entry) => entry.persistent && entry.visual_entity_id).map((entry) => entry.visual_entity_id!)));
   if (persistent.size > limits.max_persistent_entities) diagnostics.push(limitDiagnostic('visual.limit.persistent_entities', '$.scenes', persistent.size, limits.max_persistent_entities));
