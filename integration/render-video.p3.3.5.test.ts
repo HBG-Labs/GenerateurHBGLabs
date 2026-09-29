@@ -1,5 +1,5 @@
 import { ensureBrowser } from '@remotion/renderer';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 
@@ -85,9 +85,12 @@ describe('P3.3.5 — référence Product/App procédurale', () => {
     writeJson(path.join(staging, 'p1-preflight.json'), pipeline.p1.preflight);
 
     const renderer = new RemotionMotionRenderer({ browserExecutable: browser, dynamicTypography: true });
-    const video = path.join(staging, 'p3-3-5-product-app.mp4'); const framesDirectory = path.join(staging, 'frames'); mkdirSync(framesDirectory, { recursive: true });
-    const frameFiles: string[] = []; const frameMetrics: unknown[] = [];
-    let renderResult;
+    const video = path.join(staging, 'p3-3-5-product-app.mp4');
+    const baselineVideo = path.join(staging, 'p3-3a-product-app-baseline.mp4');
+    const framesDirectory = path.join(staging, 'frames'); mkdirSync(framesDirectory, { recursive: true });
+    const baselineFramesDirectory = path.join(staging, 'baseline-frames'); mkdirSync(baselineFramesDirectory, { recursive: true });
+    const frameFiles: string[] = []; const baselineFrameFiles: string[] = []; const frameMetrics: unknown[] = []; const baselineFrameMetrics: unknown[] = [];
+    let renderResult; let baselineRenderResult;
     try {
       renderResult = await renderer.renderVideo({ plan: pipeline.p1.render_plan, output_file: video, resource_root: WORKSPACE });
       expect(isMp4(video)).toBe(true);
@@ -98,14 +101,20 @@ describe('P3.3.5 — référence Product/App procédurale', () => {
         const result = await renderer.renderFrame({ plan: pipeline.p1.render_plan, output_file: file, frame, resource_root: WORKSPACE });
         frameFiles.push(file); frameMetrics.push({ frame, render_ms: result.render_ms, bytes: result.bytes, bundle_reused: result.bundle_reused });
       }
+      baselineRenderResult = await renderer.renderVideo({ plan: baselineProfile.pipeline.p1.render_plan, output_file: baselineVideo, resource_root: WORKSPACE });
+      expect(isMp4(baselineVideo)).toBe(true);
+      const baselineTotal = baselineProfile.pipeline.p1.render_plan.canvas.duration_frames;
+      const baselinePoints = [0, 0.12, 0.26, 0.42, 0.58, 0.74, 0.88, 0.98].map((ratio) => Math.min(baselineTotal - 1, Math.round((baselineTotal - 1) * ratio)));
+      for (const [index, frame] of baselinePoints.entries()) {
+        const file = path.join(baselineFramesDirectory, `${String(index + 1).padStart(2, '0')}-${frame}.png`);
+        const result = await renderer.renderFrame({ plan: baselineProfile.pipeline.p1.render_plan, output_file: file, frame, resource_root: WORKSPACE });
+        baselineFrameFiles.push(file); baselineFrameMetrics.push({ frame, render_ms: result.render_ms, bytes: result.bytes, bundle_reused: result.bundle_reused });
+      }
     } finally { renderer.dispose(); }
     createGridBoard(frameFiles, 4, path.join(staging, 'p3-3-5-product-app-contact-sheet.png'));
     createGridBoard(frameFiles.slice(1, 6), 5, path.join(staging, 'p3-3-5-product-component-motion-strip.png'));
-
-    const baselineVideo = path.join(WORKSPACE, 'out', 'p3.3a', 'reference', 'p3-3a-product-app.mp4');
-    const baselineSheet = path.join(WORKSPACE, 'out', 'p3.3a', 'reference', 'p3-3a-product-app-contact-sheet.png');
-    if (!existsSync(baselineVideo) || !existsSync(baselineSheet)) throw new Error('Baseline P3.3A Product/App absente.');
-    copyFileSync(baselineVideo, path.join(staging, 'p3-3a-product-app-baseline.mp4'));
+    const baselineSheet = path.join(staging, 'p3-3a-product-app-baseline-contact-sheet.png');
+    createGridBoard(baselineFrameFiles, 4, baselineSheet);
     sideBySide(baselineSheet, path.join(staging, 'p3-3-5-product-app-contact-sheet.png'), path.join(staging, 'p3-3a-vs-p3-3-5-product-comparison.png'));
 
     const complexity = {
@@ -119,6 +128,7 @@ describe('P3.3.5 — référence Product/App procédurale', () => {
       environment: { os: process.platform, arch: process.arch, node: process.version, renderer: REMOTION_P17_RENDERER_VERSION, local_gpu_required: false, render_mode: 'CPU/Chromium' },
       compile: profile.metrics, baseline_compile: baselineProfile.metrics,
       render: { ...renderResult, frames_per_second: renderResult.frames / (renderResult.render_ms / 1_000) }, control_frames: frameMetrics,
+      baseline_render: { ...baselineRenderResult, frames_per_second: baselineRenderResult.frames / (baselineRenderResult.render_ms / 1_000) }, baseline_control_frames: baselineFrameMetrics,
       memory: { node_peak_rss_bytes: process.resourceUsage().maxRSS * 1_024, chromium_ffmpeg_not_isolated: true }, complexity, baseline_complexity: baselineComplexity,
     };
     writeJson(path.join(staging, 'metrics.json'), metrics);
