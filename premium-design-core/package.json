@@ -1,0 +1,32 @@
+{
+  "name": "@motion-engine/premium-design-core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Système de design procédural premium, déterministe et provider-agnostic du Social Motion Engine.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm run test"
+  },
+  "dependencies": {
+    "@motion-engine/creative-core": "0.2.0",
+    "@motion-engine/procedural-asset-core": "0.1.0",
+    "@motion-engine/visual-core": "0.1.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "26.2.0",
+    "eslint": "9.39.5",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.66.0",
+    "vitest": "4.1.11"
+  }
+}

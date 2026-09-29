@@ -1,0 +1,67 @@
+name: P3.3.6 Premium Design Certification
+
+on:
+  push:
+    branches:
+      - feature/social-premium-design-system
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify-premium-design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CI: true
+    steps:
+      - name: Checkout exact P3.3.6 ref
+        uses: actions/checkout@v4
+
+      - name: Report exact certification SHA
+        run: git rev-parse HEAD
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install exact dependency graph
+        run: npm ci
+
+      - name: Full offline historical quality gate
+        run: npm run check
+
+      - name: P3.3.6 premium design gate
+        run: npm run check:p3.3.6
+
+      - name: CPU render Product/App references
+        run: npm run render:p3.3.6
+
+      - name: Verify atomic human review package
+        shell: bash
+        run: |
+          test -s out/p3.3.6/reference/p3-3a-product-app.mp4
+          test -s out/p3.3.6/reference/p3-3-5-product-app.mp4
+          test -s out/p3.3.6/reference/p3-3-6-product-app.mp4
+          test -s out/p3.3.6/reference/p3-3a-p3-3-5-p3-3-6-product-comparison.png
+          test -s out/p3.3.6/reference/p3-3-6-product-app-contact-sheet.png
+          test -s out/p3.3.6/reference/p3-3-6-product-ui-detail-strip.png
+          test -s out/p3.3.6/reference/p3-3-6-product-material-strip.png
+          test -s out/p3.3.6/reference/p3-3-6-product-component-motion-strip.png
+          test -s out/p3.3.6/reference/design-system-report.json
+          test -s out/p3.3.6/reference/design-token-report.json
+          test -s out/p3.3.6/reference/metrics.json
+          test -s out/p3.3.6/reference/manifest.json
+          test -s out/p3.3.6/reference/artifact-hashes.json
+
+      - name: Upload P3.3.6 human review package
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: p3.3.6-premium-design-${{ github.sha }}
+          path: out/p3.3.6/reference/
+          if-no-files-found: error
+          retention-days: 30

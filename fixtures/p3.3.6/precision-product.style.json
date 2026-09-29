@@ -1,0 +1,225 @@
+{
+  "schema": "creative-style-profile",
+  "schema_version": "0.1.0",
+  "id": "precision_product",
+  "version": "1.0.0",
+  "name": "Precision Product Reference",
+  "origin": "authored",
+  "role_contract": "0.1.0",
+  "reference_canvas": { "width": 1080, "height": 1920 },
+  "palette": {
+    "surface.primary": "#07111F",
+    "surface.inverse": "#17283E",
+    "text.primary": "#F6FAFF",
+    "text.inverse": "#F6FAFF",
+    "accent": "#5EEAD4"
+  },
+  "typography": {
+    "families": {
+      "editorial_display": {
+        "css_name": "precision-playfair",
+        "files": [
+          {
+            "weight": 700,
+            "style": "normal",
+            "src": "lib:playfair_display/playfair-display-latin-700.ttf",
+            "sha256": "d87c97ac97699539edf7aba9e84e0be27b265e5263a1260fb752ddfbcacabe22"
+          },
+          {
+            "weight": 900,
+            "style": "normal",
+            "src": "lib:playfair_display/playfair-display-latin-900.ttf",
+            "sha256": "b9167e10f64c9956e092a2f7f1e40fad6a44e53f8e0b4f66fd3099bc920f53c8"
+          }
+        ]
+      },
+      "product_mono": {
+        "css_name": "precision-product-mono",
+        "files": [
+          {
+            "weight": 500,
+            "style": "normal",
+            "src": "lib:ibm_plex_mono/ibm-plex-mono-latin-500.ttf",
+            "sha256": "ecce74c939f8746cc801b953d910e4dc47bf878c9c0f05b9de4403bda234498f"
+          },
+          {
+            "weight": 700,
+            "style": "normal",
+            "src": "lib:ibm_plex_mono/ibm-plex-mono-latin-700.ttf",
+            "sha256": "1dcf8913d7ddf4a117ae3e34b993d91d69771e83f1fc06aa2f7fba64a4e4e168"
+          }
+        ]
+      }
+    },
+    "scale": {
+      "display.xl": {
+        "family": "product_mono",
+        "weight": 700,
+        "size": 92,
+        "line_height": 1.02,
+        "tracking_em": -0.035,
+        "case": "upper",
+        "min_size": 46
+      },
+      "display.l": {
+        "family": "editorial_display",
+        "weight": 900,
+        "size": 86,
+        "line_height": 1.02,
+        "tracking_em": -0.025,
+        "case": "upper",
+        "min_size": 44
+      },
+      "display.m": {
+        "family": "editorial_display",
+        "weight": 700,
+        "size": 62,
+        "line_height": 1.08,
+        "tracking_em": -0.012,
+        "case": "upper",
+        "min_size": 36
+      },
+      "headline": {
+        "family": "editorial_display",
+        "weight": 700,
+        "size": 48,
+        "line_height": 1.12,
+        "tracking_em": -0.008,
+        "case": "as_is",
+        "min_size": 32
+      },
+      "body": {
+        "family": "product_mono",
+        "weight": 500,
+        "size": 30,
+        "line_height": 1.28,
+        "tracking_em": 0,
+        "case": "as_is",
+        "min_size": 24
+      },
+      "subtitle": {
+        "family": "product_mono",
+        "weight": 500,
+        "size": 25,
+        "line_height": 1.22,
+        "tracking_em": 0.012,
+        "case": "upper",
+        "min_size": 20
+      }
+    }
+  },
+  "grid": {
+    "columns": 6,
+    "rows": 12,
+    "margin": { "top": 96, "right": 58, "bottom": 128, "left": 58 },
+    "gutter": 14
+  },
+  "space": { "xs": 4, "sm": 10, "md": 20, "lg": 36, "xl": 58 },
+  "strokes": { "hairline": 1.5, "emphasis": 4 },
+  "motifs": {
+    "rule": {
+      "kind": "line",
+      "length_cols": 6,
+      "weight": "hairline",
+      "cap": "round"
+    }
+  },
+  "composition_personality": {
+    "preferred_systems": [{ "id": "layered_poster", "weight": 1 }],
+    "negative_space": "balanced",
+    "alignment": "start",
+    "asymmetry": 0.68
+  },
+  "motion_personality": {
+    "easings": {
+      "enter": { "type": "bezier", "p": [0.12, 0.88, 0.18, 1] },
+      "exit": { "type": "bezier", "p": [0.55, 0, 0.9, 0.45] },
+      "inout": { "type": "bezier", "p": [0.72, 0, 0.18, 1] },
+      "settle": {
+        "type": "spring",
+        "damping": 36,
+        "stiffness": 310,
+        "mass": 0.74,
+        "initial_velocity": 0
+      }
+    },
+    "max_overshoot": 0.045,
+    "behaviors": {
+      "REVEAL_TEXT": { "allowed": true, "variants": ["mask_up", "fade_up"] },
+      "ACCENT_WORD": { "allowed": true, "variants": ["color_settle"] },
+      "SETTLE": { "allowed": true },
+      "EXIT_CLEAR": { "allowed": true },
+      "CUT": { "allowed": true },
+      "DRAW_PATH": { "allowed": true },
+      "MATCH_LINE": { "allowed": true },
+      "CAMERA_PUSH": {
+        "allowed": true,
+        "param_bounds": { "scale": { "min": 1, "max": 1.12 } },
+        "variants": ["default"]
+      },
+      "FOCUS_REGION": {
+        "allowed": true,
+        "param_bounds": { "scale": { "min": 1, "max": 1.12 } },
+        "variants": ["default"]
+      },
+      "HIGHLIGHT_REGION": {
+        "allowed": true,
+        "variants": ["outline", "accent"]
+      },
+      "MASK_WIPE": { "allowed": true },
+      "TYPE_TRACKING": { "allowed": true },
+      "TYPE_AXIS": { "allowed": true }
+    }
+  },
+  "rhythm_personality": {
+    "tempo": {
+      "beat_ms": {
+        "CALM": 460,
+        "BUILD": 340,
+        "ACCELERATE": 250,
+        "INTERRUPTION": 280,
+        "REVEAL": 360,
+        "RESOLUTION": 520
+      },
+      "breath_ms": 300
+    },
+    "reading": { "ms_per_word": 240, "min_hold_ms": 700 },
+    "preferred_curves": [{ "id": "intentional_contrast", "weight": 1 }]
+  },
+  "subtitle_style": {
+    "type": "type.subtitle",
+    "color": "color.text.inverse",
+    "backdrop": "color.surface.inverse",
+    "max_chars_per_line": 24,
+    "max_lines": 2,
+    "active_word": "underline"
+  },
+  "sound_personality": {
+    "event_cues": {},
+    "cues": {},
+    "max_cues_per_video": 0
+  },
+  "voice_personality": {
+    "description": "Film de référence visuel silencieux P3.3.6."
+  },
+  "image_treatment": {
+    "grade": "cool",
+    "contrast": 0.22,
+    "grain": 0.012,
+    "duotone": null
+  },
+  "illustration_treatment": {
+    "stroke": "thin",
+    "fill": "flat",
+    "palette_roles": [
+      "color.text.primary",
+      "color.accent",
+      "color.surface.inverse"
+    ]
+  },
+  "transition_preferences": {
+    "preferred": ["MASK_WIPE", "CAMERA_PUSH", "CUT"],
+    "avoid": []
+  },
+  "forbidden": { "behaviors": [], "style_tags": ["system_fallback"] }
+}
