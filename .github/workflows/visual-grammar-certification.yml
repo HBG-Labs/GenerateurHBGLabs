@@ -1,0 +1,65 @@
+name: P3.1 Professional Visual Grammar Certification
+
+on:
+  push:
+    branches:
+      - feature/social-visual-director
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify-visual-grammar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: true
+    steps:
+      - name: Checkout exact P3.1 ref
+        uses: actions/checkout@v4
+
+      - name: Report exact certification SHA
+        run: git rev-parse HEAD
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install exact dependency graph
+        run: npm ci
+
+      - name: Full offline P1/P2/P3.1 quality gate
+        run: npm run check
+
+      - name: Offline P3.1 evidence
+        run: npm run certify:p3.1
+
+      - name: Real Linux reference render
+        run: npm run render:p3.1
+
+      - name: Verify atomic reference package
+        shell: bash
+        run: |
+          test -s out/p3.1/reference/p3-1-blue-sky.mp4
+          test -s out/p3.1/reference/p2-science-baseline.mp4
+          test -s out/p3.1/reference/p3-1-contact-sheet.png
+          test -s out/p3.1/reference/p2-vs-p3-1-comparison-sheet.png
+          test -s out/p3.1/reference/visual-plan.json
+          test -s out/p3.1/reference/visual-preflight.json
+          test -s out/p3.1/reference/visual-diversity-report.json
+          test -s out/p3.1/reference/manifest.json
+          test -s out/p3.1/reference/artifact-integrity.json
+
+      - name: Upload P3.1 human review package
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: p3.1-professional-visual-grammar-${{ github.sha }}
+          path: |
+            out/p3.1/reference/
+            out/p3.1/certification/
+          if-no-files-found: error
+          retention-days: 30

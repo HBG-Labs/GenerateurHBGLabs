@@ -1,0 +1,27 @@
+{
+  "schema": "planner-input",
+  "schema_version": "0.1.0",
+  "input_id": "blue_sky_visual_reference",
+  "topic": "Pourquoi le ciel est-il bleu ?",
+  "creative_goal": "educate",
+  "audience": { "description": "Public francophone général", "knowledge_level": "beginner" },
+  "language": "fr",
+  "locale": "fr-FR",
+  "target_duration_ms": 30000,
+  "target_format": "vertical_short",
+  "tone": ["clear", "curious"],
+  "pacing": "medium",
+  "information_density": "medium",
+  "narrative_archetype": "EXPLAINER",
+  "desired_reaction": "understanding",
+  "factual_mode": "factual",
+  "cta": { "mode": "none" },
+  "constraints": [{ "id": "blue_sky_narration_required", "kind": "require_narration" }],
+  "provided_content": [
+    { "id": "blue_sky_hook", "role": "hook_text", "text": "Pourquoi le ciel est-il bleu ?", "channels": ["spoken", "on_screen"] },
+    { "id": "blue_sky_context", "role": "narration", "text": "La lumière du Soleil paraît blanche, mais contient toutes les couleurs.", "channels": ["spoken"] },
+    { "id": "blue_sky_explanation", "role": "explanation", "text": "Dans l’atmosphère, les couleurs courtes se dispersent davantage.", "channels": ["spoken"], "source_slot": "blue_sky_science_source" },
+    { "id": "blue_sky_example", "role": "narration", "text": "Le bleu arrive alors de toutes les directions jusqu’à nos yeux.", "channels": ["spoken"] },
+    { "id": "blue_sky_takeaway", "role": "narration", "text": "Le ciel paraît bleu parce que l’air diffuse surtout cette lumière.", "channels": ["spoken", "on_screen"] }
+  ]
+}
