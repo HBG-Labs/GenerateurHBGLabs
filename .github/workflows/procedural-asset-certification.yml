@@ -1,0 +1,63 @@
+name: P3.3.5 Procedural Asset Certification
+
+on:
+  push:
+    branches:
+      - feature/social-procedural-assets
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify-procedural-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CI: true
+    steps:
+      - name: Checkout exact P3.3.5 ref
+        uses: actions/checkout@v4
+
+      - name: Report exact certification SHA
+        run: git rev-parse HEAD
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install exact dependency graph
+        run: npm ci
+
+      - name: Full offline historical quality gate
+        run: npm run check
+
+      - name: P3.3.5 asset gate
+        run: npm run check:p3.3.5
+
+      - name: CPU render Product/App reference
+        run: npm run render:p3.3.5
+
+      - name: Verify atomic review package
+        shell: bash
+        run: |
+          test -s out/p3.3.5/reference/p3-3-5-product-app.mp4
+          test -s out/p3.3.5/reference/p3-3a-product-app-baseline.mp4
+          test -s out/p3.3.5/reference/p3-3-5-product-app-contact-sheet.png
+          test -s out/p3.3.5/reference/p3-3-5-product-component-motion-strip.png
+          test -s out/p3.3.5/reference/p3-3a-vs-p3-3-5-product-comparison.png
+          test -s out/p3.3.5/reference/asset-diversity-report.json
+          test -s out/p3.3.5/reference/component-trees.json
+          test -s out/p3.3.5/reference/metrics.json
+          test -s out/p3.3.5/reference/manifest.json
+
+      - name: Upload P3.3.5 human review package
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: p3.3.5-procedural-assets-${{ github.sha }}
+          path: out/p3.3.5/reference/
+          if-no-files-found: error
+          retention-days: 30

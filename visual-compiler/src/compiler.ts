@@ -23,7 +23,7 @@ import {
 } from '@motion-engine/visual-core';
 import type { VisualDiagnostic, VisualEntity, VisualPlan, VisualScene } from '@motion-engine/visual-core';
 
-import { P32_VISUAL_COMPILER_VERSION, VISUAL_COMPILER_VERSION } from './contracts.ts';
+import { P32_VISUAL_COMPILER_VERSION, P335_VISUAL_COMPILER_VERSION, VISUAL_COMPILER_VERSION } from './contracts.ts';
 import type { VisualCompileOptions, VisualCompileResult, VisualProvenanceEntry } from './contracts.ts';
 
 const colorToken = {
@@ -148,6 +148,16 @@ function phraseBehaviors(entity: VisualEntity, scene: VisualScene): BehaviorInst
       result.push(behavior(`${entity.id}:camera`, 'CAMERA_PUSH', anchorStart(), Math.max(300, scene.duration_ms - 120), { params: { scale } }));
     }
   }
+  if (entity.component_ref?.focusable && entity.component_ref.motion_order > 0 && entity.component_ref.motion_order <= 6 && entity.component_ref.affordances.includes('ASSEMBLE')) {
+    const offset = Math.min(720, entity.component_ref.motion_order * 70);
+    if (entity.kind === 'shape' || entity.kind === 'group') {
+      result.push(behavior(`${entity.id}:asset_assemble`, 'SETTLE', anchorStart(offset), 420));
+    } else if (entity.kind === 'text' && result.length === 0) {
+      result.push(behavior(`${entity.id}:asset_reveal`, 'REVEAL_TEXT', anchorStart(offset), 520, { params: { unit: 'line', stagger: 'tight' } }));
+    } else if (entity.kind === 'path' && result.length === 0) {
+      result.push(behavior(`${entity.id}:asset_draw`, 'DRAW_PATH', anchorStart(offset), 760));
+    }
+  }
   return result;
 }
 
@@ -165,6 +175,7 @@ function compileEntity(entity: VisualEntity, scene: VisualScene): Layer {
       translate: { x: entity.transform.translate_x, y: entity.transform.translate_y },
     },
     behaviors: phraseBehaviors(entity, scene),
+    ...(entity.surface ? { opacity: entity.surface.opacity } : {}),
   };
   if (entity.kind === 'text') {
     if (!entity.text) throw new Error(`visual.compile.text_missing:${entity.id}`);
@@ -177,7 +188,14 @@ function compileEntity(entity: VisualEntity, scene: VisualScene): Layer {
   }
   if (entity.kind === 'shape') {
     if (!entity.shape) throw new Error(`visual.compile.shape_missing:${entity.id}`);
-    return { ...common, primitive: 'shape', shape: entity.shape.kind, fill: fillToken[entity.style.fill] };
+    return {
+      ...common,
+      primitive: 'shape',
+      shape: entity.shape.kind,
+      fill: fillToken[entity.style.fill],
+      ...(entity.surface && entity.surface.radius !== 'none' ? { radius: `space.${entity.surface.radius}` } : {}),
+      ...(entity.surface && entity.surface.stroke !== 'none' ? { stroke: { color: colorToken[entity.style.stroke], weight: `stroke.${entity.surface.stroke}` } } : {}),
+    };
   }
   if (entity.kind === 'path') {
     if (!entity.path) throw new Error(`visual.compile.path_missing:${entity.id}`);
@@ -238,7 +256,7 @@ function compileScene(scene: VisualScene, plan: VisualPlan, options: VisualCompi
     background: { fill: fillToken[scene.background_role] },
     layers: [{ id: rootId, primitive: 'group', behaviors: [], children: top }],
     events: scene.choreography.slice(0, 16).map((entry) => ({ id: entry.id, kind: sceneEventKind(entry.phase), at: anchorStart() })),
-    sound: { derive_from_events: false, overrides: [] }, subtitles: { mode: 'off', reason: plan.schema_version === '0.2.0' ? 'P3.2 visual reference film is intentionally silent.' : 'P3.1 visual reference film is intentionally silent.' },
+    sound: { derive_from_events: false, overrides: [] }, subtitles: { mode: 'off', reason: plan.schema_version === '0.3.0' ? 'P3.3.5 procedural asset reference film is intentionally silent.' : plan.schema_version === '0.2.0' ? 'P3.2 visual reference film is intentionally silent.' : 'P3.1 visual reference film is intentionally silent.' },
     ...(next ? { transition_out: { behavior: transition, version: '1.0.0', to: next.id } } : {}),
   };
 }
@@ -246,8 +264,8 @@ function compileScene(scene: VisualScene, plan: VisualPlan, options: VisualCompi
 export function compileVisualPlan(plan: VisualPlan, options: VisualCompileOptions): VisualCompileResult {
   const preflight = buildVisualPreflight(plan);
   const planHash = hashVisualDocument(plan);
-  const compilerVersion = plan.schema_version === '0.2.0' ? P32_VISUAL_COMPILER_VERSION : VISUAL_COMPILER_VERSION;
-  const behaviorRegistry = plan.schema_version === '0.2.0' ? P17_BEHAVIOR_REGISTRY : P14_BEHAVIOR_REGISTRY;
+  const compilerVersion = plan.schema_version === '0.3.0' ? P335_VISUAL_COMPILER_VERSION : plan.schema_version === '0.2.0' ? P32_VISUAL_COMPILER_VERSION : VISUAL_COMPILER_VERSION;
+  const behaviorRegistry = plan.schema_version === '0.2.0' || plan.schema_version === '0.3.0' ? P17_BEHAVIOR_REGISTRY : P14_BEHAVIOR_REGISTRY;
   const fingerprint = hashVisualDocument({
     compiler_version: compilerVersion, visual_plan_sha256: planHash,
     grammar: plan.grammar, style_sha256: options.resolved_style.sha256,

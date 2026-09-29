@@ -51,6 +51,7 @@ export const AssetIntentSchema = z.strictObject({
   availability: AssetAvailabilitySchema,
   reason: DirectionReasonSchema,
 });
+export type AssetIntent = z.infer<typeof AssetIntentSchema>;
 
 export const SceneDirectionSchema = z.strictObject({
   id: StableIdSchema,

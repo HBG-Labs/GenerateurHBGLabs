@@ -11,6 +11,7 @@ import type {
 
 export const VISUAL_COMPILER_VERSION = '0.1.0';
 export const P32_VISUAL_COMPILER_VERSION = '0.2.0';
+export const P335_VISUAL_COMPILER_VERSION = '0.3.0';
 
 export interface VisualSceneDirection extends Omit<VisualScene, 'id' | 'source_scene_id' | 'duration_ms'> {
   readonly source_scene_id: string;

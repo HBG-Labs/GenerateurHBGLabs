@@ -1,5 +1,5 @@
 import { hashVisualDocument } from './canonical.ts';
-import { P32_VISUAL_GRAMMAR_VERSION, VISUAL_GRAMMAR_VERSION } from './contracts.ts';
+import { P32_VISUAL_GRAMMAR_VERSION, P335_VISUAL_GRAMMAR_VERSION, VISUAL_GRAMMAR_VERSION } from './contracts.ts';
 import type { VisualCapability, VisualEntityKind } from './contracts.ts';
 import { DEFAULT_VISUAL_LIMITS } from './limits.ts';
 
@@ -210,9 +210,29 @@ export const P32_VISUAL_GRAMMAR = Object.freeze({
   bridges: P32_SCENE_BRIDGE_REGISTRY,
 });
 
-export function visualGrammarForVersion(version: string): typeof ACTIVE_VISUAL_GRAMMAR | typeof P32_VISUAL_GRAMMAR | null {
+export const P335_VISUAL_GRAMMAR_FINGERPRINT = hashVisualDocument({
+  version: P335_VISUAL_GRAMMAR_VERSION,
+  registries: P32_VISUAL_REGISTRY_FINGERPRINTS,
+  physics: MOTION_PHYSICS_MAPPINGS,
+  limits: DEFAULT_VISUAL_LIMITS,
+  visual_surface_contract: '0.1.0',
+  component_reference_contract: '0.1.0',
+});
+
+export const P335_VISUAL_GRAMMAR = Object.freeze({
+  version: P335_VISUAL_GRAMMAR_VERSION,
+  fingerprint: P335_VISUAL_GRAMMAR_FINGERPRINT,
+  registry_fingerprints: P32_VISUAL_REGISTRY_FINGERPRINTS,
+  patterns: P32_VISUAL_PATTERN_REGISTRY,
+  phrases: P32_MOTION_PHRASE_REGISTRY,
+  cameras: P32_CAMERA_REGISTRY,
+  bridges: P32_SCENE_BRIDGE_REGISTRY,
+});
+
+export function visualGrammarForVersion(version: string): typeof ACTIVE_VISUAL_GRAMMAR | typeof P32_VISUAL_GRAMMAR | typeof P335_VISUAL_GRAMMAR | null {
   if (version === ACTIVE_VISUAL_GRAMMAR.version) return ACTIVE_VISUAL_GRAMMAR;
   if (version === P32_VISUAL_GRAMMAR.version) return P32_VISUAL_GRAMMAR;
+  if (version === P335_VISUAL_GRAMMAR.version) return P335_VISUAL_GRAMMAR;
   return null;
 }
 

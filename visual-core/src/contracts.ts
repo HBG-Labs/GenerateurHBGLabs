@@ -11,6 +11,8 @@ export const VISUAL_PLAN_VERSION = '0.1.0';
 export const VISUAL_GRAMMAR_VERSION = '0.1.0';
 export const P32_VISUAL_PLAN_VERSION = '0.2.0';
 export const P32_VISUAL_GRAMMAR_VERSION = '0.2.0';
+export const P335_VISUAL_PLAN_VERSION = '0.3.0';
+export const P335_VISUAL_GRAMMAR_VERSION = '0.3.0';
 
 export const RegistryIdSchema = z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/);
 export const VisualCapabilitySchema = z.enum([
@@ -37,6 +39,23 @@ export const VisualRegionSchema = z.enum([
   'full', 'top', 'upper', 'center', 'lower', 'bottom', 'left', 'right', 'foreground', 'background',
 ]);
 export const StyleRoleSchema = z.enum(['background', 'foreground', 'accent', 'muted', 'inverse']);
+export const VisualSurfaceSchema = z.strictObject({
+  opacity: z.number().finite().min(0).max(1),
+  radius: z.enum(['none', 'xs', 'sm', 'md', 'lg', 'xl']),
+  stroke: z.enum(['none', 'hairline', 'emphasis']),
+});
+export const VisualComponentReferenceSchema = z.strictObject({
+  asset_id: StableIdSchema,
+  component_id: StableIdSchema,
+  emphasis: z.enum(['PRIMARY', 'SECONDARY', 'SUPPORTING', 'DECORATIVE']),
+  focusable: z.boolean(),
+  motion_order: z.number().int().min(0).max(63),
+  group_key: StableIdSchema.nullable(),
+  affordances: z.array(z.enum([
+    'ASSEMBLE', 'EXPAND', 'EXTRACT', 'FOCUS', 'COLLAPSE', 'CARRY',
+    'DRAW', 'GROW', 'HIGHLIGHT', 'COMPARE', 'EXTRACT_SERIES', 'REASSEMBLE',
+  ])).max(8),
+});
 
 const NormalizedPointSchema = z.strictObject({
   x: z.number().finite().min(0).max(1),
@@ -67,6 +86,8 @@ export const VisualEntitySchema = z.strictObject({
   }).nullable(),
   asset_ref: StableIdSchema.nullable(),
   style: z.strictObject({ fill: StyleRoleSchema, stroke: StyleRoleSchema, text: StyleRoleSchema }),
+  surface: VisualSurfaceSchema.optional(),
+  component_ref: VisualComponentReferenceSchema.optional(),
   transform: z.strictObject({
     scale: z.number().finite().min(0.05).max(8),
     rotate_deg: z.number().finite().min(-360).max(360),
@@ -276,14 +297,14 @@ export const RegistryFingerprintsSchema = z.strictObject({
 
 export const VisualPlanSchema = z.strictObject({
   schema: z.literal(VISUAL_PLAN_SCHEMA),
-  schema_version: z.enum([VISUAL_PLAN_VERSION, P32_VISUAL_PLAN_VERSION]),
+  schema_version: z.enum([VISUAL_PLAN_VERSION, P32_VISUAL_PLAN_VERSION, P335_VISUAL_PLAN_VERSION]),
   plan_id: StableIdSchema,
   source: z.strictObject({
     creative_plan_id: StableIdSchema,
     creative_plan_sha256: Sha256Schema,
     pipeline_path: z.literal('visual_directed'),
   }),
-  grammar: z.strictObject({ version: z.enum([VISUAL_GRAMMAR_VERSION, P32_VISUAL_GRAMMAR_VERSION]), fingerprints: RegistryFingerprintsSchema }),
+  grammar: z.strictObject({ version: z.enum([VISUAL_GRAMMAR_VERSION, P32_VISUAL_GRAMMAR_VERSION, P335_VISUAL_GRAMMAR_VERSION]), fingerprints: RegistryFingerprintsSchema }),
   target: z.strictObject({ format: z.literal('vertical_short_form'), duration_ms: z.number().int().min(500).max(120_000) }),
   style_id: StableIdSchema,
   scenes: z.array(VisualSceneSchema).min(1).max(16),

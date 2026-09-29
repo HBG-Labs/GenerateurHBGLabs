@@ -4,6 +4,7 @@ import {
   P32_CAMERA_REGISTRY,
   P32_MOTION_PHRASE_REGISTRY,
   P32_SCENE_BRIDGE_REGISTRY,
+  P335_VISUAL_GRAMMAR,
   P32_VISUAL_GRAMMAR,
   P32_VISUAL_PATTERN_REGISTRY,
   P32_VISUAL_PLAN_VERSION,
@@ -15,6 +16,7 @@ import {
 import type { VisualEntity, VisualPlan, VisualScene } from '@motion-engine/visual-core';
 
 import type {
+  AssetIntent,
   SceneDirection,
   SequenceCoherenceReport,
   VisualDecisionTrace,
@@ -45,6 +47,35 @@ export interface VisualDirectionCompileResult {
     readonly decision_trace: string | null;
     readonly visual_plan: string | null;
   };
+}
+
+export interface VisualDirectionResolverOptions {
+  readonly resolve_asset_entities?: (input: {
+    readonly asset_intent: AssetIntent;
+    readonly source_scene: SceneIntent;
+    readonly scene_direction: SceneDirection;
+    readonly direction_plan: VisualDirectionPlan;
+    readonly composition_root_id: string;
+  }) => readonly VisualEntity[];
+  /**
+   * Presentation adapter used by deterministic downstream grammars.  It may
+   * replace fixture copy and remove the Director's generic visual
+   * placeholders, but it cannot introduce renderer coordinates or keyframes.
+   */
+  readonly resolve_scene_presentation?: (input: {
+    readonly source_scene: SceneIntent;
+    readonly scene_direction: SceneDirection;
+    readonly direction_plan: VisualDirectionPlan;
+    readonly scene_index: number;
+  }) => {
+    readonly display_text?: string;
+    readonly text_role?: NonNullable<VisualEntity['text']>['role'];
+    readonly text_region?: VisualEntity['region'];
+    readonly text_align?: NonNullable<VisualEntity['text']>['align'];
+    readonly asset_led?: boolean;
+  };
+  readonly visual_plan_version?: '0.2.0' | '0.3.0';
+  readonly visual_grammar_version?: '0.2.0' | '0.3.0';
 }
 
 const styles = Object.freeze({
@@ -120,7 +151,7 @@ function shapeComposition(direction: SceneDirection): {
   return { kind, region: 'center' };
 }
 
-function baseEntities(scene: SceneIntent, direction: SceneDirection): VisualEntity[] {
+function baseEntities(scene: SceneIntent, direction: SceneDirection, plan: VisualDirectionPlan, index: number, options: VisualDirectionResolverOptions): VisualEntity[] {
   const prefix = visualStableId('director_entity', { scene: scene.id });
   const rootId = `${prefix}_root`;
   const textId = `${prefix}_text`;
@@ -130,21 +161,23 @@ function baseEntities(scene: SceneIntent, direction: SceneDirection): VisualEnti
   const maskContentId = `${prefix}_mask_content`;
   const focus = focusKind(direction);
   const composition = shapeComposition(direction);
+  const presentation = options.resolve_scene_presentation?.({ source_scene: scene, scene_direction: direction, direction_plan: plan, scene_index: index });
+  const resolvedDisplayText = (presentation?.display_text ?? displayText(scene)).slice(0, 240);
   const textEntity = {
     ...entity(textId, 'text', 'directed_copy', focus === 'text' ? 'HERO' : 'PRIMARY', {
-      text: displayText(scene),
-      region: direction.layout_id === 'EDITORIAL_SPLIT' || direction.layout_id === 'ASYMMETRIC_HERO' ? 'upper' : 'center',
+      text: resolvedDisplayText,
+      region: presentation?.text_region ?? (direction.layout_id === 'EDITORIAL_SPLIT' || direction.layout_id === 'ASYMMETRIC_HERO' ? 'upper' : 'center'),
       parent: rootId,
     }),
     text: {
-      value: displayText(scene),
-      role: textRole(direction),
-      accent_words: displayText(scene).split(/\s+/u).slice(0, 1),
-      align: direction.layout_id === 'EDITORIAL_SPLIT' || direction.layout_id === 'ASYMMETRIC_HERO' ? 'start' as const : 'center' as const,
+      value: resolvedDisplayText,
+      role: presentation?.text_role ?? textRole(direction),
+      accent_words: resolvedDisplayText.split(/\s+/u).slice(0, 1),
+      align: presentation?.text_align ?? (direction.layout_id === 'EDITORIAL_SPLIT' || direction.layout_id === 'ASYMMETRIC_HERO' ? 'start' as const : 'center' as const),
     },
   };
-  const entities: VisualEntity[] = [
-    entity(rootId, 'group', 'composition_root', focus === 'group' ? 'HERO' : 'PRIMARY', { region: 'full' }),
+  const root = entity(rootId, 'group', 'composition_root', focus === 'group' ? 'HERO' : 'PRIMARY', { region: 'full' });
+  const placeholders: VisualEntity[] = presentation?.asset_led ? [] : [
     entity(shapeId, 'shape', direction.semantic_role.toLowerCase(), focus === 'shape' ? 'HERO' : 'DECORATIVE', {
       region: composition.region,
       parent: rootId,
@@ -156,7 +189,13 @@ function baseEntities(scene: SceneIntent, direction: SceneDirection): VisualEnti
     entity(maskId, 'mask', 'transition_mask', 'DECORATIVE', { region: 'full', parent: rootId }),
     entity(maskContentId, 'shape', 'masked_field', 'DECORATIVE', { region: 'full', parent: maskId, fill: 'background' }),
   ];
+  const entities: VisualEntity[] = [root, ...placeholders];
   for (const asset of direction.asset_intents.filter((entry) => entry.availability === 'AVAILABLE')) {
+    const resolved = options.resolve_asset_entities?.({ asset_intent: asset, source_scene: scene, scene_direction: direction, direction_plan: plan, composition_root_id: rootId });
+    if (resolved) {
+      entities.push(...resolved);
+      continue;
+    }
     const assetId = visualStableId('asset_entity', { scene: scene.id, asset: asset.id });
     const hierarchy = asset.role === 'HERO' ? 'PRIMARY' as const : asset.role === 'BACKGROUND' ? 'BACKGROUND' as const : 'SUPPORT' as const;
     const region = asset.role === 'FOREGROUND' ? 'foreground' as const : asset.role === 'BACKGROUND' ? 'background' as const : asset.role === 'DEVICE_FRAME' ? 'right' as const : 'center' as const;
@@ -244,8 +283,8 @@ function addPersistentEntities(
   }
 }
 
-function resolveScene(source: SceneIntent, direction: SceneDirection, plan: VisualDirectionPlan, index: number): VisualScene {
-  const entities = baseEntities(source, direction);
+function resolveScene(source: SceneIntent, direction: SceneDirection, plan: VisualDirectionPlan, index: number, options: VisualDirectionResolverOptions): VisualScene {
+  const entities = baseEntities(source, direction, plan, index, options);
   addPersistentEntities(plan, source.id, entities);
   const selected = resolvedSelections(direction, plan);
   const focus = focusKind(direction);
@@ -304,9 +343,9 @@ function buildTrace(plan: VisualDirectionPlan, scenes: readonly VisualScene[]): 
   return { schema: 'visual-decision-trace', schema_version: '0.1.0', direction_plan_id: plan.direction_plan_id, precedence: ['ENGINE_CONSTRAINT', 'EXPLICIT_SCENE_DIRECTION', 'TECHNIQUE_COMPOSITION', 'MOTION_IDENTITY', 'SEQUENCE_STRATEGY'], entries };
 }
 
-function buildVisualPlan(plan: VisualDirectionPlan, creativePlan: CreativePlan): { visualPlan: VisualPlan; trace: VisualDecisionTrace } {
+function buildVisualPlan(plan: VisualDirectionPlan, creativePlan: CreativePlan, options: VisualDirectionResolverOptions): { visualPlan: VisualPlan; trace: VisualDecisionTrace } {
   const creativeById = new Map(creativePlan.scenes.map((scene) => [scene.id, scene]));
-  const scenes = plan.scenes.map((direction, index) => resolveScene(creativeById.get(direction.scene_id)!, direction, plan, index));
+  const scenes = plan.scenes.map((direction, index) => resolveScene(creativeById.get(direction.scene_id)!, direction, plan, index, options));
   const visualSceneBySource = new Map(scenes.map((scene) => [scene.source_scene_id, scene]));
   const bridges = plan.bridges.map((direction) => {
     const source = visualSceneBySource.get(direction.source_scene_id)!;
@@ -323,11 +362,12 @@ function buildVisualPlan(plan: VisualDirectionPlan, creativePlan: CreativePlan):
     const destination = visualSceneBySource.get(bridge.destination_scene_id)!;
     return { id: visualStableId('camera_continuity', { bridge: bridge.id }), source_scene_id: source.id, destination_scene_id: destination.id, source_camera_id: source.camera_moves[0]!.id, destination_camera_id: destination.camera_moves[0]!.id, energy: 'inward' as const, velocity_intent: 'carry' as const, scale_momentum: 'preserve' as const };
   });
+  const grammar = options.visual_grammar_version === '0.3.0' ? P335_VISUAL_GRAMMAR : P32_VISUAL_GRAMMAR;
   const visualPlan = VisualPlanSchema.parse({
-    schema: 'visual-plan', schema_version: P32_VISUAL_PLAN_VERSION,
+    schema: 'visual-plan', schema_version: options.visual_plan_version ?? P32_VISUAL_PLAN_VERSION,
     plan_id: visualStableId('visual_plan', { direction: plan.direction_plan_id, director: VISUAL_DIRECTOR_FINGERPRINT }),
     source: { creative_plan_id: creativePlan.plan_id, creative_plan_sha256: hashCreativeDocument(creativePlan), pipeline_path: 'visual_directed' },
-    grammar: { version: P32_VISUAL_GRAMMAR.version, fingerprints: { grammar: P32_VISUAL_GRAMMAR.fingerprint, ...P32_VISUAL_GRAMMAR.registry_fingerprints } },
+    grammar: { version: grammar.version, fingerprints: { grammar: grammar.fingerprint, ...grammar.registry_fingerprints } },
     target: { format: 'vertical_short_form', duration_ms: scenes.reduce((sum, scene) => sum + scene.duration_ms, 0) },
     style_id: plan.style_id,
     scenes, bridges,
@@ -341,12 +381,13 @@ export function compileVisualDirectionPlan(
   candidate: unknown,
   creativePlan: CreativePlan,
   context: VisualDirectorContext,
+  options: VisualDirectionResolverOptions = {},
 ): VisualDirectionCompileResult {
   const directionPreflight = buildVisualDirectionPreflight(candidate, creativePlan, context);
   if (!directionPreflight.eligible_for_resolution) return { ok: false, direction_plan: null, direction_preflight: directionPreflight, coherence: null, decision_trace: null, visual_plan: null, visual_preflight: null, hashes: { director: VISUAL_DIRECTOR_FINGERPRINT, direction_plan: directionPreflight.direction_plan_sha256, decision_trace: null, visual_plan: null } };
   const plan = candidate as VisualDirectionPlan;
   const coherence = buildSequenceCoherenceReport(plan);
-  const resolved = buildVisualPlan(plan, creativePlan);
+  const resolved = buildVisualPlan(plan, creativePlan, options);
   const visualPreflight = buildVisualPreflight(resolved.visualPlan);
   const ok = visualPreflight.summary.errors === 0;
   return { ok, direction_plan: plan, direction_preflight: directionPreflight, coherence, decision_trace: resolved.trace, visual_plan: resolved.visualPlan, visual_preflight: visualPreflight, hashes: { director: VISUAL_DIRECTOR_FINGERPRINT, direction_plan: hashVisualDocument(plan), decision_trace: hashVisualDocument(resolved.trace), visual_plan: hashVisualDocument(resolved.visualPlan) } };
