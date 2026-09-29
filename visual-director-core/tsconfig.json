@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "target": "ES2023", "lib": ["ES2023"], "module": "ESNext", "moduleResolution": "bundler",
+    "types": ["node"], "resolveJsonModule": true, "noEmit": true, "allowImportingTsExtensions": true,
+    "isolatedModules": true, "verbatimModuleSyntax": true, "erasableSyntaxOnly": true, "moduleDetection": "force",
+    "skipLibCheck": true, "strict": true, "noUncheckedIndexedAccess": true, "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true, "noFallthroughCasesInSwitch": true, "noUnusedLocals": true,
+    "noUnusedParameters": true, "noImplicitReturns": true, "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src", "vitest.config.ts", "eslint.config.js"]
+}

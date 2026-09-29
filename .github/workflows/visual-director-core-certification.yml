@@ -1,0 +1,82 @@
+name: P3.3A Visual Director Core Certification
+
+on:
+  push:
+    branches:
+      - feature/social-visual-director-core
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify-visual-director-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CI: true
+    steps:
+      - name: Checkout exact P3.3A ref
+        uses: actions/checkout@v4
+
+      - name: Report exact certification SHA
+        run: git rev-parse HEAD
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install exact dependency graph
+        run: npm ci
+
+      - name: Full offline P1/P2/P3/P3.3A quality gate
+        run: npm run check
+
+      - name: Rebuild P1.7 certification evidence
+        run: npm run certify:p1.7
+
+      - name: Rebuild P3.1 certification evidence
+        run: npm run certify:p3.1
+
+      - name: Rebuild P3.2 certification evidence
+        run: npm run certify:p3.2
+
+      - name: Reconstruct P3.2 reference
+        run: npm run render:p3.2
+
+      - name: Render P3.3A references
+        run: npm run render:p3.3a
+
+      - name: Verify atomic P3.3A review package
+        shell: bash
+        run: |
+          test -s out/p3.3a/reference/p3-3a-blue-sky.mp4
+          test -s out/p3.3a/reference/p3-3a-product-app.mp4
+          test -s out/p3.3a/reference/p3-3a-editorial.mp4
+          test -s out/p3.3a/reference/p3-3a-blue-sky-contact-sheet.png
+          test -s out/p3.3a/reference/p3-3a-product-app-contact-sheet.png
+          test -s out/p3.3a/reference/p3-3a-editorial-contact-sheet.png
+          test -s out/p3.3a/reference/p3-2-p3-3a-blue-sky-comparison.png
+          test -s out/p3.3a/reference/science/visual-direction-plan.json
+          test -s out/p3.3a/reference/product/visual-direction-plan.json
+          test -s out/p3.3a/reference/editorial/visual-direction-plan.json
+          test -s out/p3.3a/reference/registry-manifest.json
+          test -s out/p3.3a/reference/metrics.json
+          test -s out/p3.3a/reference/manifest.json
+          test -s out/p3.3a/reference/artifact-integrity.json
+
+      - name: Upload P3.3A human review package
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: p3.3a-visual-director-core-${{ github.sha }}
+          path: |
+            out/p3.3a/reference/
+            out/p3.2/reference/
+            out/p3.2/certification/
+            out/p3.1/certification/
+            out/p1.7/certification/
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,27 @@
+{
+  "schema": "planner-input",
+  "schema_version": "0.1.0",
+  "input_id": "p33a_product_app",
+  "topic": "Une application générique qui aide à organiser son travail",
+  "creative_goal": "demonstrate",
+  "audience": { "description": "Professionnels francophones", "knowledge_level": "unaware" },
+  "language": "fr",
+  "locale": "fr-FR",
+  "target_duration_ms": 24000,
+  "target_format": "vertical_short",
+  "tone": ["precise", "reassuring"],
+  "pacing": "medium",
+  "information_density": "medium",
+  "narrative_archetype": "DEMONSTRATION",
+  "desired_reaction": "Comprendre rapidement la valeur du produit",
+  "factual_mode": "creative",
+  "cta": { "mode": "soft", "text": "Organisez votre prochaine journée." },
+  "constraints": [{ "id": "product_min_scenes", "kind": "min_scenes", "value": 5 }, { "id": "product_max_scenes", "kind": "max_scenes", "value": 5 }],
+  "provided_content": [
+    { "id": "product_hook", "role": "hook_text", "text": "Et si votre journée tenait enfin dans une vue claire ?", "channels": ["spoken", "on_screen"] },
+    { "id": "product_feature_one", "role": "narration", "text": "Rassemblez vos priorités dans un espace unique.", "channels": ["spoken", "on_screen"] },
+    { "id": "product_feature_two", "role": "narration", "text": "Faites avancer chaque tâche sans perdre le fil.", "channels": ["spoken", "on_screen"] },
+    { "id": "product_benefit", "role": "narration", "text": "Votre équipe voit immédiatement ce qui compte.", "channels": ["spoken", "on_screen"] },
+    { "id": "product_payoff", "role": "cta", "text": "Une journée plus simple, du premier geste au dernier.", "channels": ["spoken", "on_screen"] }
+  ]
+}

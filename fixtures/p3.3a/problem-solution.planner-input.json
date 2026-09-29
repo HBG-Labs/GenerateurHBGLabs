@@ -1,0 +1,27 @@
+{
+  "schema": "planner-input",
+  "schema_version": "0.1.0",
+  "input_id": "p33a_problem_solution",
+  "topic": "Réduire la dispersion des informations dans une équipe",
+  "creative_goal": "explain",
+  "audience": { "description": "Équipes de travail francophones", "knowledge_level": "beginner" },
+  "language": "fr",
+  "locale": "fr-FR",
+  "target_duration_ms": 24000,
+  "target_format": "vertical_short",
+  "tone": ["clear", "constructive"],
+  "pacing": "medium",
+  "information_density": "medium",
+  "narrative_archetype": "PROBLEM_SOLUTION",
+  "desired_reaction": "Reconnaître le problème puis comprendre la solution",
+  "factual_mode": "creative",
+  "cta": { "mode": "none" },
+  "constraints": [{ "id": "problem_min_scenes", "kind": "min_scenes", "value": 5 }, { "id": "problem_max_scenes", "kind": "max_scenes", "value": 5 }],
+  "provided_content": [
+    { "id": "problem_hook", "role": "hook_text", "text": "Trop d’informations, aucun point de repère.", "channels": ["spoken", "on_screen"] },
+    { "id": "problem_tension", "role": "narration", "text": "Les messages s’accumulent et les priorités se croisent.", "channels": ["spoken", "on_screen"] },
+    { "id": "problem_contrast", "role": "narration", "text": "Le vrai besoin n’est pas plus de bruit, mais une structure.", "channels": ["spoken", "on_screen"] },
+    { "id": "problem_solution", "role": "explanation", "text": "Un flux unique relie chaque décision à son action.", "channels": ["spoken", "on_screen"] },
+    { "id": "problem_payoff", "role": "narration", "text": "La clarté remplace la dispersion.", "channels": ["spoken", "on_screen"] }
+  ]
+}

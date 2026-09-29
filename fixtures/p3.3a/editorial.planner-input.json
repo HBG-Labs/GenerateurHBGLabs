@@ -1,0 +1,27 @@
+{
+  "schema": "planner-input",
+  "schema_version": "0.1.0",
+  "input_id": "p33a_editorial",
+  "topic": "La valeur du silence visuel",
+  "creative_goal": "inspire",
+  "audience": { "description": "Public francophone sensible au design", "knowledge_level": "beginner" },
+  "language": "fr",
+  "locale": "fr-FR",
+  "target_duration_ms": 22000,
+  "target_format": "vertical_short",
+  "tone": ["editorial", "restrained"],
+  "pacing": "measured",
+  "information_density": "low",
+  "narrative_archetype": "EXPLAINER",
+  "desired_reaction": "Ressentir le contraste entre présence et respiration",
+  "factual_mode": "creative",
+  "cta": { "mode": "none" },
+  "constraints": [{ "id": "editorial_min_scenes", "kind": "min_scenes", "value": 5 }, { "id": "editorial_max_scenes", "kind": "max_scenes", "value": 5 }],
+  "provided_content": [
+    { "id": "editorial_hook", "role": "hook_text", "text": "TOUT N’A PAS BESOIN DE BOUGER", "channels": ["spoken", "on_screen"] },
+    { "id": "editorial_space", "role": "narration", "text": "L’espace crée la hiérarchie.", "channels": ["spoken", "on_screen"] },
+    { "id": "editorial_contrast", "role": "narration", "text": "Une rupture précise rend l’impact visible.", "channels": ["spoken", "on_screen"] },
+    { "id": "editorial_breath", "role": "narration", "text": "Puis le regard respire.", "channels": ["spoken", "on_screen"] },
+    { "id": "editorial_payoff", "role": "narration", "text": "LE MOUVEMENT DEVIENT INTENTION", "channels": ["spoken", "on_screen"] }
+  ]
+}
