@@ -1,0 +1,807 @@
+{
+  "schema": "motion-benchmark-corpus",
+  "schema_version": "0.2.0",
+  "baseline_commit": "5a25897f0364083d5ecfa8c21015f8c709b22a74",
+  "runtime_dependency": false,
+  "research_policy": "PUBLIC_CASE_STUDY_METADATA_ONLY_NO_MEDIA_DOWNLOAD",
+  "evidence_policy": "Observed summaries are limited to statements made by the linked creator, studio, portfolio, or documented feature. They do not imply timecoded shot inspection or authoring-tool inference.",
+  "waves": [
+    {
+      "wave": "A",
+      "focus": "PROFESSIONAL_MOTION_SHOWREELS",
+      "references": [
+        {
+          "reference_id": "EXP_A01_CUB_SHOWREEL",
+          "title": "Animation Showreel",
+          "creator": "Cub Studio",
+          "source_url": "https://www.cubstudio.com/showreel",
+          "source_kind": "OFFICIAL_STUDIO_SHOWREEL_PAGE",
+          "category": "PROFESSIONAL_MOTION_SHOWREEL",
+          "reason_selected": "Broad professional sample spanning character, branded storytelling, 2D/3D, sports and restrained beat-led editing.",
+          "observed_summary": "The studio describes a reel spanning character, sports, motion graphics, 2D/3D and branded storytelling, with deliberate cuts, musical beats and moments of breath.",
+          "normalized_concepts": [
+            "SEQUENCE_RHYTHM_ARC",
+            "CHARACTER_MOTION",
+            "MIXED_2D_3D",
+            "VISUAL_BREATH",
+            "INTENTIONAL_CUT"
+          ],
+          "asset_classes": [
+            "VECTOR_ILLUSTRATION",
+            "CHARACTER",
+            "TYPOGRAPHY",
+            "THREE_D_OBJECT"
+          ],
+          "material_language": ["FLAT", "DIMENSIONAL"]
+        },
+        {
+          "reference_id": "EXP_A02_OF_VOLVO_360C",
+          "title": "Volvo 360c Concept",
+          "creator": "Ordinary Folk",
+          "source_url": "https://www.ordinaryfolk.co/project/volvo-360c-concept",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "EXPLAINER_MOTION",
+          "reason_selected": "Concept explanation built with abstract shape language rather than product UI alone.",
+          "observed_summary": "The public case study presents a concept explainer built from 2D design and shape-based visual storytelling.",
+          "normalized_concepts": [
+            "ABSTRACT_CONCEPT_METAPHOR",
+            "SHAPE_LANGUAGE_TRANSFORMATION",
+            "EXPLAINER_SEQUENCE",
+            "SEMANTIC_TRANSITION"
+          ],
+          "asset_classes": ["PROCEDURAL_VECTOR", "TYPOGRAPHY"],
+          "material_language": ["FLAT", "GRADIENT"]
+        },
+        {
+          "reference_id": "EXP_A03_GIANT_ANT_COCA_COLA_TSQ",
+          "title": "Coca-Cola — TSQ",
+          "creator": "Giant Ant",
+          "source_url": "https://www.giantant.ca/coca-cola-case-study",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "BRAND_AND_PRODUCT_MOTION",
+          "reason_selected": "Large-format branded motion balancing visibility, mixed techniques and restrained camera/motion to avoid discomfort.",
+          "observed_summary": "Giant Ant documents a long-running billboard system mixing traditional animation, motion graphics, playful 3D and photoreal product imagery while explicitly avoiding excessive movement.",
+          "normalized_concepts": [
+            "MIXED_2D_3D",
+            "PRODUCT_HERO",
+            "MOTION_RESTRAINT",
+            "LARGE_FORMAT_STAGING",
+            "ASSET_LANGUAGE_SWITCH"
+          ],
+          "asset_classes": [
+            "PRODUCT_RENDER",
+            "VECTOR_ILLUSTRATION",
+            "THREE_D_OBJECT",
+            "TYPOGRAPHY"
+          ],
+          "material_language": ["FLAT", "PHOTOGRAPHIC", "DIMENSIONAL"]
+        },
+        {
+          "reference_id": "EXP_A04_BUCK_BEYOND_MAGIC",
+          "title": "Beyond Magic",
+          "creator": "BUCK",
+          "source_url": "https://buck.co/work/beyond-magic",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "TITLE_DESIGN",
+          "reason_selected": "Title-led narrative and mixed 2D/cel/3D visual-world construction.",
+          "observed_summary": "The studio describes an Emmy-winning title project combining 2D, cel and 3D around a continuous hero journey.",
+          "normalized_concepts": [
+            "TITLE_AS_NARRATIVE",
+            "MIXED_2D_3D",
+            "CONTINUOUS_CAMERA_SEQUENCE",
+            "WORLD_TRANSFORMATION"
+          ],
+          "asset_classes": [
+            "TYPOGRAPHY",
+            "VECTOR_ILLUSTRATION",
+            "THREE_D_OBJECT",
+            "ENVIRONMENT"
+          ],
+          "material_language": ["FLAT", "LUMINOUS", "DIMENSIONAL"]
+        },
+        {
+          "reference_id": "EXP_A05_OF_SCHOOL_OF_MOTION_MANIFESTO",
+          "title": "School of Motion Manifesto",
+          "creator": "Ordinary Folk",
+          "source_url": "https://www.ordinaryfolk.co/project/school-of-motion-manifesto",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "PROFESSIONAL_MOTION_FILM",
+          "reason_selected": "A deliberate complexity arc from simple line/shape language into multiple 2D and 3D styles.",
+          "observed_summary": "The studio describes a manifesto that grows from simple shapes and line work into multiple 2D/3D styles and characters, coordinated with music and sound effects.",
+          "normalized_concepts": [
+            "GLOBAL_COMPLEXITY_ARC",
+            "ILLUSTRATION_ASSEMBLY",
+            "SHAPE_LANGUAGE_TRANSFORMATION",
+            "MIXED_2D_3D",
+            "CHARACTER_MOTION"
+          ],
+          "asset_classes": [
+            "PROCEDURAL_VECTOR",
+            "VECTOR_ILLUSTRATION",
+            "CHARACTER",
+            "THREE_D_OBJECT"
+          ],
+          "material_language": ["FLAT", "DIMENSIONAL", "TEXTURED"]
+        }
+      ]
+    },
+    {
+      "wave": "B",
+      "focus": "KINETIC_TYPOGRAPHY_EDITORIAL_BRANDING",
+      "references": [
+        {
+          "reference_id": "EXP_B01_PENTAGRAM_LIT",
+          "title": "LIT",
+          "creator": "Pentagram",
+          "source_url": "https://www.pentagram.com/work/lit?setSerializedKey=2",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "KINETIC_TYPOGRAPHY",
+          "reason_selected": "Typography itself forms spatial fields, page-like structure and dimensional motion.",
+          "observed_summary": "Pentagram presents a kinetic typographic identity whose letter fields, page-like curves and central gutter create depth and motion.",
+          "normalized_concepts": [
+            "TYPE_AS_GEOMETRY",
+            "TYPOGRAPHIC_FIELD",
+            "EDITORIAL_DEPTH",
+            "TYPE_DRIVEN_TRANSITION"
+          ],
+          "asset_classes": ["TYPOGRAPHY"],
+          "material_language": ["FLAT", "DIMENSIONAL"]
+        },
+        {
+          "reference_id": "EXP_B02_STUDIO_DUMBAR_DEMO",
+          "title": "DEMO — Design in Motion",
+          "creator": "Studio Dumbar/DEPT",
+          "source_url": "https://www.webbyawards.com/crafted-with-code/demo/",
+          "source_kind": "DOCUMENTED_STUDIO_FEATURE",
+          "category": "MOTION_BRANDING",
+          "reason_selected": "Identity where logo and type are defined by continuous shape, speed and movement variation.",
+          "observed_summary": "The documented project treats letters and logo forms as perpetually dynamic entities with variation in shape, speed and movement.",
+          "normalized_concepts": [
+            "DYNAMIC_BRAND_SYSTEM",
+            "TYPE_SHAPE_VARIATION",
+            "MOTION_IDENTITY_RULESET",
+            "GENERATIVE_VARIATION"
+          ],
+          "asset_classes": ["TYPOGRAPHY", "PROCEDURAL_VECTOR"],
+          "material_language": ["FLAT"]
+        },
+        {
+          "reference_id": "EXP_B03_STUDIO_DUMBAR_INTO",
+          "title": "INTO",
+          "creator": "Studio Dumbar/DEPT",
+          "source_url": "https://studiodumbar.com/work/into",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "VARIABLE_TYPOGRAPHY_BRANDING",
+          "reason_selected": "Variable width/weight communicates a state transition rather than serving as decoration.",
+          "observed_summary": "The identity stretches letterforms in width, moves custom weights from heavy to light and combines them with gradients and dissolve techniques.",
+          "normalized_concepts": [
+            "VARIABLE_FONT_CHOREOGRAPHY",
+            "TYPE_STATE_TRANSFORMATION",
+            "GRADIENT_FIELD",
+            "DISSOLVE_TRANSITION"
+          ],
+          "asset_classes": ["TYPOGRAPHY", "ICON_SYSTEM"],
+          "material_language": ["GRADIENT", "LUMINOUS"]
+        },
+        {
+          "reference_id": "EXP_B04_GRETEL_IFC",
+          "title": "IFC",
+          "creator": "Gretel",
+          "source_url": "https://gretelny.com/ifc",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "BROADCAST_MOTION_BRANDING",
+          "reason_selected": "Restrained, recipe-driven system demonstrates how a small visual vocabulary supports many promos without competing with content.",
+          "observed_summary": "Gretel documents a stamp, type and content-filter system with reusable promo/ID recipes designed to remain clear across platforms.",
+          "normalized_concepts": [
+            "MODULAR_MOTION_SYSTEM",
+            "CONTENT_FIRST_RESTRAINT",
+            "BROADCAST_RECIPE",
+            "EDITORIAL_REMIX"
+          ],
+          "asset_classes": ["TYPOGRAPHY", "PHOTOGRAPHY", "LOGO"],
+          "material_language": ["FLAT", "PHOTOGRAPHIC"]
+        },
+        {
+          "reference_id": "EXP_B05_GRETEL_SHOWTIME",
+          "title": "Showtime",
+          "creator": "Gretel",
+          "source_url": "https://gretelny.com/showtime",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "BROADCAST_MOTION_BRANDING",
+          "reason_selected": "Professional restraint through a narrow color language, modern type and consistent motion behavior.",
+          "observed_summary": "The public case study emphasizes a single-color system, streamlined motion and modern typography as a coherent broadcast identity.",
+          "normalized_concepts": [
+            "MOTION_RESTRAINT",
+            "COLOR_CONTINUITY",
+            "TYPOGRAPHIC_HIERARCHY",
+            "BROADCAST_SYSTEM"
+          ],
+          "asset_classes": ["TYPOGRAPHY", "PHOTOGRAPHY", "LOGO"],
+          "material_language": ["FLAT", "PHOTOGRAPHIC"]
+        },
+        {
+          "reference_id": "EXP_B06_DIA_NIKE_STATEMENT_HOUSE",
+          "title": "Nike Statement House",
+          "creator": "DIA Studio",
+          "source_url": "https://dia.tv/project/nike-statement-house/",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "TYPOGRAPHY_ONLY_MOTION",
+          "reason_selected": "High-energy typographic motion derived from subject movement and an experiential screen layout.",
+          "observed_summary": "DIA describes a typographic experiential identity whose animation derives from basketball movement across a court and screen installation.",
+          "normalized_concepts": [
+            "TYPE_AS_SCENE",
+            "SEMANTIC_MOTION_MAPPING",
+            "MULTI_SCREEN_COMPOSITION",
+            "SPORTS_KINETIC_TYPE"
+          ],
+          "asset_classes": ["TYPOGRAPHY", "LOGO"],
+          "material_language": ["FLAT"]
+        }
+      ]
+    },
+    {
+      "wave": "C",
+      "focus": "SAAS_UI_PRODUCT_ADVERTISING",
+      "references": [
+        {
+          "reference_id": "EXP_C01_OLEG_3D_UI_SAAS",
+          "title": "3D UI SaaS Promo",
+          "creator": "Oleg S.",
+          "source_url": "https://vimeo.com/1196589699",
+          "source_kind": "PUBLIC_CREATOR_PORTFOLIO",
+          "category": "SAAS_UI_MOTION",
+          "reason_selected": "Layered 3D UI, camera depth and cursor interaction applied across product and social formats.",
+          "observed_summary": "The portfolio description identifies layered 3D UI, depth, camera movement, cursor interactions and multi-format delivery.",
+          "normalized_concepts": [
+            "UI_DEPTH_STACK",
+            "CAMERA_FOLLOW_UI",
+            "CURSOR_CAUSALITY",
+            "RESPONSIVE_FORMAT_SYSTEM"
+          ],
+          "asset_classes": ["UI_COMPONENT", "TYPOGRAPHY", "ICON_SYSTEM"],
+          "material_language": ["GLASS", "DIMENSIONAL", "GRADIENT"]
+        },
+        {
+          "reference_id": "EXP_C02_TIMEFRAME_SAAS_PROMO",
+          "title": "Promotional Video with UI Animation for SaaS Platform",
+          "creator": "TimeFrame",
+          "source_url": "https://www.behance.net/gallery/248958561/Promotional-Video-with-UI-Animation-for-SaaS-Platform",
+          "source_kind": "PUBLIC_CREATOR_CASE_STUDY",
+          "category": "SAAS_UI_MOTION",
+          "reason_selected": "Workflow-oriented SaaS promotion with restrained interface continuity.",
+          "observed_summary": "The case study describes a clean 2D/UI product narrative moving through profile browsing and workflow states with smooth transitions.",
+          "normalized_concepts": [
+            "UI_WORKFLOW_NARRATIVE",
+            "UI_CARD_EXTRACTION",
+            "FOCUS_TRANSITION",
+            "PRODUCT_TO_CTA_HANDOFF"
+          ],
+          "asset_classes": ["UI_COMPONENT", "TYPOGRAPHY", "ICON_SYSTEM"],
+          "material_language": ["FLAT", "GRADIENT"]
+        },
+        {
+          "reference_id": "EXP_C03_BUCK_SUKI",
+          "title": "Suki Brand Strategy + Identity",
+          "creator": "BUCK",
+          "source_url": "https://buck.co/work/suki",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "PRODUCT_MOTION_BRANDING",
+          "reason_selected": "A repeatable linear motion motif connects human and product communication across a brand system.",
+          "observed_summary": "The case study presents a product/brand system organized around a linear motion motif that links human and product touchpoints.",
+          "normalized_concepts": [
+            "VISUAL_MOTIF_EVOLUTION",
+            "PRODUCT_HUMAN_HANDOFF",
+            "MOTION_IDENTITY_RULESET",
+            "LINE_TO_PATH"
+          ],
+          "asset_classes": ["UI_COMPONENT", "TYPOGRAPHY", "PROCEDURAL_VECTOR"],
+          "material_language": ["FLAT", "GRADIENT"]
+        },
+        {
+          "reference_id": "EXP_C04_BUCK_MICROSOFT_APP",
+          "title": "Microsoft Unified Office App",
+          "creator": "BUCK",
+          "source_url": "https://buck.co/work/microsoft-app",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "APP_PROMO",
+          "reason_selected": "Feature communication expressed as short social-first visual metaphors instead of a literal UI tour.",
+          "observed_summary": "BUCK documents four social films that translate Office app features into light, feature-centered visual moments.",
+          "normalized_concepts": [
+            "FEATURE_TO_VISUAL_METAPHOR",
+            "SHORT_FORM_SEQUENCE",
+            "PRODUCT_MOTION",
+            "SOCIAL_FIRST_STAGING"
+          ],
+          "asset_classes": ["UI_COMPONENT", "THREE_D_OBJECT", "TYPOGRAPHY"],
+          "material_language": ["DIMENSIONAL", "LUMINOUS"]
+        },
+        {
+          "reference_id": "EXP_C05_ANIMADE_TREMENDOUS",
+          "title": "Tremendous — Payout Provider",
+          "creator": "Animade",
+          "source_url": "https://archive.animade.tv/work/tremendous-payout-provider",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "SAAS_EXPLAINER",
+          "reason_selected": "Abstract service explanation carried by a persistent geometric character and reusable cutdowns.",
+          "observed_summary": "Animade describes a characterful product explainer that uses a persistent diamond-shaped character to tour an abstract service world.",
+          "normalized_concepts": [
+            "PERSISTENT_ENTITY_HANDOFF",
+            "CHARACTER_AS_GUIDE",
+            "PRODUCT_WORLD_TOUR",
+            "MODULAR_CUTDOWN"
+          ],
+          "asset_classes": ["CHARACTER", "UI_COMPONENT", "VECTOR_ILLUSTRATION"],
+          "material_language": ["FLAT"]
+        },
+        {
+          "reference_id": "EXP_C06_ANIMADE_WISE",
+          "title": "Wise Explainer Films",
+          "creator": "Animade",
+          "source_url": "https://archive.animade.tv/work/wise-explainer-videos",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "FINTECH_PRODUCT_EXPLAINER",
+          "reason_selected": "A coherent family of product films preserving a bold brand and character system across multiple offerings.",
+          "observed_summary": "Animade documents three related explainers using a consistent character and brand language to explain distinct financial products.",
+          "normalized_concepts": [
+            "MULTI_FILM_MOTION_SYSTEM",
+            "CHARACTER_MOTION",
+            "PRODUCT_STORY_SYSTEM",
+            "BRAND_CONTINUITY"
+          ],
+          "asset_classes": [
+            "CHARACTER",
+            "UI_COMPONENT",
+            "TYPOGRAPHY",
+            "VECTOR_ILLUSTRATION"
+          ],
+          "material_language": ["FLAT"]
+        }
+      ]
+    },
+    {
+      "wave": "D",
+      "focus": "ILLUSTRATION_EXPLAINER_DATA",
+      "references": [
+        {
+          "reference_id": "EXP_D01_ANIMADE_TOOLS_FOR_HUMANITY",
+          "title": "Tools for Humanity",
+          "creator": "Animade",
+          "source_url": "https://archive.animade.tv/work/tools-for-humanity",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "TECHNICAL_EXPLAINER",
+          "reason_selected": "Complex technology reduced to a cross-cultural symbol and icon language without relying on literal illustration.",
+          "observed_summary": "The studio describes six explanatory films using stripped-back symbols and icons to make a complex system understandable across languages and formats.",
+          "normalized_concepts": [
+            "SYMBOLIC_EXPLAINER",
+            "ICON_SYSTEM",
+            "CROSS_FORMAT_NARRATIVE",
+            "INFORMATION_REDUCTION"
+          ],
+          "asset_classes": ["ICON_SYSTEM", "PROCEDURAL_VECTOR", "TYPOGRAPHY"],
+          "material_language": ["FLAT", "GRADIENT"]
+        },
+        {
+          "reference_id": "EXP_D02_ANIMADE_OCADO_DATA",
+          "title": "Ocado Personalized Data Films",
+          "creator": "Animade",
+          "source_url": "https://archive.animade.tv/work/ocado-film",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "DATA_VISUALIZATION_MOTION",
+          "reason_selected": "Modular data-driven animation that preserves personality while generating customer-specific variants.",
+          "observed_summary": "Animade documents a modular line-based system that transforms individual purchase data into personalized animated stories at scale.",
+          "normalized_concepts": [
+            "DATA_TO_STORY",
+            "MODULAR_SCENE_SYSTEM",
+            "PARAMETRIC_ASSET_BINDING",
+            "CHARACTER_DETAIL"
+          ],
+          "asset_classes": [
+            "DATA_GRAPHIC",
+            "VECTOR_ILLUSTRATION",
+            "CHARACTER",
+            "PRODUCT_IMAGE"
+          ],
+          "material_language": ["FLAT"]
+        },
+        {
+          "reference_id": "EXP_D03_PARKER_N8_INFOGRAPHIC",
+          "title": "N8 Economic Impact Animated Infographic",
+          "creator": "Parker Design",
+          "source_url": "https://parker-design.co.uk/case-study/animated-video-production/",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "INFOGRAPHIC_MOTION",
+          "reason_selected": "Professional example of restrained motion, counters and pacing used to preserve data comprehension.",
+          "observed_summary": "The case study emphasizes simple movement, infographic illustration, counters, scale and deliberate pacing to keep dense information digestible.",
+          "normalized_concepts": [
+            "DATA_HIGHLIGHT",
+            "COUNTER_MOTION",
+            "MOTION_RESTRAINT",
+            "READING_PACING"
+          ],
+          "asset_classes": [
+            "DATA_GRAPHIC",
+            "ICON_SYSTEM",
+            "VECTOR_ILLUSTRATION",
+            "TYPOGRAPHY"
+          ],
+          "material_language": ["FLAT"]
+        },
+        {
+          "reference_id": "EXP_D04_MITRO_ENGAGIERTE_STADT",
+          "title": "Engagierte Stadt Infographic Animation",
+          "creator": "Mitro Studios",
+          "source_url": "https://mitrostudios.com/portfolio/infographic-animation-engagierte-stadt/",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "INFOGRAPHIC_MOTION",
+          "reason_selected": "Shows the design work required to rebuild static data graphics into composable animated parts.",
+          "observed_summary": "The studio documents rebuilding existing data visualizations as animatable components and combining illustration, abstraction and footage for comprehension.",
+          "normalized_concepts": [
+            "INFOGRAPHIC_DECOMPOSITION",
+            "DATA_RELATION_REVEAL",
+            "MIXED_MEDIA_EXPLAINER",
+            "COMPREHENSION_FIRST_MOTION"
+          ],
+          "asset_classes": [
+            "DATA_GRAPHIC",
+            "VECTOR_ILLUSTRATION",
+            "PHOTOGRAPHY",
+            "TYPOGRAPHY"
+          ],
+          "material_language": ["FLAT", "PHOTOGRAPHIC"]
+        },
+        {
+          "reference_id": "EXP_D05_BUCK_ILLUMINA",
+          "title": "Illumina",
+          "creator": "BUCK",
+          "source_url": "https://buck.co/work/illumina",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "ABSTRACT_SCIENCE_EXPLAINER",
+          "reason_selected": "Abstract but meaningful scientific storytelling connected by fluid transitions across 2D, 2.5D and 3D worlds.",
+          "observed_summary": "BUCK describes chaptered scientific storytelling in which word and image support one another through logical and magical fluid transitions across 2D, 2.5D and 3D.",
+          "normalized_concepts": [
+            "ABSTRACT_CONCEPT_METAPHOR",
+            "FLUID_TRANSITION_CHAIN",
+            "MIXED_2D_3D",
+            "NARRATIVE_CHAPTER_ARC",
+            "VISUAL_VOICE_BALANCE"
+          ],
+          "asset_classes": [
+            "PROCEDURAL_VECTOR",
+            "THREE_D_OBJECT",
+            "ENVIRONMENT",
+            "TYPOGRAPHY"
+          ],
+          "material_language": ["GRADIENT", "LUMINOUS", "DIMENSIONAL"]
+        }
+      ]
+    },
+    {
+      "wave": "E",
+      "focus": "POSTER_MIXED_MEDIA_SOCIAL",
+      "references": [
+        {
+          "reference_id": "EXP_E01_LEXI_PRINT_TO_MOTION",
+          "title": "From Print to Motion",
+          "creator": "Lexi O'Neill",
+          "source_url": "https://lexioneilldesign.com/From-Print-to-Motion-Case-Study",
+          "source_kind": "PUBLIC_CREATOR_CASE_STUDY",
+          "category": "POSTER_MOTION",
+          "reason_selected": "Explicit poster deconstruction into layered collage while preserving print texture, lettering and historical material.",
+          "observed_summary": "The case study describes translating a risograph poster into layered mixed-media motion using existing motifs, collage, historical ephemera and print imperfections.",
+          "normalized_concepts": [
+            "POSTER_DECONSTRUCT",
+            "TYPE_RECOMPOSE",
+            "COLLAGE_LAYER_RECOMPOSE",
+            "PALETTE_PRESERVE",
+            "TEXTURE_CONTINUITY"
+          ],
+          "asset_classes": [
+            "POSTER_LAYER",
+            "PHOTOGRAPHY",
+            "TYPOGRAPHY",
+            "TEXTURE"
+          ],
+          "material_language": ["PAPER", "GRAIN", "COLLAGE", "PHOTOGRAPHIC"]
+        },
+        {
+          "reference_id": "EXP_E02_BUCK_AUSTRALIAN_OPEN",
+          "title": "Australian Open 2024/2025",
+          "creator": "BUCK",
+          "source_url": "https://buck.co/work/australian-open",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "MIXED_MEDIA_CAMPAIGN",
+          "reason_selected": "Bespoke mixed-media vignettes change style to reflect distinct personalities while remaining one campaign.",
+          "observed_summary": "BUCK describes dynamic mixed-media vignettes whose styles mirror different player personalities within a consistent campaign.",
+          "normalized_concepts": [
+            "ASSET_LANGUAGE_SWITCH",
+            "CAMPAIGN_COHERENCE",
+            "PERSONALITY_TO_STYLE",
+            "MIXED_MEDIA_SEQUENCE"
+          ],
+          "asset_classes": [
+            "PHOTOGRAPHY",
+            "VECTOR_ILLUSTRATION",
+            "TYPOGRAPHY",
+            "TEXTURE"
+          ],
+          "material_language": ["PHOTOGRAPHIC", "COLLAGE", "FLAT", "TEXTURED"]
+        },
+        {
+          "reference_id": "EXP_E03_BUCK_ASANA_BRAND_FILM",
+          "title": "Asana Brand Film",
+          "creator": "BUCK",
+          "source_url": "https://buck.co/work/asana-brand-film",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "MIXED_MEDIA_SAAS",
+          "reason_selected": "UI, typography, hands, abstract team markers and textured collage are composed into one seamless product story.",
+          "observed_summary": "The studio explains how a mid-century collage system integrates UI, typography, hands and colored team markers while keeping flow seamless.",
+          "normalized_concepts": [
+            "UI_COLLAGE_INTEGRATION",
+            "HUMAN_PRODUCT_HANDOFF",
+            "PERSISTENT_VISUAL_MOTIF",
+            "MIXED_MEDIA_COHERENCE"
+          ],
+          "asset_classes": [
+            "UI_COMPONENT",
+            "PHOTOGRAPHY",
+            "TYPOGRAPHY",
+            "TEXTURE",
+            "PROCEDURAL_VECTOR"
+          ],
+          "material_language": ["COLLAGE", "PAPER", "GRAIN", "PHOTOGRAPHIC"]
+        },
+        {
+          "reference_id": "EXP_E04_ASAAD_TALKING_HEAD_REELS",
+          "title": "Talking Head Reel Series",
+          "creator": "Asaad",
+          "source_url": "https://asaad.art/work/talking-head-reel-series",
+          "source_kind": "PUBLIC_CREATOR_CASE_STUDY",
+          "category": "VERTICAL_SOCIAL_MOTION",
+          "reason_selected": "Nine-by-sixteen editorial motion timed to speech and thought changes, with a shared visual system across ten reels.",
+          "observed_summary": "The creator documents ten vertical reels in which editorial graphics support spoken emphasis and changes in thought instead of competing with the speaker.",
+          "normalized_concepts": [
+            "SPEECH_SUPPORTIVE_MOTION",
+            "VERTICAL_SAFE_STAGING",
+            "SERIES_MOTION_SYSTEM",
+            "EDITORIAL_PACING",
+            "MOTION_RESTRAINT"
+          ],
+          "asset_classes": [
+            "SUBJECT_CUTOUT",
+            "PHOTOGRAPHY",
+            "TYPOGRAPHY",
+            "PROCEDURAL_VECTOR"
+          ],
+          "material_language": ["PHOTOGRAPHIC", "FLAT"]
+        },
+        {
+          "reference_id": "EXP_E05_STUDIO_PB_PALM_OIL",
+          "title": "Rethink / Reframe Palm Oil",
+          "creator": "Studio PB",
+          "source_url": "https://www.studiopb.design/case-studies/rethink-reframe-palm-oil",
+          "source_kind": "PUBLIC_CREATOR_CASE_STUDY",
+          "category": "VERTICAL_SOCIAL_CAMPAIGN",
+          "reason_selected": "Typography-led educational campaign localized across 9:16, 1:1 and 4:5 with platform-native hooks.",
+          "observed_summary": "The case study documents a bold typography-led social system with short-form hooks, cultural localization and multiple aspect ratios.",
+          "normalized_concepts": [
+            "SOCIAL_FIRST_STAGING",
+            "TYPOGRAPHIC_HOOK",
+            "MULTI_ASPECT_LAYOUT",
+            "LOCALIZABLE_MOTION_SYSTEM"
+          ],
+          "asset_classes": ["TYPOGRAPHY", "PHOTOGRAPHY", "ICON_SYSTEM"],
+          "material_language": ["FLAT", "PHOTOGRAPHIC"]
+        },
+        {
+          "reference_id": "EXP_E06_ANIMADE_IBM_DUBLIN",
+          "title": "IBM Dublin Conference",
+          "creator": "Animade",
+          "source_url": "https://animade.tv/work/ibm-dublin-conference",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "MIXED_MEDIA_EXPLAINER",
+          "reason_selected": "Handmade paper, stop motion, motion graphics, 2D and 3D are unified by palette and overlay treatment.",
+          "observed_summary": "Animade describes a mixed-media conference film spanning handmade paper models, stop motion, motion graphics, 2D and 3D, held together through consistent color and overlay treatment.",
+          "normalized_concepts": [
+            "MIXED_MEDIA_COHERENCE",
+            "ASSET_LANGUAGE_SWITCH",
+            "COLOR_CONTINUITY",
+            "OVERLAY_UNIFICATION"
+          ],
+          "asset_classes": [
+            "PAPER_MODEL",
+            "VECTOR_ILLUSTRATION",
+            "THREE_D_OBJECT",
+            "CHARACTER"
+          ],
+          "material_language": ["PAPER", "TEXTURED", "FLAT", "DIMENSIONAL"]
+        }
+      ]
+    },
+    {
+      "wave": "F",
+      "focus": "TWO_POINT_FIVE_D_COMPOSITING_TRUE_3D",
+      "references": [
+        {
+          "reference_id": "EXP_F01_MVM_FLYKNIT",
+          "title": "Flyknit — Infinite Possibilities",
+          "creator": "ManvsMachine",
+          "source_url": "https://mvsm.com/project/flyknit",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "PRODUCT_VISUALIZATION",
+          "reason_selected": "Product material, identity and typography form one cross-category motion toolkit.",
+          "observed_summary": "ManvsMachine describes a cinematic product piece whose motion identity, infinity logo and custom typeface form a reusable cross-category toolkit.",
+          "normalized_concepts": [
+            "PRODUCT_MATERIAL_STORY",
+            "MOTION_IDENTITY_RULESET",
+            "PRODUCT_TO_TYPE_HANDOFF",
+            "TRUE_3D_PRODUCT"
+          ],
+          "asset_classes": ["PRODUCT_RENDER", "TYPOGRAPHY", "THREE_D_OBJECT"],
+          "material_language": ["TEXTILE", "PHOTOREAL", "DIMENSIONAL"]
+        },
+        {
+          "reference_id": "EXP_F02_FUTUREDELUXE_MARKFORGED",
+          "title": "Markforged FX10 Launch Film",
+          "creator": "FutureDeluxe",
+          "source_url": "https://www.maxon.net/en/article/using-maxon-one-for-future-facing-product-launches",
+          "source_kind": "DOCUMENTED_STUDIO_FEATURE",
+          "category": "TRUE_3D_PRODUCT_VISUALIZATION",
+          "reason_selected": "Precision product storytelling depends on accurate mechanisms, materials, lighting and process simulation.",
+          "observed_summary": "The documented case study covers detailed product remodeling, rigged mechanisms, texturing, lighting and process-specific simulation for an industrial launch film.",
+          "normalized_concepts": [
+            "TRUE_3D_PRODUCT",
+            "MECHANISM_REVEAL",
+            "MATERIAL_LIGHTING",
+            "PROCESS_SIMULATION",
+            "CINEMATIC_PRODUCT_CAMERA"
+          ],
+          "asset_classes": [
+            "PRODUCT_RENDER",
+            "THREE_D_OBJECT",
+            "ENVIRONMENT",
+            "UI_COMPONENT"
+          ],
+          "material_language": ["METALLIC", "PHOTOREAL", "DIMENSIONAL"]
+        },
+        {
+          "reference_id": "EXP_F03_BUILDERS_CLUB_BEATS",
+          "title": "Beats — Behind the Design",
+          "creator": "Builders Club",
+          "source_url": "https://builders-club.com/3d-motion/behind-the-design-beats-studio-buds",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "TRUE_3D_PRODUCT_VISUALIZATION",
+          "reason_selected": "Internal product architecture is revealed through precise 3D modeling, materials, lighting and abstract 2D rhythm.",
+          "observed_summary": "The public project description presents high-fidelity product renders and internal component reveals combined with abstract 2D motion.",
+          "normalized_concepts": [
+            "TRUE_3D_PRODUCT",
+            "EXPLODED_PRODUCT_VIEW",
+            "INTERNAL_COMPONENT_REVEAL",
+            "MIXED_2D_3D",
+            "CINEMATIC_PRODUCT_CAMERA"
+          ],
+          "asset_classes": [
+            "PRODUCT_RENDER",
+            "THREE_D_OBJECT",
+            "PROCEDURAL_VECTOR"
+          ],
+          "material_language": ["METALLIC", "PHOTOREAL", "DIMENSIONAL"]
+        },
+        {
+          "reference_id": "EXP_F04_TERRITORY_BLADE_RUNNER_2049",
+          "title": "Blade Runner 2049 Screen Graphics",
+          "creator": "Territory Studio",
+          "source_url": "https://territorystudio.com/project/blade-runner-2049/",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "CINEMATIC_UI_COMPOSITING",
+          "reason_selected": "Narrative UI uses physical texture, optics, CG layers and interaction states tied to story and performance.",
+          "observed_summary": "Territory documents more than 100 screen assets across sets, combining narrative content, physical texture, optical experiments, CG and choreographed interaction states.",
+          "normalized_concepts": [
+            "CINEMATIC_UI",
+            "TEXTURE_DRIVEN_INTERFACE",
+            "STORYBEAT_CHOREOGRAPHY",
+            "DIEGETIC_COMPOSITING",
+            "STATE_BASED_INTERACTION"
+          ],
+          "asset_classes": [
+            "UI_COMPONENT",
+            "TEXTURE",
+            "PHOTOGRAPHY",
+            "DATA_GRAPHIC"
+          ],
+          "material_language": ["PHOTOGRAPHIC", "GRAIN", "LUMINOUS", "ORGANIC"]
+        },
+        {
+          "reference_id": "EXP_F05_TERRITORY_LIV_GOLF",
+          "title": "LIV Golf Broadcast Package",
+          "creator": "Territory Studio",
+          "source_url": "https://territorystudio.com/project/livgolf/",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "BROADCAST_DESIGN",
+          "reason_selected": "Information hierarchy, live data, title/sting/wipe systems and 3D graphic language operate as a full broadcast package.",
+          "observed_summary": "The studio documents a broadcast system with titles, stings, transitions, leaderboards, live data widgets and augmented on-screen graphics.",
+          "normalized_concepts": [
+            "BROADCAST_PACKAGE",
+            "INFORMATION_HIERARCHY",
+            "DATA_OVERLAY",
+            "STING_TRANSITION",
+            "LIVE_ACTION_COMPOSITING"
+          ],
+          "asset_classes": [
+            "DATA_GRAPHIC",
+            "UI_COMPONENT",
+            "TYPOGRAPHY",
+            "THREE_D_OBJECT"
+          ],
+          "material_language": ["LUMINOUS", "DIMENSIONAL", "PHOTOGRAPHIC"]
+        },
+        {
+          "reference_id": "EXP_F06_ELASTIC_TRUE_DETECTIVE",
+          "title": "True Detective Opening Titles",
+          "creator": "Elastic",
+          "source_url": "https://time.com/3936215/true-detective-opening-credits-david-maisel/",
+          "source_kind": "DOCUMENTED_STUDIO_FEATURE",
+          "category": "CINEMATIC_TITLE_DESIGN",
+          "reason_selected": "Photography becomes layered narrative material through double exposure, bleed-through and restrained slow motion.",
+          "observed_summary": "The documented feature describes photographs combined with slow-motion elements, inversions and image bleed-through to create a metaphorical title sequence.",
+          "normalized_concepts": [
+            "DOUBLE_EXPOSURE_COMPOSITING",
+            "PHOTOGRAPHY_AS_MATERIAL",
+            "SLOW_MOTION_RESTRAINT",
+            "TITLE_AS_NARRATIVE"
+          ],
+          "asset_classes": [
+            "PHOTOGRAPHY",
+            "SUBJECT_CUTOUT",
+            "TYPOGRAPHY",
+            "TEXTURE"
+          ],
+          "material_language": ["PHOTOGRAPHIC", "GRAIN", "LUMINOUS"]
+        },
+        {
+          "reference_id": "EXP_F07_OF_EQUILIBRIUM",
+          "title": "Equilibrium",
+          "creator": "Ordinary Folk",
+          "source_url": "https://www.ordinaryfolk.co/project/equilibrium",
+          "source_kind": "OFFICIAL_STUDIO_CASE_STUDY",
+          "category": "THREE_D_MOTION_EXPERIMENT",
+          "reason_selected": "Clear boundary case between familiar 2D keyframe/transition logic and tactile true-3D materials and lighting.",
+          "observed_summary": "Ordinary Folk describes applying its 2D keyframe and transition thinking to tactile 3D materials and lighting in a 30-second experiment.",
+          "normalized_concepts": [
+            "TWO_D_LOGIC_IN_THREE_D",
+            "TACTILE_MATERIAL",
+            "SHAPE_LANGUAGE_TRANSFORMATION",
+            "TRUE_3D_LIGHTING"
+          ],
+          "asset_classes": ["THREE_D_OBJECT", "ENVIRONMENT"],
+          "material_language": ["TACTILE", "DIMENSIONAL", "LUMINOUS"]
+        }
+      ]
+    }
+  ],
+  "rejected_as_redundant_or_low_evidence": [
+    {
+      "candidate": "Generic SaaS motion agency landing pages",
+      "reason": "Service claims repeated UI animation categories without a sufficiently attributable project case study."
+    },
+    {
+      "candidate": "Additional BUCK catalog entries",
+      "reason": "The retained BUCK cases already cover the distinct mixed-media, title, science, product and campaign families needed; further entries reduced source diversity."
+    },
+    {
+      "candidate": "Additional Territory screen-graphics projects",
+      "reason": "Blade Runner 2049 and LIV Golf already cover cinematic UI/compositing and broadcast information systems; further similar cases were saturated."
+    },
+    {
+      "candidate": "Unattributed social-reel compilations",
+      "reason": "Insufficient provenance or project-level explanation."
+    },
+    {
+      "candidate": "Tool tutorial and training pages",
+      "reason": "They describe implementation mechanics rather than independently selected professional benchmark work."
+    },
+    {
+      "candidate": "Wikipedia-only project summaries",
+      "reason": "Retained only as discovery leads; stronger creator, studio or documented feature sources were used for the corpus."
+    }
+  ]
+}

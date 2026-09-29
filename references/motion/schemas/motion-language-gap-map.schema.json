@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://social-motion-engine.local/schemas/motion-language-gap-map-0.2.0.json",
+  "title": "MotionLanguageGapMap",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "baseline_commit",
+    "evidence_limit",
+    "p3_3_readiness",
+    "p3_3_readiness_reason",
+    "gaps"
+  ],
+  "properties": {
+    "schema": { "const": "motion-language-gap-map" },
+    "schema_version": { "const": "0.2.0" },
+    "baseline_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "evidence_limit": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "p3_3_readiness": { "enum": ["READY", "NOT_READY_HIGH_VALUE_GAPS_FIRST"] },
+    "p3_3_readiness_reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "gaps": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gap_id",
+          "capability",
+          "references",
+          "evidence_status",
+          "current_support",
+          "owners",
+          "missing",
+          "visual_impact",
+          "implementation_complexity",
+          "dependencies",
+          "priority",
+          "recommended_phase"
+        ],
+        "properties": {
+          "gap_id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,95}$" },
+          "capability": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "references": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 32,
+            "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" }
+          },
+          "evidence_status": {
+            "enum": [
+              "OBSERVED",
+              "INFERRED",
+              "UNCERTAIN",
+              "PENDING_REFERENCE",
+              "SINGLE_PUBLIC_CASE_STUDY_PLUS_UNAVAILABLE_ANCHOR",
+              "MULTI_REFERENCE_PUBLIC_CASE_STUDY",
+              "HIGH_REUSE_PUBLIC_CASE_STUDY"
+            ]
+          },
+          "current_support": {
+            "enum": [
+              "SUPPORTED",
+              "PARTIAL",
+              "SIMPLIFIED",
+              "UNSUPPORTED",
+              "REQUIRES_ASSET_SYSTEM",
+              "REQUIRES_3D",
+              "REQUIRES_AUDIO",
+              "REQUIRES_NEW_P1_CAPABILITY"
+            ]
+          },
+          "owners": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "ENGINE",
+                "VISUAL_DIRECTOR",
+                "ASSET_SYSTEM",
+                "RENDERER",
+                "3D_SYSTEM",
+                "AUDIO_SYSTEM"
+              ]
+            }
+          },
+          "missing": {
+            "type": "array",
+            "maxItems": 32,
+            "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+          },
+          "visual_impact": { "enum": ["LOW", "MEDIUM", "HIGH"] },
+          "implementation_complexity": {
+            "enum": ["SMALL", "MEDIUM", "MAJOR", "EXTERNAL_SYSTEM"]
+          },
+          "dependencies": {
+            "type": "array",
+            "maxItems": 32,
+            "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+          },
+          "priority": { "enum": ["A", "B", "C"] },
+          "recommended_phase": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        }
+      }
+    }
+  }
+}

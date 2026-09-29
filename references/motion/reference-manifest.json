@@ -1,0 +1,78 @@
+{
+  "schema": "motion-reference-manifest",
+  "schema_version": "0.1.0",
+  "baseline_commit": "5a25897f0364083d5ecfa8c21015f8c709b22a74",
+  "runtime_dependency": false,
+  "media_policy": "LOCAL_GITIGNORED_REFERENCE_ONLY",
+  "anchor_policy": "The five original references are qualitative anchors, not the complete professional corpus.",
+  "supplemental_corpus": {
+    "path": "corpus-expansion.json",
+    "retained_public_references": 35,
+    "research_waves": 6,
+    "total_references_including_anchors": 40,
+    "media_downloaded": false
+  },
+  "normalized_language_index": "normalized-language-index.json",
+  "references": [
+    {
+      "reference_id": "PRO_MOTION_2D_A",
+      "category": "PROFESSIONAL_2D_MOTION",
+      "title": "Motion Design & Animation Showreel 2023",
+      "creator": "Will Taylor",
+      "source_type": "EXTERNAL_URL",
+      "source_url": "https://www.youtube.com/watch?v=RB0X7CojhZ8",
+      "local_available": false,
+      "analysis_status": "METADATA_ONLY",
+      "benchmark_role": "PRIMARY",
+      "availability_note": "Public title and creator metadata confirmed; no local timecoded media was supplied."
+    },
+    {
+      "reference_id": "PRO_MOTION_2D_B",
+      "category": "PROFESSIONAL_MOTION_HYBRID",
+      "title": "Motion Design Showreel 2023",
+      "creator": "Denis Gimaev",
+      "source_type": "EXTERNAL_URL",
+      "source_url": "https://www.youtube.com/watch?v=jkPVT55GAOo",
+      "local_available": false,
+      "analysis_status": "METADATA_ONLY",
+      "benchmark_role": "PRIMARY",
+      "availability_note": "Creator description confirms personal and commercial work; secondary portfolio metadata classifies the reel as 3D/CGI. No local timecoded media was supplied."
+    },
+    {
+      "reference_id": "PRO_MOTION_3D",
+      "category": "PROFESSIONAL_3D_MOTION",
+      "title": "3D MOTION DESIGN SHOWREEL 2024",
+      "creator": "Owen Jenkins",
+      "source_type": "EXTERNAL_URL",
+      "source_url": "https://www.youtube.com/watch?v=wCqcJU1YpKk",
+      "local_available": false,
+      "analysis_status": "METADATA_ONLY",
+      "benchmark_role": "SPECIALIZED",
+      "availability_note": "YouTube oEmbed confirms title and creator; no local timecoded media was supplied."
+    },
+    {
+      "reference_id": "POSTER_TO_MOTION",
+      "category": "POSTER_MOTION",
+      "title": "Fiesta Latina reference",
+      "creator": null,
+      "source_type": "LOCAL_REFERENCE_EXPECTED",
+      "source_url": null,
+      "local_available": false,
+      "analysis_status": "UNAVAILABLE",
+      "benchmark_role": "SPECIALIZED",
+      "availability_note": "No local file or attributable URL was found. No visual observation was inferred."
+    },
+    {
+      "reference_id": "PRODUCT_APP_PROMO",
+      "category": "PRODUCT_APP_PROMO",
+      "title": "Fintech/app promo reference",
+      "creator": null,
+      "source_type": "LOCAL_REFERENCE_EXPECTED",
+      "source_url": null,
+      "local_available": false,
+      "analysis_status": "UNAVAILABLE",
+      "benchmark_role": "SPECIALIZED",
+      "availability_note": "No local file or attributable URL was found. No visual observation was inferred."
+    }
+  ]
+}

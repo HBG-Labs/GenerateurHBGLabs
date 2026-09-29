@@ -1,0 +1,186 @@
+{
+  "schema": "benchmark-coverage-report",
+  "schema_version": "0.1.0",
+  "anchor_count": 5,
+  "expanded_reference_count": 35,
+  "total_catalog_count": 40,
+  "coverage_note": "Counts overlap because a retained reference may provide useful evidence for more than one category. Quality is descriptive, not a score.",
+  "categories": [
+    {
+      "category": "PROFESSIONAL_SHOWREEL",
+      "useful_references": 5,
+      "coverage": "GOOD"
+    },
+    {
+      "category": "KINETIC_TYPOGRAPHY",
+      "useful_references": 6,
+      "coverage": "GOOD"
+    },
+    {
+      "category": "TYPOGRAPHY_ONLY_MOTION",
+      "useful_references": 2,
+      "coverage": "MEDIUM"
+    },
+    {
+      "category": "MOTION_BRANDING",
+      "useful_references": 8,
+      "coverage": "GOOD"
+    },
+    { "category": "LOGO_MOTION", "useful_references": 2, "coverage": "MEDIUM" },
+    {
+      "category": "EDITORIAL_MOTION",
+      "useful_references": 4,
+      "coverage": "MEDIUM"
+    },
+    {
+      "category": "POSTER_TO_MOTION",
+      "useful_references": 1,
+      "coverage": "LOW"
+    },
+    {
+      "category": "SAAS_UI_MOTION",
+      "useful_references": 9,
+      "coverage": "GOOD"
+    },
+    { "category": "APP_PROMO", "useful_references": 6, "coverage": "GOOD" },
+    {
+      "category": "PRODUCT_ADVERTISING",
+      "useful_references": 7,
+      "coverage": "GOOD"
+    },
+    {
+      "category": "PRODUCT_VISUALIZATION",
+      "useful_references": 4,
+      "coverage": "GOOD"
+    },
+    { "category": "EXPLAINER", "useful_references": 9, "coverage": "GOOD" },
+    {
+      "category": "INFOGRAPHIC_DATA_VISUALIZATION",
+      "useful_references": 5,
+      "coverage": "GOOD"
+    },
+    {
+      "category": "TWO_D_ILLUSTRATION_MOTION",
+      "useful_references": 7,
+      "coverage": "GOOD"
+    },
+    {
+      "category": "CHARACTER_MOTION",
+      "useful_references": 7,
+      "coverage": "GOOD"
+    },
+    { "category": "MIXED_MEDIA", "useful_references": 7, "coverage": "GOOD" },
+    {
+      "category": "COLLAGE_MOTION",
+      "useful_references": 4,
+      "coverage": "MEDIUM"
+    },
+    {
+      "category": "TWO_POINT_FIVE_D",
+      "useful_references": 7,
+      "coverage": "GOOD"
+    },
+    { "category": "COMPOSITING", "useful_references": 7, "coverage": "GOOD" },
+    {
+      "category": "BROADCAST_DESIGN",
+      "useful_references": 3,
+      "coverage": "MEDIUM"
+    },
+    { "category": "TITLE_DESIGN", "useful_references": 4, "coverage": "GOOD" },
+    {
+      "category": "VERTICAL_SOCIAL_AD",
+      "useful_references": 4,
+      "coverage": "MEDIUM"
+    },
+    {
+      "category": "CINEMATIC_MOTION",
+      "useful_references": 5,
+      "coverage": "GOOD"
+    },
+    {
+      "category": "TRUE_3D_MOTION",
+      "useful_references": 8,
+      "coverage": "GOOD"
+    },
+    {
+      "category": "EXPERIMENTAL_MOTION",
+      "useful_references": 3,
+      "coverage": "MEDIUM"
+    },
+    {
+      "category": "ARCHITECTURAL_MOTION",
+      "useful_references": 0,
+      "coverage": "LOW"
+    },
+    {
+      "category": "FASHION_EDITORIAL",
+      "useful_references": 1,
+      "coverage": "LOW"
+    },
+    {
+      "category": "COMPLEX_CHARACTER_RIGGING",
+      "useful_references": 1,
+      "coverage": "LOW"
+    }
+  ],
+  "saturation": {
+    "references_screened_minimum": 48,
+    "references_retained": 35,
+    "anchors_preserved": 5,
+    "candidate_groups_rejected": 6,
+    "marginal_discovery": [
+      {
+        "wave": "A",
+        "retained": 5,
+        "new_families": ["SEQUENCE_RHYTHM", "MOTION_RESTRAINT", "MIXED_2D_3D"]
+      },
+      {
+        "wave": "B",
+        "retained": 6,
+        "new_families": [
+          "TYPE_AS_GEOMETRY",
+          "VARIABLE_TYPE",
+          "MOTION_IDENTITY_RECIPE"
+        ]
+      },
+      {
+        "wave": "C",
+        "retained": 6,
+        "new_families": [
+          "UI_DEPTH",
+          "PRODUCT_HANDOFF",
+          "SOCIAL_FEATURE_METAPHOR"
+        ]
+      },
+      {
+        "wave": "D",
+        "retained": 5,
+        "new_families": [
+          "DATA_TO_STORY",
+          "INFORMATION_PACING",
+          "SCIENCE_ABSTRACTION"
+        ]
+      },
+      {
+        "wave": "E",
+        "retained": 6,
+        "new_families": [
+          "POSTER_DECOMPOSITION",
+          "COLLAGE_COHERENCE",
+          "VERTICAL_SOCIAL"
+        ]
+      },
+      {
+        "wave": "F",
+        "retained": 7,
+        "new_families": [
+          "DIEGETIC_UI",
+          "BROADCAST_PACKAGE",
+          "DOUBLE_EXPOSURE",
+          "TRUE_3D_PRODUCT"
+        ]
+      }
+    ],
+    "stop_reason": "After wave F, additional candidates mainly repeated retained BUCK mixed-media work, Territory screen/broadcast work, generic SaaS UI cards, or lacked project-level provenance. Marginal concept discovery had declined; more sources would increase confidence more than language breadth."
+  }
+}

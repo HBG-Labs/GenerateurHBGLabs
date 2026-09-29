@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://social-motion-engine.local/schemas/motion-reference-analysis-0.2.0.json",
+  "title": "MotionReferenceAnalysis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "reference_id",
+    "evidence_level",
+    "observations",
+    "sequences",
+    "technique_atoms",
+    "technique_compositions",
+    "motion_signature",
+    "inferred_capabilities",
+    "uncertainties"
+  ],
+  "properties": {
+    "schema": { "const": "motion-reference-analysis" },
+    "schema_version": { "const": "0.2.0" },
+    "reference_id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+    "evidence_level": {
+      "enum": [
+        "PUBLIC_CASE_STUDY",
+        "METADATA_ONLY",
+        "TIMECODED_LOCAL",
+        "UNAVAILABLE"
+      ]
+    },
+    "observations": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "sequences": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/sequence" }
+    },
+    "technique_atoms": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/technique" }
+    },
+    "technique_compositions": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/composition" }
+    },
+    "motion_signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "continuity",
+        "transformation_density",
+        "camera_usage",
+        "depth_usage",
+        "typography_integration",
+        "asset_richness",
+        "causal_chaining"
+      ],
+      "properties": {
+        "continuity": { "$ref": "#/$defs/descriptiveLevel" },
+        "transformation_density": { "$ref": "#/$defs/descriptiveLevel" },
+        "camera_usage": { "$ref": "#/$defs/descriptiveLevel" },
+        "depth_usage": { "$ref": "#/$defs/descriptiveLevel" },
+        "typography_integration": { "$ref": "#/$defs/descriptiveLevel" },
+        "asset_richness": { "$ref": "#/$defs/descriptiveLevel" },
+        "causal_chaining": { "$ref": "#/$defs/descriptiveLevel" }
+      }
+    },
+    "inferred_capabilities": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/capability" }
+    },
+    "uncertainties": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    }
+  },
+  "$defs": {
+    "descriptiveLevel": {
+      "enum": ["UNOBSERVED", "LOW", "MEDIUM", "HIGH", "UNKNOWN"]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "statement", "provenance"],
+      "properties": {
+        "status": { "enum": ["OBSERVED", "INFERRED", "UNCERTAIN"] },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "provenance": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "sequence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence_id",
+        "time_range",
+        "primary_technique",
+        "secondary_techniques",
+        "transformation_chain",
+        "bridge",
+        "asset_roles",
+        "evidence_status"
+      ],
+      "properties": {
+        "sequence_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{2,63}$"
+        },
+        "time_range": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["start_ms", "end_ms"],
+              "properties": {
+                "start_ms": { "type": "integer", "minimum": 0 },
+                "end_ms": { "type": "integer", "minimum": 1 }
+              }
+            }
+          ]
+        },
+        "primary_technique": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "secondary_techniques": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        },
+        "transformation_chain": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        },
+        "bridge": { "type": ["string", "null"], "maxLength": 128 },
+        "asset_roles": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$" }
+        },
+        "evidence_status": { "enum": ["OBSERVED", "INFERRED", "UNCERTAIN"] }
+      }
+    },
+    "technique": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["technique_id", "family", "description", "evidence_status"],
+      "properties": {
+        "technique_id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{2,95}$"
+        },
+        "family": {
+          "enum": [
+            "MOTION",
+            "COMPOSITION",
+            "TRANSITION",
+            "CAMERA",
+            "COMPOSITING",
+            "ASSET",
+            "AUDIO"
+          ]
+        },
+        "description": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "evidence_status": { "enum": ["OBSERVED", "INFERRED", "UNCERTAIN"] }
+      }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "composition_id",
+        "atoms",
+        "asset_dependency",
+        "evidence_status"
+      ],
+      "properties": {
+        "composition_id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{2,95}$"
+        },
+        "atoms": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 32,
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,95}$" }
+        },
+        "asset_dependency": {
+          "enum": [
+            "PROCEDURAL_ONLY",
+            "EXTERNAL_ASSET_OPTIONAL",
+            "EXTERNAL_ASSET_REQUIRED",
+            "TRUE_3D_REQUIRED"
+          ]
+        },
+        "evidence_status": { "enum": ["OBSERVED", "INFERRED", "UNCERTAIN"] }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability_id", "evidence_status", "feasibility"],
+      "properties": {
+        "capability_id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{2,95}$"
+        },
+        "evidence_status": { "enum": ["OBSERVED", "INFERRED", "UNCERTAIN"] },
+        "feasibility": {
+          "enum": [
+            "NOW",
+            "AFTER_SMALL_EXTENSION",
+            "AFTER_MAJOR_EXTENSION",
+            "FUTURE_EXTERNAL_SYSTEM"
+          ]
+        }
+      }
+    }
+  }
+}

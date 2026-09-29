@@ -1,0 +1,355 @@
+{
+  "schema": "motion-language-gap-map",
+  "schema_version": "0.2.0",
+  "baseline_commit": "5a25897f0364083d5ecfa8c21015f8c709b22a74",
+  "evidence_limit": "Five qualitative anchors are preserved; 35 complementary public case studies provide attributable reference-level evidence across six waves. Counts measure retained references, not shots. Frame timing, overlap duration, easing and exact causal order still require authorized local timecoded media.",
+  "p3_3_readiness": "READY",
+  "p3_3_readiness_reason": "No single missing engine primitive is demonstrated as a universal blocker. The largest repeated gaps are asset/material richness and sequence/art-direction selection. P3.2 already exposes enough deterministic language for a constrained Visual Director to add value, while asset and renderer gaps remain explicit and unavailable capabilities stay closed.",
+  "gaps": [
+    {
+      "gap_id": "COMPLETE_TYPE_MASK_TRANSFORMATION",
+      "capability": "Typography can become a true mask or framing field through a fully resolved transformation.",
+      "references": [
+        "PRO_MOTION_2D_A",
+        "PRO_MOTION_2D_B",
+        "EXP_B01_PENTAGRAM_LIT",
+        "EXP_B02_STUDIO_DUMBAR_DEMO",
+        "EXP_B03_STUDIO_DUMBAR_INTO",
+        "EXP_B06_DIA_NIKE_STATEMENT_HOUSE",
+        "EXP_E01_LEXI_PRINT_TO_MOTION"
+      ],
+      "evidence_status": "MULTI_REFERENCE_PUBLIC_CASE_STUDY",
+      "current_support": "SIMPLIFIED",
+      "owners": ["ENGINE", "RENDERER"],
+      "missing": [
+        "Complete WORD_TO_MASK resolver",
+        "Complete TYPE_SCALE_THROUGH boundary behavior",
+        "Mid-motion typography geometry guarantees"
+      ],
+      "visual_impact": "HIGH",
+      "implementation_complexity": "MEDIUM",
+      "dependencies": ["P1.7 dynamic typography", "MASK", "CLIP"],
+      "priority": "A",
+      "recommended_phase": "P3.2.x/P3.3 vocabulary extension; not a P3.3 entry blocker"
+    },
+    {
+      "gap_id": "CROSS_SCENE_OVERLAP_COMPOSITOR",
+      "capability": "Outgoing and incoming scene layers coexist during a bounded bridge interval.",
+      "references": [
+        "PRO_MOTION_2D_A",
+        "PRO_MOTION_2D_B",
+        "PRODUCT_APP_PROMO",
+        "EXP_A04_BUCK_BEYOND_MAGIC",
+        "EXP_D05_BUCK_ILLUMINA"
+      ],
+      "evidence_status": "UNCERTAIN",
+      "current_support": "UNSUPPORTED",
+      "owners": ["ENGINE", "RENDERER"],
+      "missing": [
+        "Versioned overlap contract",
+        "Bounded dual-scene layer composition",
+        "Atomic preflight and fallback policy"
+      ],
+      "visual_impact": "HIGH",
+      "implementation_complexity": "MAJOR",
+      "dependencies": ["P1 temporal authority", "SceneBridge lifecycle"],
+      "priority": "B",
+      "recommended_phase": "Future engine investigation only if timecoded evidence proves overlap is essential"
+    },
+    {
+      "gap_id": "PROCEDURAL_ASSET_GRAMMAR",
+      "capability": "Deterministic, coherent vector illustrations, UI shells, diagrams, decorative systems, and product frames.",
+      "references": [
+        "POSTER_TO_MOTION",
+        "PRODUCT_APP_PROMO",
+        "EXP_A01_CUB_SHOWREEL",
+        "EXP_A03_GIANT_ANT_COCA_COLA_TSQ",
+        "EXP_A05_OF_SCHOOL_OF_MOTION_MANIFESTO",
+        "EXP_C05_ANIMADE_TREMENDOUS",
+        "EXP_C06_ANIMADE_WISE",
+        "EXP_E01_LEXI_PRINT_TO_MOTION",
+        "EXP_E02_BUCK_AUSTRALIAN_OPEN",
+        "EXP_E03_BUCK_ASANA_BRAND_FILM",
+        "EXP_E06_ANIMADE_IBM_DUBLIN"
+      ],
+      "evidence_status": "HIGH_REUSE_PUBLIC_CASE_STUDY",
+      "current_support": "REQUIRES_ASSET_SYSTEM",
+      "owners": ["ASSET_SYSTEM", "VISUAL_DIRECTOR"],
+      "missing": [
+        "Asset-role contract",
+        "Part hierarchy and pivots",
+        "Token-driven material/texture vocabulary",
+        "Approved binding lifecycle"
+      ],
+      "visual_impact": "HIGH",
+      "implementation_complexity": "MAJOR",
+      "dependencies": ["Existing P1 asset security", "VisualPlan provenance"],
+      "priority": "A",
+      "recommended_phase": "Parallel/next Procedural Asset Grammar and later Asset Director; does not block constrained P3.3"
+    },
+    {
+      "gap_id": "GENERAL_PATH_FOLLOW",
+      "capability": "A bounded element or camera follows an arbitrary validated path.",
+      "references": [
+        "PRO_MOTION_2D_A",
+        "PRO_MOTION_2D_B",
+        "PRODUCT_APP_PROMO",
+        "EXP_C03_BUCK_SUKI"
+      ],
+      "evidence_status": "UNCERTAIN",
+      "current_support": "UNSUPPORTED",
+      "owners": ["ENGINE"],
+      "missing": [
+        "Path sampling and orientation contract",
+        "Safe-bound trajectory preflight",
+        "Deterministic interpolation"
+      ],
+      "visual_impact": "HIGH",
+      "implementation_complexity": "MAJOR",
+      "dependencies": ["P1 PATH", "P1 PATH_PROGRESS"],
+      "priority": "B",
+      "recommended_phase": "P3.2.x after benchmark confirmation"
+    },
+    {
+      "gap_id": "UI_MOTION_COMPOSITION_LIBRARY",
+      "capability": "Composable device, panel, card, chart, counter, focus, and product-to-interface transformations.",
+      "references": [
+        "PRODUCT_APP_PROMO",
+        "EXP_C01_OLEG_3D_UI_SAAS",
+        "EXP_C02_TIMEFRAME_SAAS_PROMO",
+        "EXP_C03_BUCK_SUKI",
+        "EXP_C04_BUCK_MICROSOFT_APP",
+        "EXP_C05_ANIMADE_TREMENDOUS",
+        "EXP_C06_ANIMADE_WISE",
+        "EXP_E03_BUCK_ASANA_BRAND_FILM",
+        "EXP_F04_TERRITORY_BLADE_RUNNER_2049",
+        "EXP_F05_TERRITORY_LIV_GOLF"
+      ],
+      "evidence_status": "HIGH_REUSE_PUBLIC_CASE_STUDY",
+      "current_support": "PARTIAL",
+      "owners": ["ASSET_SYSTEM", "ENGINE", "VISUAL_DIRECTOR"],
+      "missing": [
+        "UI_SURFACE asset role",
+        "Card extraction/handoff compositions",
+        "Device and dashboard shells",
+        "Chart animation patterns"
+      ],
+      "visual_impact": "HIGH",
+      "implementation_complexity": "MEDIUM",
+      "dependencies": ["Procedural Asset Grammar"],
+      "priority": "A",
+      "recommended_phase": "P3.3 constrained domain selection plus separate procedural UI/data asset work"
+    },
+    {
+      "gap_id": "POSTER_LAYER_DECOMPOSITION",
+      "capability": "A poster is represented as subject, typography, decorative, background, and palette-preserving layers.",
+      "references": ["POSTER_TO_MOTION", "EXP_E01_LEXI_PRINT_TO_MOTION"],
+      "evidence_status": "SINGLE_PUBLIC_CASE_STUDY_PLUS_UNAVAILABLE_ANCHOR",
+      "current_support": "REQUIRES_ASSET_SYSTEM",
+      "owners": ["ASSET_SYSTEM", "VISUAL_DIRECTOR"],
+      "missing": [
+        "Poster semantic layer contract",
+        "Subject cutout binding",
+        "Deconstruct/reassemble compositions"
+      ],
+      "visual_impact": "HIGH",
+      "implementation_complexity": "MAJOR",
+      "dependencies": ["Future Image Understanding or human-authored layers"],
+      "priority": "B",
+      "recommended_phase": "P3.4–P3.6"
+    },
+    {
+      "gap_id": "ARBITRARY_GEOMETRY_MORPH",
+      "capability": "Topologically different vector paths interpolate without invalid geometry.",
+      "references": [
+        "PRO_MOTION_2D_A",
+        "PRO_MOTION_2D_B",
+        "EXP_A02_OF_VOLVO_360C",
+        "EXP_A05_OF_SCHOOL_OF_MOTION_MANIFESTO",
+        "EXP_F07_OF_EQUILIBRIUM"
+      ],
+      "evidence_status": "UNCERTAIN",
+      "current_support": "UNSUPPORTED",
+      "owners": ["ENGINE", "RENDERER"],
+      "missing": [
+        "Topology normalization",
+        "Path correspondence",
+        "Intermediate geometry validation"
+      ],
+      "visual_impact": "HIGH",
+      "implementation_complexity": "MAJOR",
+      "dependencies": ["New P1 capability"],
+      "priority": "C",
+      "recommended_phase": "P3.2.x/Premium vocabulary after evidence"
+    },
+    {
+      "gap_id": "ART_DIRECTION_SELECTION",
+      "capability": "Sequence-level choices balance restraint, hierarchy, motif, contrast, pacing, and composition.",
+      "references": [
+        "PRO_MOTION_2D_A",
+        "PRO_MOTION_2D_B",
+        "PRO_MOTION_3D",
+        "POSTER_TO_MOTION",
+        "PRODUCT_APP_PROMO",
+        "EXP_A01_CUB_SHOWREEL",
+        "EXP_B04_GRETEL_IFC",
+        "EXP_B05_GRETEL_SHOWTIME",
+        "EXP_C03_BUCK_SUKI",
+        "EXP_D03_PARKER_N8_INFOGRAPHIC",
+        "EXP_E04_ASAAD_TALKING_HEAD_REELS"
+      ],
+      "evidence_status": "HIGH_REUSE_PUBLIC_CASE_STUDY",
+      "current_support": "PARTIAL",
+      "owners": ["VISUAL_DIRECTOR"],
+      "missing": [
+        "Sequence strategy contract",
+        "Choice rationale",
+        "Cross-scene contrast and restraint policy"
+      ],
+      "visual_impact": "HIGH",
+      "implementation_complexity": "MEDIUM",
+      "dependencies": [
+        "Closed registries",
+        "VisualPreflight",
+        "Diversity report"
+      ],
+      "priority": "A",
+      "recommended_phase": "P3.3"
+    },
+    {
+      "gap_id": "TRUE_3D_SCENE_SYSTEM",
+      "capability": "Mesh, material, lighting, perspective camera, particles, physics, and volumetrics.",
+      "references": [
+        "PRO_MOTION_3D",
+        "EXP_A03_GIANT_ANT_COCA_COLA_TSQ",
+        "EXP_A04_BUCK_BEYOND_MAGIC",
+        "EXP_A05_OF_SCHOOL_OF_MOTION_MANIFESTO",
+        "EXP_D05_BUCK_ILLUMINA",
+        "EXP_F01_MVM_FLYKNIT",
+        "EXP_F02_FUTUREDELUXE_MARKFORGED",
+        "EXP_F03_BUILDERS_CLUB_BEATS",
+        "EXP_F07_OF_EQUILIBRIUM"
+      ],
+      "evidence_status": "MULTI_REFERENCE_PUBLIC_CASE_STUDY",
+      "current_support": "REQUIRES_3D",
+      "owners": ["3D_SYSTEM", "RENDERER"],
+      "missing": [
+        "3DScenePlan",
+        "Allowlisted 3D adapter",
+        "3D renderer and compositing boundary"
+      ],
+      "visual_impact": "HIGH",
+      "implementation_complexity": "EXTERNAL_SYSTEM",
+      "dependencies": ["Controlled Blender Director", "Optional cloud GPU"],
+      "priority": "C",
+      "recommended_phase": "Future 3D roadmap"
+    },
+    {
+      "gap_id": "SOUND_MOTION_COUPLING",
+      "capability": "Motion impacts, reveals, bridges, and pacing synchronize to voice, music, and effects.",
+      "references": [
+        "PRO_MOTION_2D_A",
+        "PRO_MOTION_2D_B",
+        "PRO_MOTION_3D",
+        "EXP_A01_CUB_SHOWREEL",
+        "EXP_A05_OF_SCHOOL_OF_MOTION_MANIFESTO",
+        "EXP_E04_ASAAD_TALKING_HEAD_REELS"
+      ],
+      "evidence_status": "INFERRED",
+      "current_support": "REQUIRES_AUDIO",
+      "owners": ["AUDIO_SYSTEM"],
+      "missing": [
+        "AudioPlan",
+        "Beat/impact alignment",
+        "Sound provenance and bounded provider path"
+      ],
+      "visual_impact": "HIGH",
+      "implementation_complexity": "EXTERNAL_SYSTEM",
+      "dependencies": ["Existing sync anchors"],
+      "priority": "C",
+      "recommended_phase": "Future Sound Director"
+    },
+    {
+      "gap_id": "MATERIAL_TEXTURE_COMPOSITING_SYSTEM",
+      "capability": "Deterministic material roles, textures, photographic layers and mixed-media compositing can be applied coherently without arbitrary executable effects.",
+      "references": [
+        "EXP_D05_BUCK_ILLUMINA",
+        "EXP_E01_LEXI_PRINT_TO_MOTION",
+        "EXP_E02_BUCK_AUSTRALIAN_OPEN",
+        "EXP_E03_BUCK_ASANA_BRAND_FILM",
+        "EXP_E06_ANIMADE_IBM_DUBLIN",
+        "EXP_F01_MVM_FLYKNIT",
+        "EXP_F02_FUTUREDELUXE_MARKFORGED",
+        "EXP_F03_BUILDERS_CLUB_BEATS",
+        "EXP_F04_TERRITORY_BLADE_RUNNER_2049",
+        "EXP_F06_ELASTIC_TRUE_DETECTIVE",
+        "EXP_F07_OF_EQUILIBRIUM"
+      ],
+      "evidence_status": "HIGH_REUSE_PUBLIC_CASE_STUDY",
+      "current_support": "PARTIAL",
+      "owners": ["ASSET_SYSTEM", "RENDERER", "VISUAL_DIRECTOR"],
+      "missing": [
+        "Closed material-role vocabulary",
+        "Approved texture/matte bindings",
+        "Cross-platform compositing proof",
+        "Cost metadata"
+      ],
+      "visual_impact": "HIGH",
+      "implementation_complexity": "MAJOR",
+      "dependencies": ["P1 asset security", "Renderer capability allowlist"],
+      "priority": "A",
+      "recommended_phase": "Procedural Asset Grammar / later Asset Director; bounded renderer extensions only with proof"
+    },
+    {
+      "gap_id": "MOTION_IDENTITY_RECIPE_SYSTEM",
+      "capability": "A reusable brand or series can declare motion rules, recipe variants and restraint policies rather than selecting isolated effects.",
+      "references": [
+        "EXP_B02_STUDIO_DUMBAR_DEMO",
+        "EXP_B03_STUDIO_DUMBAR_INTO",
+        "EXP_B04_GRETEL_IFC",
+        "EXP_B05_GRETEL_SHOWTIME",
+        "EXP_C03_BUCK_SUKI",
+        "EXP_C06_ANIMADE_WISE",
+        "EXP_E04_ASAAD_TALKING_HEAD_REELS",
+        "EXP_E05_STUDIO_PB_PALM_OIL"
+      ],
+      "evidence_status": "HIGH_REUSE_PUBLIC_CASE_STUDY",
+      "current_support": "PARTIAL",
+      "owners": ["VISUAL_DIRECTOR", "ASSET_SYSTEM"],
+      "missing": [
+        "Versioned motion-identity profile",
+        "Recipe variation constraints",
+        "Series-level motif and restraint policy"
+      ],
+      "visual_impact": "HIGH",
+      "implementation_complexity": "MEDIUM",
+      "dependencies": ["VisualGrammar registries", "Style token boundary"],
+      "priority": "A",
+      "recommended_phase": "P3.3 Visual Director contract"
+    },
+    {
+      "gap_id": "DATA_INFORMATION_COMPOSITIONS",
+      "capability": "Data, counters, charts, symbols and live information are choreographed as reusable explanatory compositions.",
+      "references": [
+        "EXP_D01_ANIMADE_TOOLS_FOR_HUMANITY",
+        "EXP_D02_ANIMADE_OCADO_DATA",
+        "EXP_D03_PARKER_N8_INFOGRAPHIC",
+        "EXP_D04_MITRO_ENGAGIERTE_STADT",
+        "EXP_F05_TERRITORY_LIV_GOLF"
+      ],
+      "evidence_status": "MULTI_REFERENCE_PUBLIC_CASE_STUDY",
+      "current_support": "PARTIAL",
+      "owners": ["ASSET_SYSTEM", "ENGINE", "VISUAL_DIRECTOR"],
+      "missing": [
+        "Chart/counter/icon component grammar",
+        "Data-binding contract",
+        "Comprehension-oriented pacing recipes"
+      ],
+      "visual_impact": "MEDIUM",
+      "implementation_complexity": "MEDIUM",
+      "dependencies": ["Procedural Asset Grammar"],
+      "priority": "B",
+      "recommended_phase": "P3.3 domain selection and later procedural data vocabulary"
+    }
+  ]
+}

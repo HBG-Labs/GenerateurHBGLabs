@@ -1,0 +1,41 @@
+{
+  "schema": "motion-reference-analysis",
+  "schema_version": "0.2.0",
+  "reference_id": "PRO_MOTION_2D_B",
+  "evidence_level": "METADATA_ONLY",
+  "observations": [
+    {
+      "status": "OBSERVED",
+      "statement": "The creator describes the reel as a selection of personal and commercial projects.",
+      "provenance": "YouTube creator description for jkPVT55GAOo"
+    },
+    {
+      "status": "OBSERVED",
+      "statement": "A secondary portfolio catalog classifies the reference as 3D/CGI, bold/vibrant, and commercial/tech-oriented.",
+      "provenance": "Showreel.design catalog entry for Denis Gimaev"
+    }
+  ],
+  "sequences": [],
+  "technique_atoms": [],
+  "technique_compositions": [],
+  "motion_signature": {
+    "continuity": "UNKNOWN",
+    "transformation_density": "UNKNOWN",
+    "camera_usage": "UNKNOWN",
+    "depth_usage": "UNKNOWN",
+    "typography_integration": "UNKNOWN",
+    "asset_richness": "UNKNOWN",
+    "causal_chaining": "UNKNOWN"
+  },
+  "inferred_capabilities": [
+    {
+      "capability_id": "MIXED_2D_3D_COMMERCIAL_LANGUAGE",
+      "evidence_status": "INFERRED",
+      "feasibility": "FUTURE_EXTERNAL_SYSTEM"
+    }
+  ],
+  "uncertainties": [
+    "The exact balance of 2D, 2.5D, and true 3D cannot be established without timecoded local inspection.",
+    "No software or production method is inferred from the rendered result."
+  ]
+}

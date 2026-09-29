@@ -1,0 +1,569 @@
+{
+  "schema": "normalized-motion-language-index",
+  "schema_version": "0.1.0",
+  "corpus_source": "corpus-expansion.json",
+  "normalization_note": "Counts are exact counts of retained references assigned to the normalized family. They measure reuse evidence, not quality.",
+  "levels": {
+    "LEVEL_1_PRIMITIVES": [
+      "TRANSFORM",
+      "OPACITY",
+      "MASK",
+      "CLIP",
+      "PATH",
+      "TYPE_RUN",
+      "DYNAMIC_FONT_AXIS",
+      "CAMERA_2D_2_5D",
+      "DEPTH_LAYER",
+      "COLOR_FIELD",
+      "TEXTURE_LAYER",
+      "TRUE_3D_GEOMETRY",
+      "TRUE_3D_LIGHTING"
+    ],
+    "LEVEL_2_PATTERNS": [
+      "TYPE_AS_GEOMETRY",
+      "FOREGROUND_OCCLUSION",
+      "UI_DEPTH_STACK",
+      "PRODUCT_HERO",
+      "DATA_HIGHLIGHT",
+      "COLLAGE_LAYER_RECOMPOSE",
+      "PERSISTENT_ENTITY_HANDOFF",
+      "MOTION_RESTRAINT"
+    ],
+    "LEVEL_3_MOTION_PHRASES": [
+      "ANTICIPATION_IMPACT_SETTLE",
+      "PREPARE_TRANSFORM_CROSSOVER_REVEAL_SETTLE",
+      "CAMERA_FOLLOW_FOCUS_SETTLE",
+      "BUILD_BREATH_PAYOFF",
+      "DECONSTRUCT_RECOMPOSE"
+    ],
+    "LEVEL_4_TECHNIQUE_COMPOSITIONS": [
+      "TYPE_STATE_TO_TRANSITION",
+      "PRODUCT_FEATURE_TO_VISUAL_METAPHOR",
+      "PERSISTENT_GUIDE_THROUGH_PRODUCT",
+      "UI_DEPTH_CAMERA_FOCUS",
+      "POSTER_DECONSTRUCT_RECOMPOSE",
+      "MIXED_MEDIA_COHERENCE_SYSTEM",
+      "DATA_TO_CHARACTER_STORY",
+      "ABSTRACT_SCIENCE_WORLD_TRANSITION",
+      "BRAND_MOTION_RECIPE_SYSTEM",
+      "TRUE_3D_PRODUCT_REVEAL"
+    ],
+    "LEVEL_5_SEQUENCE_STRATEGIES": [
+      "PROGRESSIVE_COMPLEXITY_ARC",
+      "FEATURE_BUILD_TO_PAYOFF",
+      "MOTIF_EVOLUTION_ACROSS_SCENES",
+      "DYNAMIC_BREATH_DYNAMIC",
+      "PRODUCT_PERSISTENCE_ACROSS_CHAPTERS",
+      "CONTENT_FIRST_RESTRAINT"
+    ]
+  },
+  "cross_category_families": [
+    {
+      "family": "ASSET_LANGUAGE_SWITCH",
+      "reference_count": 12,
+      "reference_ids": [
+        "EXP_A01_CUB_SHOWREEL",
+        "EXP_A03_GIANT_ANT_COCA_COLA_TSQ",
+        "EXP_A04_BUCK_BEYOND_MAGIC",
+        "EXP_A05_OF_SCHOOL_OF_MOTION_MANIFESTO",
+        "EXP_D04_MITRO_ENGAGIERTE_STADT",
+        "EXP_D05_BUCK_ILLUMINA",
+        "EXP_E01_LEXI_PRINT_TO_MOTION",
+        "EXP_E02_BUCK_AUSTRALIAN_OPEN",
+        "EXP_E03_BUCK_ASANA_BRAND_FILM",
+        "EXP_E06_ANIMADE_IBM_DUBLIN",
+        "EXP_F03_BUILDERS_CLUB_BEATS",
+        "EXP_F06_ELASTIC_TRUE_DETECTIVE"
+      ],
+      "categories": [
+        "SHOWREEL",
+        "TITLE",
+        "EXPLAINER",
+        "POSTER",
+        "CAMPAIGN",
+        "PRODUCT"
+      ],
+      "engine_mapping": "REQUIRES_ASSET_SYSTEM"
+    },
+    {
+      "family": "TEXTURE_AND_MATERIAL_LANGUAGE",
+      "reference_count": 11,
+      "reference_ids": [
+        "EXP_D05_BUCK_ILLUMINA",
+        "EXP_E01_LEXI_PRINT_TO_MOTION",
+        "EXP_E02_BUCK_AUSTRALIAN_OPEN",
+        "EXP_E03_BUCK_ASANA_BRAND_FILM",
+        "EXP_E06_ANIMADE_IBM_DUBLIN",
+        "EXP_F01_MVM_FLYKNIT",
+        "EXP_F02_FUTUREDELUXE_MARKFORGED",
+        "EXP_F03_BUILDERS_CLUB_BEATS",
+        "EXP_F04_TERRITORY_BLADE_RUNNER_2049",
+        "EXP_F06_ELASTIC_TRUE_DETECTIVE",
+        "EXP_F07_OF_EQUILIBRIUM"
+      ],
+      "categories": [
+        "SCIENCE",
+        "POSTER",
+        "MIXED_MEDIA",
+        "PRODUCT",
+        "CINEMATIC",
+        "THREE_D"
+      ],
+      "engine_mapping": "PARTIAL"
+    },
+    {
+      "family": "MIXED_2D_3D",
+      "reference_count": 9,
+      "reference_ids": [
+        "EXP_A01_CUB_SHOWREEL",
+        "EXP_A03_GIANT_ANT_COCA_COLA_TSQ",
+        "EXP_A04_BUCK_BEYOND_MAGIC",
+        "EXP_A05_OF_SCHOOL_OF_MOTION_MANIFESTO",
+        "EXP_D05_BUCK_ILLUMINA",
+        "EXP_E02_BUCK_AUSTRALIAN_OPEN",
+        "EXP_E06_ANIMADE_IBM_DUBLIN",
+        "EXP_F03_BUILDERS_CLUB_BEATS",
+        "EXP_F07_OF_EQUILIBRIUM"
+      ],
+      "categories": [
+        "SHOWREEL",
+        "TITLE",
+        "EXPLAINER",
+        "CAMPAIGN",
+        "PRODUCT",
+        "THREE_D"
+      ],
+      "engine_mapping": "SIMPLIFIED"
+    },
+    {
+      "family": "UI_PRODUCT_NARRATIVE",
+      "reference_count": 9,
+      "reference_ids": [
+        "EXP_C01_OLEG_3D_UI_SAAS",
+        "EXP_C02_TIMEFRAME_SAAS_PROMO",
+        "EXP_C03_BUCK_SUKI",
+        "EXP_C04_BUCK_MICROSOFT_APP",
+        "EXP_C05_ANIMADE_TREMENDOUS",
+        "EXP_C06_ANIMADE_WISE",
+        "EXP_E03_BUCK_ASANA_BRAND_FILM",
+        "EXP_F04_TERRITORY_BLADE_RUNNER_2049",
+        "EXP_F05_TERRITORY_LIV_GOLF"
+      ],
+      "categories": [
+        "SAAS",
+        "APP",
+        "FINTECH",
+        "MIXED_MEDIA",
+        "CINEMATIC_UI",
+        "BROADCAST"
+      ],
+      "engine_mapping": "PARTIAL"
+    },
+    {
+      "family": "MOTION_IDENTITY_SYSTEM",
+      "reference_count": 8,
+      "reference_ids": [
+        "EXP_B02_STUDIO_DUMBAR_DEMO",
+        "EXP_B03_STUDIO_DUMBAR_INTO",
+        "EXP_B04_GRETEL_IFC",
+        "EXP_B05_GRETEL_SHOWTIME",
+        "EXP_C03_BUCK_SUKI",
+        "EXP_C06_ANIMADE_WISE",
+        "EXP_E04_ASAAD_TALKING_HEAD_REELS",
+        "EXP_E05_STUDIO_PB_PALM_OIL"
+      ],
+      "categories": ["BRANDING", "BROADCAST", "PRODUCT", "FINTECH", "SOCIAL"],
+      "engine_mapping": "PARTIAL"
+    },
+    {
+      "family": "TRUE_3D_OR_CINEMATIC_DEPTH",
+      "reference_count": 8,
+      "reference_ids": [
+        "EXP_A03_GIANT_ANT_COCA_COLA_TSQ",
+        "EXP_A04_BUCK_BEYOND_MAGIC",
+        "EXP_A05_OF_SCHOOL_OF_MOTION_MANIFESTO",
+        "EXP_D05_BUCK_ILLUMINA",
+        "EXP_F01_MVM_FLYKNIT",
+        "EXP_F02_FUTUREDELUXE_MARKFORGED",
+        "EXP_F03_BUILDERS_CLUB_BEATS",
+        "EXP_F07_OF_EQUILIBRIUM"
+      ],
+      "categories": ["BRAND", "TITLE", "EXPLAINER", "PRODUCT", "THREE_D"],
+      "engine_mapping": "REQUIRES_3D"
+    },
+    {
+      "family": "CAMERA_AND_DEPTH_STAGING",
+      "reference_count": 7,
+      "reference_ids": [
+        "EXP_A04_BUCK_BEYOND_MAGIC",
+        "EXP_C01_OLEG_3D_UI_SAAS",
+        "EXP_D05_BUCK_ILLUMINA",
+        "EXP_F02_FUTUREDELUXE_MARKFORGED",
+        "EXP_F03_BUILDERS_CLUB_BEATS",
+        "EXP_F04_TERRITORY_BLADE_RUNNER_2049",
+        "EXP_F07_OF_EQUILIBRIUM"
+      ],
+      "categories": [
+        "TITLE",
+        "SAAS",
+        "EXPLAINER",
+        "PRODUCT",
+        "CINEMATIC",
+        "THREE_D"
+      ],
+      "engine_mapping": "PARTIAL"
+    },
+    {
+      "family": "RESPONSIVE_OR_MODULAR_SYSTEM",
+      "reference_count": 7,
+      "reference_ids": [
+        "EXP_B04_GRETEL_IFC",
+        "EXP_C01_OLEG_3D_UI_SAAS",
+        "EXP_C06_ANIMADE_WISE",
+        "EXP_D01_ANIMADE_TOOLS_FOR_HUMANITY",
+        "EXP_D02_ANIMADE_OCADO_DATA",
+        "EXP_E04_ASAAD_TALKING_HEAD_REELS",
+        "EXP_E05_STUDIO_PB_PALM_OIL"
+      ],
+      "categories": [
+        "BROADCAST",
+        "SAAS",
+        "FINTECH",
+        "EXPLAINER",
+        "DATA",
+        "SOCIAL"
+      ],
+      "engine_mapping": "PARTIAL"
+    },
+    {
+      "family": "CHARACTER_OR_ILLUSTRATION_MOTION",
+      "reference_count": 7,
+      "reference_ids": [
+        "EXP_A01_CUB_SHOWREEL",
+        "EXP_A05_OF_SCHOOL_OF_MOTION_MANIFESTO",
+        "EXP_C05_ANIMADE_TREMENDOUS",
+        "EXP_C06_ANIMADE_WISE",
+        "EXP_D02_ANIMADE_OCADO_DATA",
+        "EXP_E02_BUCK_AUSTRALIAN_OPEN",
+        "EXP_E06_ANIMADE_IBM_DUBLIN"
+      ],
+      "categories": [
+        "SHOWREEL",
+        "MANIFESTO",
+        "SAAS",
+        "FINTECH",
+        "DATA",
+        "CAMPAIGN",
+        "MIXED_MEDIA"
+      ],
+      "engine_mapping": "REQUIRES_ASSET_SYSTEM"
+    },
+    {
+      "family": "VISUAL_BREATH_AND_RESTRAINT",
+      "reference_count": 7,
+      "reference_ids": [
+        "EXP_A01_CUB_SHOWREEL",
+        "EXP_A03_GIANT_ANT_COCA_COLA_TSQ",
+        "EXP_B04_GRETEL_IFC",
+        "EXP_B05_GRETEL_SHOWTIME",
+        "EXP_D03_PARKER_N8_INFOGRAPHIC",
+        "EXP_E04_ASAAD_TALKING_HEAD_REELS",
+        "EXP_F06_ELASTIC_TRUE_DETECTIVE"
+      ],
+      "categories": [
+        "SHOWREEL",
+        "BRAND",
+        "BROADCAST",
+        "DATA",
+        "SOCIAL",
+        "TITLE"
+      ],
+      "engine_mapping": "SUPPORTED"
+    },
+    {
+      "family": "MIXED_MEDIA_COMPOSITING",
+      "reference_count": 7,
+      "reference_ids": [
+        "EXP_D04_MITRO_ENGAGIERTE_STADT",
+        "EXP_E01_LEXI_PRINT_TO_MOTION",
+        "EXP_E02_BUCK_AUSTRALIAN_OPEN",
+        "EXP_E03_BUCK_ASANA_BRAND_FILM",
+        "EXP_E06_ANIMADE_IBM_DUBLIN",
+        "EXP_F03_BUILDERS_CLUB_BEATS",
+        "EXP_F06_ELASTIC_TRUE_DETECTIVE"
+      ],
+      "categories": [
+        "EXPLAINER",
+        "POSTER",
+        "CAMPAIGN",
+        "SAAS",
+        "PRODUCT",
+        "TITLE"
+      ],
+      "engine_mapping": "REQUIRES_ASSET_SYSTEM"
+    },
+    {
+      "family": "KINETIC_TYPOGRAPHY_INTEGRATION",
+      "reference_count": 6,
+      "reference_ids": [
+        "EXP_B01_PENTAGRAM_LIT",
+        "EXP_B02_STUDIO_DUMBAR_DEMO",
+        "EXP_B03_STUDIO_DUMBAR_INTO",
+        "EXP_B06_DIA_NIKE_STATEMENT_HOUSE",
+        "EXP_E01_LEXI_PRINT_TO_MOTION",
+        "EXP_E05_STUDIO_PB_PALM_OIL"
+      ],
+      "categories": [
+        "EDITORIAL",
+        "BRANDING",
+        "EXPERIENTIAL",
+        "POSTER",
+        "SOCIAL"
+      ],
+      "engine_mapping": "PARTIAL"
+    },
+    {
+      "family": "SEMANTIC_TRANSFORMATION_CONTINUITY",
+      "reference_count": 6,
+      "reference_ids": [
+        "EXP_A02_OF_VOLVO_360C",
+        "EXP_A04_BUCK_BEYOND_MAGIC",
+        "EXP_A05_OF_SCHOOL_OF_MOTION_MANIFESTO",
+        "EXP_C03_BUCK_SUKI",
+        "EXP_D05_BUCK_ILLUMINA",
+        "EXP_F07_OF_EQUILIBRIUM"
+      ],
+      "categories": [
+        "EXPLAINER",
+        "TITLE",
+        "MANIFESTO",
+        "PRODUCT",
+        "SCIENCE",
+        "THREE_D"
+      ],
+      "engine_mapping": "PARTIAL"
+    },
+    {
+      "family": "DATA_AND_INFORMATION_MOTION",
+      "reference_count": 5,
+      "reference_ids": [
+        "EXP_D01_ANIMADE_TOOLS_FOR_HUMANITY",
+        "EXP_D02_ANIMADE_OCADO_DATA",
+        "EXP_D03_PARKER_N8_INFOGRAPHIC",
+        "EXP_D04_MITRO_ENGAGIERTE_STADT",
+        "EXP_F05_TERRITORY_LIV_GOLF"
+      ],
+      "categories": [
+        "TECH_EXPLAINER",
+        "PERSONALIZED_DATA",
+        "INFOGRAPHIC",
+        "BROADCAST"
+      ],
+      "engine_mapping": "PARTIAL"
+    },
+    {
+      "family": "BROADCAST_OR_TITLE_SYSTEM",
+      "reference_count": 5,
+      "reference_ids": [
+        "EXP_A04_BUCK_BEYOND_MAGIC",
+        "EXP_B04_GRETEL_IFC",
+        "EXP_B05_GRETEL_SHOWTIME",
+        "EXP_F05_TERRITORY_LIV_GOLF",
+        "EXP_F06_ELASTIC_TRUE_DETECTIVE"
+      ],
+      "categories": ["TITLE", "BROADCAST", "CINEMATIC"],
+      "engine_mapping": "PARTIAL"
+    },
+    {
+      "family": "VERTICAL_OR_SOCIAL_FIRST",
+      "reference_count": 4,
+      "reference_ids": [
+        "EXP_A03_GIANT_ANT_COCA_COLA_TSQ",
+        "EXP_C04_BUCK_MICROSOFT_APP",
+        "EXP_E04_ASAAD_TALKING_HEAD_REELS",
+        "EXP_E05_STUDIO_PB_PALM_OIL"
+      ],
+      "categories": ["LARGE_FORMAT", "APP_PROMO", "REELS", "SOCIAL_CAMPAIGN"],
+      "engine_mapping": "SUPPORTED"
+    }
+  ],
+  "technique_compositions": [
+    {
+      "id": "TYPE_STATE_TO_TRANSITION",
+      "reference_ids": [
+        "EXP_B01_PENTAGRAM_LIT",
+        "EXP_B02_STUDIO_DUMBAR_DEMO",
+        "EXP_B03_STUDIO_DUMBAR_INTO",
+        "EXP_B06_DIA_NIKE_STATEMENT_HOUSE"
+      ],
+      "composition": [
+        "DYNAMIC_TYPE_STATE",
+        "TYPE_AS_GEOMETRY",
+        "SPATIAL_TRANSITION"
+      ],
+      "asset_dependency": "PROCEDURAL_ONLY",
+      "current_feasibility": "AFTER_SMALL_EXTENSION"
+    },
+    {
+      "id": "PRODUCT_FEATURE_TO_VISUAL_METAPHOR",
+      "reference_ids": [
+        "EXP_C04_BUCK_MICROSOFT_APP",
+        "EXP_F01_MVM_FLYKNIT",
+        "EXP_F02_FUTUREDELUXE_MARKFORGED",
+        "EXP_F03_BUILDERS_CLUB_BEATS"
+      ],
+      "composition": [
+        "PRODUCT_HERO",
+        "FEATURE_ISOLATION",
+        "MATERIAL_OR_SHAPE_METAPHOR",
+        "PAYOFF"
+      ],
+      "asset_dependency": "EXTERNAL_ASSET_REQUIRED",
+      "current_feasibility": "FUTURE_EXTERNAL_SYSTEM"
+    },
+    {
+      "id": "PERSISTENT_GUIDE_THROUGH_PRODUCT",
+      "reference_ids": [
+        "EXP_C03_BUCK_SUKI",
+        "EXP_C05_ANIMADE_TREMENDOUS",
+        "EXP_C06_ANIMADE_WISE"
+      ],
+      "composition": [
+        "PERSISTENT_ENTITY",
+        "CAMERA_OR_LAYOUT_FOLLOW",
+        "FEATURE_HANDOFF",
+        "CTA_SETTLE"
+      ],
+      "asset_dependency": "PROCEDURAL_ONLY",
+      "current_feasibility": "NOW"
+    },
+    {
+      "id": "UI_DEPTH_CAMERA_FOCUS",
+      "reference_ids": [
+        "EXP_C01_OLEG_3D_UI_SAAS",
+        "EXP_C02_TIMEFRAME_SAAS_PROMO",
+        "EXP_E03_BUCK_ASANA_BRAND_FILM",
+        "EXP_F04_TERRITORY_BLADE_RUNNER_2049",
+        "EXP_F05_TERRITORY_LIV_GOLF"
+      ],
+      "composition": [
+        "UI_DEPTH_STACK",
+        "FOCUS_TARGET",
+        "CAMERA_FOLLOW",
+        "CARD_EXTRACTION",
+        "STATE_HANDOFF"
+      ],
+      "asset_dependency": "EXTERNAL_ASSET_OPTIONAL",
+      "current_feasibility": "AFTER_SMALL_EXTENSION"
+    },
+    {
+      "id": "POSTER_DECONSTRUCT_RECOMPOSE",
+      "reference_ids": ["EXP_E01_LEXI_PRINT_TO_MOTION"],
+      "composition": [
+        "SOURCE_LAYER_MODEL",
+        "SUBJECT_ISOLATE",
+        "TYPE_RECOMPOSE",
+        "DECORATIVE_EXPANSION",
+        "REASSEMBLE"
+      ],
+      "asset_dependency": "EXTERNAL_ASSET_REQUIRED",
+      "current_feasibility": "FUTURE_EXTERNAL_SYSTEM"
+    },
+    {
+      "id": "MIXED_MEDIA_COHERENCE_SYSTEM",
+      "reference_ids": [
+        "EXP_E02_BUCK_AUSTRALIAN_OPEN",
+        "EXP_E03_BUCK_ASANA_BRAND_FILM",
+        "EXP_E06_ANIMADE_IBM_DUBLIN",
+        "EXP_F06_ELASTIC_TRUE_DETECTIVE"
+      ],
+      "composition": [
+        "ASSET_LANGUAGE_SWITCH",
+        "PALETTE_CONTINUITY",
+        "OVERLAY_OR_TEXTURE_UNIFICATION",
+        "MOTIF_CONTINUITY"
+      ],
+      "asset_dependency": "EXTERNAL_ASSET_REQUIRED",
+      "current_feasibility": "FUTURE_EXTERNAL_SYSTEM"
+    },
+    {
+      "id": "DATA_TO_CHARACTER_STORY",
+      "reference_ids": [
+        "EXP_D02_ANIMADE_OCADO_DATA",
+        "EXP_D03_PARKER_N8_INFOGRAPHIC",
+        "EXP_D04_MITRO_ENGAGIERTE_STADT"
+      ],
+      "composition": [
+        "DATA_BINDING",
+        "VISUAL_HIGHLIGHT",
+        "CHARACTER_OR_ICON_GUIDE",
+        "COUNTER_OR_RELATION_REVEAL"
+      ],
+      "asset_dependency": "PROCEDURAL_ONLY",
+      "current_feasibility": "AFTER_SMALL_EXTENSION"
+    },
+    {
+      "id": "ABSTRACT_SCIENCE_WORLD_TRANSITION",
+      "reference_ids": ["EXP_A02_OF_VOLVO_360C", "EXP_D05_BUCK_ILLUMINA"],
+      "composition": [
+        "CONCEPT_METAPHOR",
+        "WORLD_TRANSFORMATION",
+        "CAMERA_DEPTH",
+        "FLUID_BRIDGE",
+        "CHAPTER_PAYOFF"
+      ],
+      "asset_dependency": "EXTERNAL_ASSET_OPTIONAL",
+      "current_feasibility": "AFTER_MAJOR_EXTENSION"
+    },
+    {
+      "id": "BRAND_MOTION_RECIPE_SYSTEM",
+      "reference_ids": [
+        "EXP_B02_STUDIO_DUMBAR_DEMO",
+        "EXP_B04_GRETEL_IFC",
+        "EXP_B05_GRETEL_SHOWTIME",
+        "EXP_C03_BUCK_SUKI",
+        "EXP_E04_ASAAD_TALKING_HEAD_REELS"
+      ],
+      "composition": [
+        "MOTION_IDENTITY_RULE",
+        "CONTENT_SLOT_RECIPE",
+        "VARIATION_PARAMETER",
+        "RESTRAINT_POLICY"
+      ],
+      "asset_dependency": "PROCEDURAL_ONLY",
+      "current_feasibility": "AFTER_SMALL_EXTENSION"
+    },
+    {
+      "id": "TRUE_3D_PRODUCT_REVEAL",
+      "reference_ids": [
+        "EXP_F01_MVM_FLYKNIT",
+        "EXP_F02_FUTUREDELUXE_MARKFORGED",
+        "EXP_F03_BUILDERS_CLUB_BEATS"
+      ],
+      "composition": [
+        "TRUE_3D_PRODUCT",
+        "MATERIAL_LIGHTING",
+        "MECHANISM_OR_COMPONENT_REVEAL",
+        "CINEMATIC_CAMERA"
+      ],
+      "asset_dependency": "TRUE_3D_REQUIRED",
+      "current_feasibility": "FUTURE_EXTERNAL_SYSTEM"
+    },
+    {
+      "id": "BUILD_COMPLEXITY_BREATH_PAYOFF",
+      "reference_ids": [
+        "EXP_A01_CUB_SHOWREEL",
+        "EXP_A05_OF_SCHOOL_OF_MOTION_MANIFESTO",
+        "EXP_D05_BUCK_ILLUMINA"
+      ],
+      "composition": [
+        "SIMPLE_OPEN",
+        "PROGRESSIVE_BUILD",
+        "VISUAL_BREATH",
+        "HIGH_COMPLEXITY_PAYOFF"
+      ],
+      "asset_dependency": "PROCEDURAL_ONLY",
+      "current_feasibility": "NOW"
+    }
+  ]
+}

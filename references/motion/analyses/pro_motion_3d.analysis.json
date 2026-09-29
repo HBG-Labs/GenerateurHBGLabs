@@ -1,0 +1,36 @@
+{
+  "schema": "motion-reference-analysis",
+  "schema_version": "0.2.0",
+  "reference_id": "PRO_MOTION_3D",
+  "evidence_level": "METADATA_ONLY",
+  "observations": [
+    {
+      "status": "OBSERVED",
+      "statement": "The public source identifies the work as a 3D motion design showreel by Owen Jenkins.",
+      "provenance": "YouTube oEmbed metadata for wCqcJU1YpKk"
+    }
+  ],
+  "sequences": [],
+  "technique_atoms": [],
+  "technique_compositions": [],
+  "motion_signature": {
+    "continuity": "UNKNOWN",
+    "transformation_density": "UNKNOWN",
+    "camera_usage": "UNKNOWN",
+    "depth_usage": "UNKNOWN",
+    "typography_integration": "UNKNOWN",
+    "asset_richness": "UNKNOWN",
+    "causal_chaining": "UNKNOWN"
+  },
+  "inferred_capabilities": [
+    {
+      "capability_id": "TRUE_3D_SCENE_PIPELINE",
+      "evidence_status": "INFERRED",
+      "feasibility": "FUTURE_EXTERNAL_SYSTEM"
+    }
+  ],
+  "uncertainties": [
+    "The title supports a 3D category but does not prove which individual shots require mesh, lighting, materials, physics, or volumetrics.",
+    "No toolchain is inferred without creator evidence."
+  ]
+}
